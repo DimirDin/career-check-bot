@@ -1,0 +1,34 @@
+# Secrets
+.env
+.env.local
+.env.production
+
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+test_connections.py
+fix_quotes.py
+*.pdf
+*.png
+tmp/
+temp/
+
+# Database
+*.db
+*.sqlite

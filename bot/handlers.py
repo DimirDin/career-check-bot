@@ -201,10 +201,10 @@ async def send_question(message: Message, state: FSMContext):
         q = questions[current]
         progress = f'📊 {current + 1}/{len(questions)}'
         builder = InlineKeyboardBuilder()
-        builder.button(text='❌ Категорически нет', callback_data='score_1')
+        builder.button(text='❌ Нет', callback_data='score_1')
         builder.button(text='🤔 Скорее нет', callback_data='score_2')
         builder.button(text='✅ Скорее да', callback_data='score_4')
-        builder.button(text='💯 Полностью согласен', callback_data='score_5')
+        builder.button(text='💯 Да', callback_data='score_5')
         builder.adjust(2, 2)
         await message.answer(
             f'{progress}\n\n📝 {q["question_text"]}\n\nВыбери:',
@@ -339,7 +339,17 @@ async def finish_test(message: Message, state: FSMContext):
                     growth_areas.append(f'• {name.capitalize()}: сейчас {u_val}, нужно {r_val}. Практикуйте ежедневно.')
             
             if not growth_areas:
-                growth_areas.append('• Вы близки к идеалу — развивайте уникальность, а не слабости')
+                # Все черты близки к идеалу — даём совет по доминантному RIASEC
+                dom = max(riasec, key=riasec.get)
+                advice = {
+                    'R': '• Развивайте практические навыки: мастер-классы, работа руками\n• Не забывайте про физическую форму — профессия требует выносливости',
+                    'I': '• Углубляйтесь в специализацию: курсы, конференции, публикации\n• Ищите ментора в научной среде — это ускорит рост',
+                    'A': '• Создавайте портфолио: проекты, выставки, публикации\n• Экспериментируйте с новыми техниками и стилями',
+                    'S': '• Практикуйте активное слушание и эмпатию в повседневных разговорах\n• Пройдите волонтёрство — проверьте себя на практике',
+                    'E': '• Начните с малого: продажи, переговоры, организация мероприятий\n• Читайте биографии успешных предпринимателей — учитесь на чужом опыте',
+                    'C': '• Автоматизируйте рутину: изучите Excel/Python/CRM\n• Развивайте внимание к деталям через головоломки и аудит'
+                }
+                growth_areas.append(advice.get(dom, '• Развивайте уникальность — экспертиза в редкой комбинации навыков'))
             
             prof_text += '\n'.join(growth_areas[:2])
             
@@ -393,6 +403,47 @@ async def finish_test(message: Message, state: FSMContext):
         import traceback
         logger.error(traceback.format_exc())
         await message.answer('❌ Ошибка обработки. /cancel и /start')
+
+
+
+@router.callback_query(F.data == 'my_profile')
+async def my_profile(callback: CallbackQuery):
+    """Показывает последний результат пользователя"""
+    try:
+        user = await get_user(callback.from_user.id)
+        if not user or not user['test_completed']:
+            await callback.message.answer('Вы еще не проходили тест. Нажмите /start')
+            return
+        
+        # Получаем последний результат из БД
+        import asyncpg
+        from config.settings import DB_CONFIG
+        conn = await asyncpg.connect(**DB_CONFIG)
+        row = await conn.fetchrow(
+            'SELECT * FROM test_results WHERE user_id = $1 ORDER BY completed_at DESC LIMIT 1',
+            user['id']
+        )
+        await conn.close()
+        
+        if not row:
+            await callback.message.answer('Результатов пока нет. Пройдите тест: /start')
+            return
+        
+        # Формируем ответ
+        scores = row['normalized_scores']
+        profs = row['top_professions']
+        
+        text = f'📊 Ваш последний результат ({row["completed_at"].strftime("%d.%m.%Y")}):\n\n'
+        text += f'Big Five: O:{scores["O"]} C:{scores["C"]} E:{scores["E"]} A:{scores["A"]} S:{scores["S"]}\n\n'
+        text += '🏆 Топ-3 профессии:\n'
+        for i, p in enumerate(profs[:3], 1):
+            text += f'{i}. {p["title"]} — {p["match"]}%\n'
+        
+        await callback.message.answer(text)
+        
+    except Exception as e:
+        logger.error(f"Profile error: {e}")
+        await callback.message.answer('Ошибка загрузки профиля')
 
 @router.message(Command('help'))
 async def cmd_help(message: Message):

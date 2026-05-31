@@ -22,6 +22,7 @@ __pycache__/
 Thumbs.db
 
 # Temporary files
+test_pdf.py
 test_connections.py
 fix_quotes.py
 *.pdf

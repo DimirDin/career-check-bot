@@ -321,7 +321,6 @@ async def finish_test(message: Message, state: FSMContext):
             
             if details:
                 prof_text += f'\n<b>⚡ Реальность профессии:</b>\n{details.get("reality", "")}\n'
-    '
                 
                 pros = details.get('pros', [])
                 if pros:

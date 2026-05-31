@@ -330,39 +330,6 @@ async def finish_test(message: Message, state: FSMContext):
                 if cons:
                     prof_text += f'\n<b>❌ Минусы:</b>\n' + '\n'.join([f'• {c}' for c in cons[:3]]) + '\n'
             
-            prof_text += '\n<b>🚨 Зоны роста:</b>\n'
-            growth_areas = []
-            for trait, name in [('O','креативность'),('C','дисциплина'),('E','коммуникация'),('A','эмпатия'),('S','стрессоустойчивость')]:
-                u_val = normalized[trait]
-                r_val = req.get(trait, 50)
-                diff = r_val - u_val
-                if diff > 15:
-                    if trait == 'O':
-                        growth_areas.append(f'• {name.capitalize()}: сейчас {u_val}, нужно {r_val}. Читайте разные жанры, посещайте музеи, пробуйте новые хобби.')
-                    elif trait == 'C':
-                        growth_areas.append(f'• {name.capitalize()}: сейчас {u_val}, нужно {r_val}. Планируйте день, используйте трекеры, доводите начатое до конца.')
-                    elif trait == 'E':
-                        growth_areas.append(f'• {name.capitalize()}: сейчас {u_val}, нужно {r_val}. Присоединяйтесь к клубам, выступайте публично, инициируйте разговоры.')
-                    elif trait == 'A':
-                        growth_areas.append(f'• {name.capitalize()}: сейчас {u_val}, нужно {r_val}. Слушайте активно, помогайте другим, изучайте психологию.')
-                    elif trait == 'S':
-                        growth_areas.append(f'• {name.capitalize()}: сейчас {u_val}, нужно {r_val}. Медитируйте, спите 7-8 часов, учитесь дышать в стрессе.')
-            
-            # Добавляем специфичный совет по профессии (из profession_details)
-            if details and details.get('career_path'):
-                cp = details['career_path']
-                first_step = cp.split(' → ')[0] if ' → ' in cp else cp
-                growth_areas.append(f'• Старт карьеры: {first_step}')
-            
-            if details and details.get('education_path'):
-                ep = details['education_path']
-                first_step = ep.split('.')[0] if '.' in ep else ep
-                growth_areas.append(f'• Обучение: {first_step}')
-            
-            if not growth_areas:
-                prof_text += '• Ваш профиль близок к идеалу для этой профессии. Сфокусируйтесь на практическом опыте и нетворкинге.'
-            else:
-                prof_text += '\n'.join(growth_areas[:3])
             
             await message.answer(prof_text)
         

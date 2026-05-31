@@ -332,26 +332,37 @@ async def finish_test(message: Message, state: FSMContext):
             
             prof_text += '\n<b>🚨 Зоны роста:</b>\n'
             growth_areas = []
-            for trait, name in [('O','креативности'),('C','дисциплины'),('E','коммуникации'),('A','эмпатии'),('S','стрессоустойчивости')]:
+            for trait, name in [('O','креативность'),('C','дисциплина'),('E','коммуникация'),('A','эмпатия'),('S','стрессоустойчивость')]:
                 u_val = normalized[trait]
                 r_val = req.get(trait, 50)
-                if u_val < r_val - 20:
-                    growth_areas.append(f'• {name.capitalize()}: сейчас {u_val}, нужно {r_val}. Практикуйте ежедневно.')
+                diff = r_val - u_val
+                if diff > 15:
+                    if trait == 'O':
+                        growth_areas.append(f'• {name.capitalize()}: сейчас {u_val}, нужно {r_val}. Читайте разные жанры, посещайте музеи, пробуйте новые хобби.')
+                    elif trait == 'C':
+                        growth_areas.append(f'• {name.capitalize()}: сейчас {u_val}, нужно {r_val}. Планируйте день, используйте трекеры, доводите начатое до конца.')
+                    elif trait == 'E':
+                        growth_areas.append(f'• {name.capitalize()}: сейчас {u_val}, нужно {r_val}. Присоединяйтесь к клубам, выступайте публично, инициируйте разговоры.')
+                    elif trait == 'A':
+                        growth_areas.append(f'• {name.capitalize()}: сейчас {u_val}, нужно {r_val}. Слушайте активно, помогайте другим, изучайте психологию.')
+                    elif trait == 'S':
+                        growth_areas.append(f'• {name.capitalize()}: сейчас {u_val}, нужно {r_val}. Медитируйте, спите 7-8 часов, учитесь дышать в стрессе.')
+            
+            # Добавляем специфичный совет по профессии (из profession_details)
+            if details and details.get('career_path'):
+                cp = details['career_path']
+                first_step = cp.split(' → ')[0] if ' → ' in cp else cp
+                growth_areas.append(f'• Старт карьеры: {first_step}')
+            
+            if details and details.get('education_path'):
+                ep = details['education_path']
+                first_step = ep.split('.')[0] if '.' in ep else ep
+                growth_areas.append(f'• Обучение: {first_step}')
             
             if not growth_areas:
-                # Все черты близки к идеалу — даём совет по доминантному RIASEC
-                dom = max(riasec, key=riasec.get)
-                advice = {
-                    'R': '• Развивайте практические навыки: мастер-классы, работа руками\n• Не забывайте про физическую форму — профессия требует выносливости',
-                    'I': '• Углубляйтесь в специализацию: курсы, конференции, публикации\n• Ищите ментора в научной среде — это ускорит рост',
-                    'A': '• Создавайте портфолио: проекты, выставки, публикации\n• Экспериментируйте с новыми техниками и стилями',
-                    'S': '• Практикуйте активное слушание и эмпатию в повседневных разговорах\n• Пройдите волонтёрство — проверьте себя на практике',
-                    'E': '• Начните с малого: продажи, переговоры, организация мероприятий\n• Читайте биографии успешных предпринимателей — учитесь на чужом опыте',
-                    'C': '• Автоматизируйте рутину: изучите Excel/Python/CRM\n• Развивайте внимание к деталям через головоломки и аудит'
-                }
-                growth_areas.append(advice.get(dom, '• Развивайте уникальность — экспертиза в редкой комбинации навыков'))
-            
-            prof_text += '\n'.join(growth_areas[:2])
+                prof_text += '• Ваш профиль близок к идеалу для этой профессии. Сфокусируйтесь на практическом опыте и нетворкинге.'
+            else:
+                prof_text += '\n'.join(growth_areas[:3])
             
             await message.answer(prof_text)
         
@@ -393,7 +404,6 @@ async def finish_test(message: Message, state: FSMContext):
 
         builder = InlineKeyboardBuilder()
         builder.button(text='🔄 Пройти заново', callback_data='start_test')
-        builder.button(text='📊 Мой профиль', callback_data='my_profile')
         builder.adjust(1)
         await message.answer('Хотите пройти ещё раз или посмотреть профиль?', reply_markup=builder.as_markup())
         await state.set_state(TestStates.finished)
@@ -405,45 +415,6 @@ async def finish_test(message: Message, state: FSMContext):
         await message.answer('❌ Ошибка обработки. /cancel и /start')
 
 
-
-@router.callback_query(F.data == 'my_profile')
-async def my_profile(callback: CallbackQuery):
-    """Показывает последний результат пользователя"""
-    try:
-        user = await get_user(callback.from_user.id)
-        if not user or not user['test_completed']:
-            await callback.message.answer('Вы еще не проходили тест. Нажмите /start')
-            return
-        
-        # Получаем последний результат из БД
-        import asyncpg
-        from config.settings import DB_CONFIG
-        conn = await asyncpg.connect(**DB_CONFIG)
-        row = await conn.fetchrow(
-            'SELECT * FROM test_results WHERE user_id = $1 ORDER BY completed_at DESC LIMIT 1',
-            user['id']
-        )
-        await conn.close()
-        
-        if not row:
-            await callback.message.answer('Результатов пока нет. Пройдите тест: /start')
-            return
-        
-        # Формируем ответ
-        scores = row['normalized_scores']
-        profs = row['top_professions']
-        
-        text = f'📊 Ваш последний результат ({row["completed_at"].strftime("%d.%m.%Y")}):\n\n'
-        text += f'Big Five: O:{scores["O"]} C:{scores["C"]} E:{scores["E"]} A:{scores["A"]} S:{scores["S"]}\n\n'
-        text += '🏆 Топ-3 профессии:\n'
-        for i, p in enumerate(profs[:3], 1):
-            text += f'{i}. {p["title"]} — {p["match"]}%\n'
-        
-        await callback.message.answer(text)
-        
-    except Exception as e:
-        logger.error(f"Profile error: {e}")
-        await callback.message.answer('Ошибка загрузки профиля')
 
 @router.message(Command('help'))
 async def cmd_help(message: Message):

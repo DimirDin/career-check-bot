@@ -32,13 +32,17 @@ def calculate_riasec(normalized: dict) -> dict:
     
     return riasec
 
+
 def match_professions(normalized: dict, riasec: dict, professions: list) -> list:
     """
     Усиленное поэлементное сравнение с жёсткими штрафами за несоответствие RIASEC.
     """
     user_riasec_max = max(riasec, key=riasec.get)
-    user_riasec_val = riasec[user_riasec_max]
-    user_vector = np.array([normalized['O'], normalized['C'], normalized['E'], normalized['A'], normalized['S']])
+    user_riasec_val = float(riasec[user_riasec_max])
+    user_vector = np.array([
+        float(normalized['O']), float(normalized['C']), float(normalized['E']), 
+        float(normalized['A']), float(normalized['S'])
+    ])
     
     matches = []
     for prof in professions:
@@ -46,20 +50,21 @@ def match_professions(normalized: dict, riasec: dict, professions: list) -> list
         if isinstance(req, str):
             req = json.loads(req)
         
-        prof_vector = np.array([req['O'], req['C'], req['E'], req['A'], req['S']])
+        prof_vector = np.array([
+            float(req['O']), float(req['C']), float(req['E']), 
+            float(req['A']), float(req['S'])
+        ])
         
         # 1. Поэлементное отклонение
         diffs = np.abs(user_vector - prof_vector)
         relative_diffs = diffs / np.maximum(prof_vector, 15)
         element_match = np.maximum(0, 100 - relative_diffs * 100)
-        base_score = np.mean(element_match)
+        base_score = float(np.mean(element_match))
         
         # 2. Жёсткий штраф за несоответствие RIASEC-доминанте
-        # Если профессия типа R, а у пользователя R низкий → штраф
         prof_riasec = prof['riasec_type']
-        user_riasec_for_prof = riasec[prof_riasec]
+        user_riasec_for_prof = float(riasec[prof_riasec])
         
-        # Если профессия требует высокого RIASEC, а у пользователя низкий
         riasec_penalty = 0
         if prof_riasec in ['I', 'E', 'S'] and user_riasec_for_prof < 30:
             riasec_penalty = 20
@@ -79,16 +84,16 @@ def match_professions(normalized: dict, riasec: dict, professions: list) -> list
         # 4. Бонус за совпадение доминанты
         riasec_bonus = 15 if prof_riasec == user_riasec_max else 0
         
-        # 5. Итог
-        final_score = max(0, min(100, round(base_score - riasec_penalty - critical_penalty + riasec_bonus)))
+        # 5. Итог — конвертируем в обычные Python типы
+        final_score = int(max(0, min(100, round(base_score - riasec_penalty - critical_penalty + riasec_bonus))))
         
         matches.append({
-            'title': prof['title'],
+            'title': str(prof['title']),
             'match': final_score,
-            'description': prof['description'],
-            'salary': '',  # salary_range удален
-            'growth': prof['growth_potential'],
-            'riasec': prof['riasec_type']
+            'description': str(prof['description']),
+            'salary': '',
+            'growth': str(prof['growth_potential']),
+            'riasec': str(prof['riasec_type'])
         })
     
     matches.sort(key=lambda x: x['match'], reverse=True)

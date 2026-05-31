@@ -81,3 +81,19 @@ async def get_profession_details(title: str):
         return None
     finally:
         await conn.close()
+
+async def get_last_result(user_id: int):
+    """Получает последний результат теста пользователя"""
+    conn = await get_db()
+    try:
+        row = await conn.fetchrow(
+            '''SELECT raw_scores, normalized_scores, riasec_profile, top_professions, completed_at
+               FROM test_results 
+               WHERE user_id = $1 
+               ORDER BY completed_at DESC 
+               LIMIT 1''',
+            user_id
+        )
+        return row
+    finally:
+        await conn.close()

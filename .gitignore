@@ -33,3 +33,7 @@ temp/
 # Database
 *.db
 *.sqlite
+*.bak
+test_20_profiles.py
+test_50_edge_cases.py
+test_50_random.py

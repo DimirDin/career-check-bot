@@ -180,12 +180,16 @@ async def about_test(callback: CallbackQuery):
     await callback.message.edit_text(about_text, reply_markup=builder.as_markup())
 
 @router.callback_query(F.data == 'back_to_start')
-async def back_to_start(callback: CallbackQuery):
+async def back_to_start(callback: CallbackQuery, pool: asyncpg.Pool):
+    user = await get_user(pool, callback.from_user.id)
     builder = InlineKeyboardBuilder()
-    builder.button(text='🚀 Начать тест', callback_data='start_test')
-    builder.button(text='📖 Подробнее о тесте', callback_data='about_test')
+    builder.button(text='🚀 Начать тест',        callback_data='start_test')
+    builder.button(text='📖 Подробнее о тесте',  callback_data='about_test')
+    if user and user.get('test_completed'):
+        builder.button(text='📋 Мой результат',  callback_data='my_result')
     builder.adjust(1)
-    await callback.message.edit_text(WELCOME_TEXT, reply_markup=builder.as_markup())
+    await callback.answer()
+    await callback.message.answer(WELCOME_TEXT, reply_markup=builder.as_markup())
 
 @router.callback_query(F.data == 'start_test')
 async def start_test(callback: CallbackQuery, state: FSMContext, pool: asyncpg.Pool):
@@ -430,9 +434,13 @@ async def finish_test(message: Message, state: FSMContext, pool: asyncpg.Pool):
             logger.error(traceback.format_exc())
 
         builder = InlineKeyboardBuilder()
+        builder.button(text='🏠 На главную',    callback_data='back_to_start')
         builder.button(text='🔄 Пройти заново', callback_data='start_test')
         builder.adjust(1)
-        await message.answer('Хотите пройти ещё раз или посмотреть профиль?', reply_markup=builder.as_markup())
+        await message.answer(
+            '✨ <b>Готово!</b> Что дальше?',
+            reply_markup=builder.as_markup()
+        )
         await state.set_state(TestStates.finished)
         
     except Exception as e:

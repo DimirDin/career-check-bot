@@ -8,7 +8,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-from db.database import create_user, get_user, get_questions, save_result, get_professions, get_profession_details, get_stats
+from db.database import create_user, get_user, get_questions, save_result, get_professions, get_profession_details, get_stats, get_last_result
 from services.calculator import calculate_scores, calculate_riasec, match_professions
 from services.pdf_generator import generate_pdf
 from config.settings import ADMIN_IDS
@@ -128,17 +128,21 @@ def get_trait_comment(trait: str, user_val: int, req_val: int) -> str:
 @router.message(Command('start'))
 async def cmd_start(message: Message, state: FSMContext):
     await state.clear()
+    user = None
     try:
         user = await get_user(message.from_user.id)
         if not user:
             await create_user(message.from_user.id, message.from_user.username, message.from_user.full_name)
             logger.info(f"Created new user: {message.from_user.id}")
+            user = await get_user(message.from_user.id)
     except Exception as e:
         logger.error(f"DB create_user error: {e}")
     
     builder = InlineKeyboardBuilder()
     builder.button(text='🚀 Начать тест', callback_data='start_test')
     builder.button(text='📖 Подробнее о тесте', callback_data='about_test')
+    if user and user.get('test_completed'):
+        builder.button(text='📋 Мой результат', callback_data='my_result')
     builder.adjust(1)
     
     await message.answer(WELCOME_TEXT, reply_markup=builder.as_markup())
@@ -485,11 +489,77 @@ async def cmd_admin(message: Message):
         logger.error(f"Admin error: {e}")
         await message.answer('❌ Ошибка загрузки статистики')
 
+@router.callback_query(F.data == 'my_result')
+async def cb_my_result(callback: CallbackQuery):
+    await callback.answer()
+    await _show_myresult(callback.message, callback.from_user.id)
+
+
+@router.message(Command('myresult'))
+async def cmd_myresult(message: Message):
+    await _show_myresult(message, message.from_user.id)
+
+
+async def _show_myresult(message: Message, telegram_id: int):
+    """Показывает последний результат теста без пересдачи"""
+    try:
+        user = await get_user(telegram_id)
+        if not user:
+            await message.answer('❌ Вы ещё не проходили тест. /start чтобы начать.')
+            return
+
+        row = await get_last_result(user['id'])
+        if not row:
+            await message.answer('📭 Результатов пока нет. /start чтобы пройти тест.')
+            return
+
+        import json
+        normalized = json.loads(row['normalized_scores']) if isinstance(row['normalized_scores'], str) else dict(row['normalized_scores'])
+        riasec     = json.loads(row['riasec_profile'])    if isinstance(row['riasec_profile'], str)    else dict(row['riasec_profile'])
+        top        = json.loads(row['top_professions'])   if isinstance(row['top_professions'], str)    else list(row['top_professions'])
+        date_str   = row['completed_at'].strftime('%d.%m.%Y %H:%M') if row['completed_at'] else '—'
+
+        dom_riasec = max(riasec, key=riasec.get)
+        riasec_label = {
+            'R': '🔧 Реалистичный', 'I': '🔬 Исследователь',
+            'A': '🎨 Артист',        'S': '🤝 Социальный',
+            'E': '💼 Предприимчивый','C': '📋 Конвенциональный'
+        }.get(dom_riasec, dom_riasec)
+
+        text = (
+            f'📋 <b>Ваш последний результат</b>\n'
+            f'<i>Дата: {date_str}</i>\n\n'
+            f'🎯 <b>Тип личности: {riasec_label}</b>\n\n'
+            f'📊 <b>Профиль Big Five:</b>\n'
+            f'Открытость:         {make_bar(normalized["O"])} {normalized["O"]}\n'
+            f'Организованность:   {make_bar(normalized["C"])} {normalized["C"]}\n'
+            f'Коммуникация:       {make_bar(normalized["E"])} {normalized["E"]}\n'
+            f'Эмпатия:            {make_bar(normalized["A"])} {normalized["A"]}\n'
+            f'Стрессоустойчивость:{make_bar(normalized["S"])} {normalized["S"]}\n\n'
+            f'🏆 <b>Топ профессий:</b>\n'
+        )
+
+        medals = ['🥇', '🥈', '🥉', '4.', '5.']
+        for i, prof in enumerate(top[:5]):
+            text += f'{medals[i]} {prof["title"]} — {prof["match"]}%\n'
+
+        builder = InlineKeyboardBuilder()
+        builder.button(text='🔄 Пройти заново', callback_data='start_test')
+        builder.adjust(1)
+
+        await message.answer(text, reply_markup=builder.as_markup())
+
+    except Exception as e:
+        logger.error(f"myresult error: {e}")
+        await message.answer('❌ Ошибка загрузки результата. Попробуйте позже.')
+
+
 @router.message(Command('help'))
 async def cmd_help(message: Message):
     await message.answer(
         '<b>📖 Команды:</b>\n'
         '/start — начать тест\n'
+        '/myresult — посмотреть последний результат\n'
         '/help — помощь\n'
         '/cancel — отменить тест\n\n'
         '<b>О тесте:</b>\n'

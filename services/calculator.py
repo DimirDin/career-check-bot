@@ -35,7 +35,8 @@ def calculate_riasec(normalized: dict) -> dict:
 
 def match_professions(normalized: dict, riasec: dict, professions: list) -> list:
     """
-    Усиленное поэлементное сравнение с жёсткими штрафами за несоответствие RIASEC.
+    Взвешенное поэлементное сравнение с RIASEC-бонусом.
+    Добавлен floor=20 — минимальный match по черте, чтобы избежать полных 0%.
     """
     user_riasec_max = max(riasec, key=riasec.get)
     user_riasec_val = float(riasec[user_riasec_max])
@@ -55,37 +56,38 @@ def match_professions(normalized: dict, riasec: dict, professions: list) -> list
             float(req['A']), float(req['S'])
         ])
         
-        # 1. Поэлементное отклонение
+        # 1. Поэлементное отклонение с floor=20 (минимальный match)
         diffs = np.abs(user_vector - prof_vector)
         relative_diffs = diffs / np.maximum(prof_vector, 15)
-        element_match = np.maximum(0, 100 - relative_diffs * 100)
-        base_score = float(np.mean(element_match))
+        element_match = np.maximum(20, 100 - relative_diffs * 100)
         
-        # 2. Жёсткий штраф за несоответствие RIASEC-доминанте
+        # 2. ВЕСА: чем выше требование профессии — тем важнее черта
+        weights = prof_vector / np.sum(prof_vector)
+        base_score = float(np.sum(element_match * weights))
+        
+        # 3. Бонус за идеальное совпадение ключевой черты (>80 требование, >80 пользователь)
+        key_bonus = 0
+        for i in range(5):
+            if prof_vector[i] >= 80 and user_vector[i] >= 80:
+                key_bonus += 5
+        
+        # 4. Мягкий штраф за несоответствие RIASEC-доминанте
         prof_riasec = prof['riasec_type']
         user_riasec_for_prof = float(riasec[prof_riasec])
         
         riasec_penalty = 0
-        if prof_riasec in ['I', 'E', 'S'] and user_riasec_for_prof < 30:
-            riasec_penalty = 20
-        elif prof_riasec in ['R', 'C'] and user_riasec_for_prof < 20:
-            riasec_penalty = 20
-        elif prof_riasec == 'A' and user_riasec_for_prof < 25:
+        if prof_riasec in ['I', 'E', 'S'] and user_riasec_for_prof < 20:
             riasec_penalty = 15
+        elif prof_riasec in ['R', 'C'] and user_riasec_for_prof < 15:
+            riasec_penalty = 15
+        elif prof_riasec == 'A' and user_riasec_for_prof < 15:
+            riasec_penalty = 10
         
-        # 3. Критические провалы по ключевым чертам
-        critical_penalty = 0
-        for i, trait in enumerate(['O', 'C', 'E', 'A', 'S']):
-            if prof_vector[i] > 75 and user_vector[i] < 35:
-                critical_penalty += 30
-            elif prof_vector[i] > 65 and user_vector[i] < 25:
-                critical_penalty += 20
+        # 5. Бонус за совпадение доминанты
+        riasec_bonus = 10 if prof_riasec == user_riasec_max else 0
         
-        # 4. Бонус за совпадение доминанты
-        riasec_bonus = 15 if prof_riasec == user_riasec_max else 0
-        
-        # 5. Итог — конвертируем в обычные Python типы
-        final_score = int(max(0, min(100, round(base_score - riasec_penalty - critical_penalty + riasec_bonus))))
+        # 6. Итог
+        final_score = int(max(0, min(100, round(base_score - riasec_penalty + riasec_bonus + key_bonus))))
         
         matches.append({
             'title': str(prof['title']),

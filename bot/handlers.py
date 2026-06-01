@@ -20,6 +20,9 @@ class TestStates(StatesGroup):
     in_progress = State()
     finished = State()
 
+# Флаг блокировки: не даём нажать кнопку повторно пока обрабатывается ответ
+_processing_users: set[int] = set()
+
 WELCOME_TEXT = (
     "\n"
     "           <b>CAREERCHECK — ТЕСТ ПРОФПРИГОДНОСТИ</b>          \n"
@@ -189,12 +192,18 @@ async def start_test(callback: CallbackQuery, state: FSMContext):
         await state.set_state(TestStates.in_progress)
         await state.update_data(answers=[], current_question=0, questions=questions)
         await callback.message.edit_text('✅ Тест начался! Отвечайте честно — от этого зависит точность.')
-        await send_question(callback.message, state)
+        await send_question(callback.message, state, edit=True)
     except Exception as e:
         logger.error(f"Start test error: {e}")
         await callback.message.edit_text('❌ Ошибка. /start')
 
-async def send_question(message: Message, state: FSMContext):
+def _make_progress_bar(current: int, total: int, width: int = 12) -> str:
+    filled = round(current / total * width)
+    bar = '▓' * filled + '░' * (width - filled)
+    percent = round(current / total * 100)
+    return f'[{bar}] {percent}%'
+
+async def send_question(message: Message, state: FSMContext, edit: bool = False):
     try:
         data = await state.get_data()
         questions = data.get('questions', [])
@@ -206,7 +215,14 @@ async def send_question(message: Message, state: FSMContext):
             return
             
         q = questions[current]
-        progress = f'📊 {current + 1}/{len(questions)}'
+        total = len(questions)
+        progress_bar = _make_progress_bar(current, total)
+        text = (
+            f'📊 Вопрос {current + 1} из {total}  {progress_bar}\n\n'
+            f'📝 {q["question_text"]}\n\n'
+            f'Выбери:'
+        )
+
         builder = InlineKeyboardBuilder()
         builder.button(text='❌ Нет', callback_data='score_1')
         builder.button(text='🤔 Скорее нет', callback_data='score_2')
@@ -214,17 +230,28 @@ async def send_question(message: Message, state: FSMContext):
         builder.button(text='💯 Да', callback_data='score_5')
         builder.adjust(2, 2)
         
-        await message.answer(
-            f'{progress}\n\n📝 {q["question_text"]}\n\nВыбери:',
-            reply_markup=builder.as_markup()
-        )
+        if edit:
+            # Редактируем то же сообщение — предыдущий вопрос исчезает
+            await message.edit_text(text, reply_markup=builder.as_markup())
+        else:
+            await message.answer(text, reply_markup=builder.as_markup())
     except Exception as e:
         logger.error(f"Send question error: {e}")
         await message.answer('❌ Ошибка. /cancel и /start')
 
 @router.callback_query(F.data.startswith('score_'))
 async def process_answer(callback: CallbackQuery, state: FSMContext):
+    user_id = callback.from_user.id
+
+    # Защита от двойного нажатия
+    if user_id in _processing_users:
+        await callback.answer('⏳ Подожди секунду...', show_alert=False)
+        return
+    _processing_users.add(user_id)
+
     try:
+        await callback.answer()  # убираем «часики» на кнопке
+
         score = int(callback.data.split('_')[1])
         data = await state.get_data()
         questions = data.get('questions', [])
@@ -246,11 +273,14 @@ async def process_answer(callback: CallbackQuery, state: FSMContext):
         await state.update_data(answers=answers, current_question=current + 1)
         logger.info(f"PROCESS_ANSWER: Saved answer {current + 1}/{len(questions)}")
         
-        await send_question(callback.message, state)
+        # edit=True — следующий вопрос заменяет текущее сообщение
+        await send_question(callback.message, state, edit=True)
         
     except Exception as e:
         logger.error(f"Process answer error: {e}")
         await callback.message.answer('❌ Ошибка. /cancel')
+    finally:
+        _processing_users.discard(user_id)
 
 async def finish_test(message: Message, state: FSMContext):
     try:

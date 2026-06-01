@@ -138,14 +138,21 @@ async def cmd_start(message: Message, state: FSMContext, pool: asyncpg.Pool):
             user = await get_user(pool, message.from_user.id)
     except Exception as e:
         logger.error(f"DB create_user error: {e}")
-    
+
     builder = InlineKeyboardBuilder()
-    builder.button(text='🚀 Начать тест', callback_data='start_test')
+    builder.button(text='🚀 Начать тест',       callback_data='start_test')
     builder.button(text='📖 Подробнее о тесте', callback_data='about_test')
     if user and user.get('test_completed'):
         builder.button(text='📋 Мой результат', callback_data='my_result')
     builder.adjust(1)
-    
+
+    # Сначала картинка, потом текст с кнопками
+    img_path = os.path.join(os.path.dirname(__file__), '..', 'assets', 'welcome.png')
+    try:
+        await message.answer_photo(photo=types.FSInputFile(img_path))
+    except Exception as e:
+        logger.warning(f"Welcome image not found or failed: {e}")
+
     await message.answer(WELCOME_TEXT, reply_markup=builder.as_markup())
 
 @router.callback_query(F.data == 'about_test')

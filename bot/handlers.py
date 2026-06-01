@@ -1,6 +1,7 @@
 import logging
 import os
 from datetime import datetime
+import asyncpg
 from aiogram import Router, F, types
 from aiogram.types import Message, CallbackQuery
 from aiogram.filters import Command
@@ -126,15 +127,15 @@ def get_trait_comment(trait: str, user_val: int, req_val: int) -> str:
         return "🚨 Нужно прокачать"
 
 @router.message(Command('start'))
-async def cmd_start(message: Message, state: FSMContext):
+async def cmd_start(message: Message, state: FSMContext, pool: asyncpg.Pool):
     await state.clear()
     user = None
     try:
-        user = await get_user(message.from_user.id)
+        user = await get_user(pool, message.from_user.id)
         if not user:
-            await create_user(message.from_user.id, message.from_user.username, message.from_user.full_name)
+            await create_user(pool, message.from_user.id, message.from_user.username, message.from_user.full_name)
             logger.info(f"Created new user: {message.from_user.id}")
-            user = await get_user(message.from_user.id)
+            user = await get_user(pool, message.from_user.id)
     except Exception as e:
         logger.error(f"DB create_user error: {e}")
     
@@ -187,9 +188,9 @@ async def back_to_start(callback: CallbackQuery):
     await callback.message.edit_text(WELCOME_TEXT, reply_markup=builder.as_markup())
 
 @router.callback_query(F.data == 'start_test')
-async def start_test(callback: CallbackQuery, state: FSMContext):
+async def start_test(callback: CallbackQuery, state: FSMContext, pool: asyncpg.Pool):
     try:
-        questions = await get_questions()
+        questions = await get_questions(pool)
         if not questions:
             await callback.message.edit_text('❌ Вопросы не загружены.')
             return
@@ -215,7 +216,7 @@ async def send_question(message: Message, state: FSMContext, edit: bool = False)
         
         if current >= len(questions):
             logger.info(f"SEND_QUESTION: Test complete, calling finish_test (current={current}, total={len(questions)})")
-            await finish_test(message, state)
+            await finish_test(message, state, pool)
             return
             
         q = questions[current]
@@ -244,7 +245,7 @@ async def send_question(message: Message, state: FSMContext, edit: bool = False)
         await message.answer('❌ Ошибка. /cancel и /start')
 
 @router.callback_query(F.data.startswith('score_'))
-async def process_answer(callback: CallbackQuery, state: FSMContext):
+async def process_answer(callback: CallbackQuery, state: FSMContext, pool: asyncpg.Pool):
     user_id = callback.from_user.id
 
     # Защита от двойного нажатия
@@ -286,7 +287,7 @@ async def process_answer(callback: CallbackQuery, state: FSMContext):
     finally:
         _processing_users.discard(user_id)
 
-async def finish_test(message: Message, state: FSMContext):
+async def finish_test(message: Message, state: FSMContext, pool: asyncpg.Pool):
     try:
         data = await state.get_data()
         answers = data.get('answers', [])
@@ -298,16 +299,16 @@ async def finish_test(message: Message, state: FSMContext):
         
         raw, normalized = calculate_scores(answers)
         riasec = calculate_riasec(normalized)
-        professions = await get_professions()
+        professions = await get_professions(pool)
         top_professions = match_professions(normalized, riasec, professions)
         
         logger.info(f"FINISH_TEST: Calculated scores, top profession: {top_professions[0]['title'] if top_professions else 'None'}")
         
         # Получаем пользователя по chat.id (это telegram_id)
-        user = await get_user(message.chat.id)
+        user = await get_user(pool, message.chat.id)
         if user:
             try:
-                await save_result(user['id'], raw, normalized, riasec, top_professions)
+                await save_result(pool, user['id'], raw, normalized, riasec, top_professions)
                 logger.info(f"FINISH_TEST: Result saved for user_id={user['id']}")
             except Exception as e:
                 logger.error(f"FINISH_TEST: save_result failed: {e}")
@@ -336,7 +337,7 @@ async def finish_test(message: Message, state: FSMContext):
         await message.answer(main_text)
         
         for i, prof in enumerate(top_professions[:3], 1):
-            details = await get_profession_details(prof['title'])
+            details = await get_profession_details(pool, prof['title'])
             req = prof.get('required_traits', {})
             if isinstance(req, str):
                 import json
@@ -403,7 +404,7 @@ async def finish_test(message: Message, state: FSMContext):
             
             details_list = []
             for p in top_professions[:3]:
-                det = await get_profession_details(p['title'])
+                det = await get_profession_details(pool, p['title'])
                 details_list.append(det or {})
             
             pdf_path = generate_pdf(
@@ -440,14 +441,14 @@ async def finish_test(message: Message, state: FSMContext):
         await message.answer('❌ Ошибка обработки. /cancel и /start')
 
 @router.message(Command('admin'))
-async def cmd_admin(message: Message):
+async def cmd_admin(message: Message, pool: asyncpg.Pool):
     """Админ-панель: статистика бота"""
     if message.from_user.id not in ADMIN_IDS:
         await message.answer('❌ У вас нет доступа к админ-панели.')
         return
     
     try:
-        stats = await get_stats()
+        stats = await get_stats(pool)
         
         def bar(value, max_val=100, length=10):
             filled = int((value / max_val) * length) if value else 0
@@ -490,25 +491,25 @@ async def cmd_admin(message: Message):
         await message.answer('❌ Ошибка загрузки статистики')
 
 @router.callback_query(F.data == 'my_result')
-async def cb_my_result(callback: CallbackQuery):
+async def cb_my_result(callback: CallbackQuery, pool: asyncpg.Pool):
     await callback.answer()
-    await _show_myresult(callback.message, callback.from_user.id)
+    await _show_myresult(callback.message, callback.from_user.id, pool)
 
 
 @router.message(Command('myresult'))
-async def cmd_myresult(message: Message):
-    await _show_myresult(message, message.from_user.id)
+async def cmd_myresult(message: Message, pool: asyncpg.Pool):
+    await _show_myresult(message, message.from_user.id, pool)
 
 
-async def _show_myresult(message: Message, telegram_id: int):
+async def _show_myresult(message: Message, telegram_id: int, pool: asyncpg.Pool):
     """Показывает последний результат теста без пересдачи"""
     try:
-        user = await get_user(telegram_id)
+        user = await get_user(pool, telegram_id)
         if not user:
             await message.answer('❌ Вы ещё не проходили тест. /start чтобы начать.')
             return
 
-        row = await get_last_result(user['id'])
+        row = await get_last_result(pool, user['id'])
         if not row:
             await message.answer('📭 Результатов пока нет. /start чтобы пройти тест.')
             return

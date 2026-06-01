@@ -1,4 +1,6 @@
 import logging
+import os
+from datetime import datetime
 from aiogram import Router, F, types
 from aiogram.types import Message, CallbackQuery
 from aiogram.filters import Command
@@ -6,9 +8,10 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-from db.database import create_user, get_user, get_questions, save_result, get_professions, get_profession_details
+from db.database import create_user, get_user, get_questions, save_result, get_professions, get_profession_details, get_stats
 from services.calculator import calculate_scores, calculate_riasec, match_professions
 from services.pdf_generator import generate_pdf
+from config.settings import ADMIN_IDS
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -126,8 +129,9 @@ async def cmd_start(message: Message, state: FSMContext):
         user = await get_user(message.from_user.id)
         if not user:
             await create_user(message.from_user.id, message.from_user.username, message.from_user.full_name)
+            logger.info(f"Created new user: {message.from_user.id}")
     except Exception as e:
-        logger.error(f"DB: {e}")
+        logger.error(f"DB create_user error: {e}")
     
     builder = InlineKeyboardBuilder()
     builder.button(text='🚀 Начать тест', callback_data='start_test')
@@ -187,7 +191,7 @@ async def start_test(callback: CallbackQuery, state: FSMContext):
         await callback.message.edit_text('✅ Тест начался! Отвечайте честно — от этого зависит точность.')
         await send_question(callback.message, state)
     except Exception as e:
-        logger.error(f"Start: {e}")
+        logger.error(f"Start test error: {e}")
         await callback.message.edit_text('❌ Ошибка. /start')
 
 async def send_question(message: Message, state: FSMContext):
@@ -195,9 +199,12 @@ async def send_question(message: Message, state: FSMContext):
         data = await state.get_data()
         questions = data.get('questions', [])
         current = data.get('current_question', 0)
+        
         if current >= len(questions):
+            logger.info(f"SEND_QUESTION: Test complete, calling finish_test (current={current}, total={len(questions)})")
             await finish_test(message, state)
             return
+            
         q = questions[current]
         progress = f'📊 {current + 1}/{len(questions)}'
         builder = InlineKeyboardBuilder()
@@ -206,12 +213,13 @@ async def send_question(message: Message, state: FSMContext):
         builder.button(text='✅ Скорее да', callback_data='score_4')
         builder.button(text='💯 Да', callback_data='score_5')
         builder.adjust(2, 2)
+        
         await message.answer(
             f'{progress}\n\n📝 {q["question_text"]}\n\nВыбери:',
             reply_markup=builder.as_markup()
         )
     except Exception as e:
-        logger.error(f"Send: {e}")
+        logger.error(f"Send question error: {e}")
         await message.answer('❌ Ошибка. /cancel и /start')
 
 @router.callback_query(F.data.startswith('score_'))
@@ -222,8 +230,11 @@ async def process_answer(callback: CallbackQuery, state: FSMContext):
         questions = data.get('questions', [])
         current = data.get('current_question', 0)
         answers = data.get('answers', [])
+        
         if current >= len(questions):
+            logger.warning(f"PROCESS_ANSWER: current ({current}) >= len(questions) ({len(questions)}), ignoring")
             return
+            
         q = questions[current]
         answers.append({
             'question_id': q['id'],
@@ -231,17 +242,22 @@ async def process_answer(callback: CallbackQuery, state: FSMContext):
             'is_inverted': q['is_inverted'],
             'score': score
         })
+        
         await state.update_data(answers=answers, current_question=current + 1)
-        pass  # message.delete() disabled
+        logger.info(f"PROCESS_ANSWER: Saved answer {current + 1}/{len(questions)}")
+        
         await send_question(callback.message, state)
+        
     except Exception as e:
-        logger.error(f"Answer: {e}")
+        logger.error(f"Process answer error: {e}")
         await callback.message.answer('❌ Ошибка. /cancel')
 
 async def finish_test(message: Message, state: FSMContext):
     try:
         data = await state.get_data()
         answers = data.get('answers', [])
+        logger.info(f"FINISH_TEST: Starting with {len(answers)} answers")
+        
         if len(answers) < 60:
             await message.answer(f'⚠️ Не завершён ({len(answers)}/60).')
             return
@@ -251,9 +267,20 @@ async def finish_test(message: Message, state: FSMContext):
         professions = await get_professions()
         top_professions = match_professions(normalized, riasec, professions)
         
-        user = await get_user(message.from_user.id)
+        logger.info(f"FINISH_TEST: Calculated scores, top profession: {top_professions[0]['title'] if top_professions else 'None'}")
+        
+        # Получаем пользователя по chat.id (это telegram_id)
+        user = await get_user(message.chat.id)
         if user:
-            await save_result(user['id'], raw, normalized, riasec, top_professions)
+            try:
+                await save_result(user['id'], raw, normalized, riasec, top_professions)
+                logger.info(f"FINISH_TEST: Result saved for user_id={user['id']}")
+            except Exception as e:
+                logger.error(f"FINISH_TEST: save_result failed: {e}")
+                import traceback
+                logger.error(traceback.format_exc())
+        else:
+            logger.warning(f"FINISH_TEST: User not found for chat_id={message.chat.id}")
         
         dom_riasec = max(riasec, key=riasec.get)
         riasec_desc = RIASEC_DESCRIPTIONS.get(dom_riasec, '')
@@ -330,16 +357,14 @@ async def finish_test(message: Message, state: FSMContext):
                 if cons:
                     prof_text += f'\n<b>❌ Минусы:</b>\n' + '\n'.join([f'• {c}' for c in cons[:3]]) + '\n'
             
-            
             await message.answer(prof_text)
         
         # Генерируем и отправляем PDF
         try:
-            from datetime import datetime
             user_data = {
                 'name': message.from_user.full_name or 'Пользователь',
                 'date': datetime.now().strftime('%d.%m.%Y'),
-                'telegram_id': message.from_user.id
+                'telegram_id': message.chat.id
             }
             
             details_list = []
@@ -360,7 +385,6 @@ async def finish_test(message: Message, state: FSMContext):
                 caption='📄 Ваш персональный отчет CAREERCHECK'
             )
             
-            import os
             if os.path.exists(pdf_path):
                 os.remove(pdf_path)
                 
@@ -376,12 +400,60 @@ async def finish_test(message: Message, state: FSMContext):
         await state.set_state(TestStates.finished)
         
     except Exception as e:
-        logger.error(f"Finish: {e}")
+        logger.error(f"Finish test error: {e}")
         import traceback
         logger.error(traceback.format_exc())
         await message.answer('❌ Ошибка обработки. /cancel и /start')
 
-
+@router.message(Command('admin'))
+async def cmd_admin(message: Message):
+    """Админ-панель: статистика бота"""
+    if message.from_user.id not in ADMIN_IDS:
+        await message.answer('❌ У вас нет доступа к админ-панели.')
+        return
+    
+    try:
+        stats = await get_stats()
+        
+        def bar(value, max_val=100, length=10):
+            filled = int((value / max_val) * length) if value else 0
+            return '▓' * filled + '░' * (length - filled)
+        
+        avg = stats['avg_scores'] if stats['avg_scores'] else {}
+        
+        text = (
+            f'📊 <b>Статистика бота</b>\n\n'
+            f'👥 <b>Пользователи:</b>\n'
+            f'• Всего: {stats["total_users"]}\n'
+            f'• Прошли тест: {stats["tested"]} ({round(stats["tested"]/stats["total_users"]*100) if stats["total_users"] and stats["tested"] else 0}%)\n'
+            f'• Не прошли: {stats["total_users"] - stats["tested"]}\n\n'
+            f'📈 <b>Активность:</b>\n'
+            f'• За 24 часа: +{stats["last_24h"]} тестов\n'
+            f'• За 7 дней: +{stats["last_7d"]} тестов\n\n'
+        )
+        
+        if avg and any(v is not None for v in avg.values()):
+            text += (
+                f'🧠 <b>Средний профиль (Big Five):</b>\n'
+                f'Открытость: {bar(avg.get("avg_o", 0))} {round(avg.get("avg_o") or 0)}\n'
+                f'Организованность: {bar(avg.get("avg_c", 0))} {round(avg.get("avg_c") or 0)}\n'
+                f'Коммуникация: {bar(avg.get("avg_e", 0))} {round(avg.get("avg_e") or 0)}\n'
+                f'Эмпатия: {bar(avg.get("avg_a", 0))} {round(avg.get("avg_a") or 0)}\n'
+                f'Стрессоустойчивость: {bar(avg.get("avg_s", 0))} {round(avg.get("avg_s") or 0)}\n\n'
+            )
+        
+        if stats['top_profs']:
+            text += '🏆 <b>Топ профессий:</b>\n'
+            for i, p in enumerate(stats['top_profs'], 1):
+                text += f'{i}. {p["title"]} — {p["cnt"]} раз\n'
+        
+        text += f'\n<i>Обновлено: {datetime.now().strftime("%H:%M:%S")}</i>'
+        
+        await message.answer(text)
+        
+    except Exception as e:
+        logger.error(f"Admin error: {e}")
+        await message.answer('❌ Ошибка загрузки статистики')
 
 @router.message(Command('help'))
 async def cmd_help(message: Message):

@@ -197,7 +197,7 @@ async def start_test(callback: CallbackQuery, state: FSMContext, pool: asyncpg.P
         await state.set_state(TestStates.in_progress)
         await state.update_data(answers=[], current_question=0, questions=questions)
         await callback.message.edit_text('✅ Тест начался! Отвечайте честно — от этого зависит точность.')
-        await send_question(callback.message, state, edit=True)
+        await send_question(callback.message, state, pool, edit=True)
     except Exception as e:
         logger.error(f"Start test error: {e}")
         await callback.message.edit_text('❌ Ошибка. /start')
@@ -208,7 +208,7 @@ def _make_progress_bar(current: int, total: int, width: int = 12) -> str:
     percent = round(current / total * 100)
     return f'[{bar}] {percent}%'
 
-async def send_question(message: Message, state: FSMContext, edit: bool = False):
+async def send_question(message: Message, state: FSMContext, pool: asyncpg.Pool, edit: bool = False):
     try:
         data = await state.get_data()
         questions = data.get('questions', [])
@@ -229,11 +229,12 @@ async def send_question(message: Message, state: FSMContext, edit: bool = False)
         )
 
         builder = InlineKeyboardBuilder()
-        builder.button(text='❌ Нет', callback_data='score_1')
+        builder.button(text='❌ Нет',        callback_data='score_1')
         builder.button(text='🤔 Скорее нет', callback_data='score_2')
-        builder.button(text='✅ Скорее да', callback_data='score_4')
-        builder.button(text='💯 Да', callback_data='score_5')
-        builder.adjust(2, 2)
+        builder.button(text='😐 Нейтрально', callback_data='score_3')
+        builder.button(text='✅ Скорее да',  callback_data='score_4')
+        builder.button(text='💯 Да',         callback_data='score_5')
+        builder.adjust(2, 1, 2)  # [❌ 🤔] [😐] [✅ 💯]
         
         if edit:
             # Редактируем то же сообщение — предыдущий вопрос исчезает
@@ -279,7 +280,7 @@ async def process_answer(callback: CallbackQuery, state: FSMContext, pool: async
         logger.info(f"PROCESS_ANSWER: Saved answer {current + 1}/{len(questions)}")
         
         # edit=True — следующий вопрос заменяет текущее сообщение
-        await send_question(callback.message, state, edit=True)
+        await send_question(callback.message, state, pool, edit=True)
         
     except Exception as e:
         logger.error(f"Process answer error: {e}")

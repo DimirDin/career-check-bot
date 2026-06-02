@@ -218,7 +218,8 @@ async def resume_test(callback: CallbackQuery, state: FSMContext, pool: asyncpg.
     await state.update_data(
         answers=progress['answers'],
         current_question=progress['current_question'],
-        questions=questions
+        questions=questions,
+        db_user_id=user['id']
     )
     
     await callback.message.edit_text(
@@ -247,9 +248,10 @@ async def start_test_fresh(callback: CallbackQuery, state: FSMContext, pool: asy
             await callback.message.edit_text('❌ Вопросы не загружены.')
             return
         
+        db_user_id = user['id'] if user else None
         await state.set_state(TestStates.in_progress)
-        await state.update_data(answers=[], current_question=0, questions=questions)
-        
+        await state.update_data(answers=[], current_question=0, questions=questions, db_user_id=db_user_id)
+
         await callback.message.edit_text(
             '✅ <b>Тест начался!</b>\n\n'
             '60 вопросов, ~15 минут. Отвечайте честно — от этого зависит точность.'
@@ -386,15 +388,43 @@ async def process_answer(callback: CallbackQuery, state: FSMContext, pool: async
         })
         
         next_question = current + 1
-        
+
         # === СОХРАНЯЕМ ПРОГРЕСС В БД ===
-        user = await get_user(pool, callback.from_user.id)
-        if user:
-            await save_progress(pool, user['id'], answers, next_question)
-        
-        await state.update_data(answers=answers, current_question=next_question)
+        # user_id кешируется в FSM state при старте — не делаем лишний SELECT
+        db_user_id = data.get('db_user_id')
+        if not db_user_id:
+            user = await get_user(pool, callback.from_user.id)
+            db_user_id = user['id'] if user else None
+
+        if db_user_id:
+            try:
+                await save_progress(pool, db_user_id, answers, next_question)
+                logger.debug(f"PROGRESS: saved q{next_question} for db_user_id={db_user_id}")
+            except Exception as e:
+                logger.error(f"SAVE_PROGRESS ERROR: {e}")
+
+        await state.update_data(answers=answers, current_question=next_question, db_user_id=db_user_id)
         logger.info(f"PROCESS_ANSWER: Saved answer {next_question}/{len(questions)}")
-        
+
+        # === ДЕТЕКТОР НЕЧЕСТНЫХ ОТВЕТОВ ===
+        # Проверяем каждые 15 вопросов начиная с 15-го
+        if next_question in (15, 30, 45) and len(answers) >= next_question:
+            last_n = answers[-next_question:]
+            scores = [a['score'] for a in last_n]
+            # Если >80% ответов одинаковые — предупреждаем
+            most_common = max(set(scores), key=scores.count)
+            ratio = scores.count(most_common) / len(scores)
+            if ratio >= 0.8:
+                label = {1: '❌ «Нет»', 2: '🤔 «Скорее нет»', 3: '😐 «Нейтрально»',
+                         4: '✅ «Скорее да»', 5: '💯 «Да»'}.get(most_common, str(most_common))
+                await callback.message.answer(
+                    f'🤔 <b>Подождите секунду</b>\n\n'
+                    f'Вы отвечаете {label} на <b>{round(ratio*100)}%</b> вопросов.\n\n'
+                    f'Это нормально, если это честно. Но если вы отвечаете наугад — '
+                    f'результат будет неточным.\n\n'
+                    f'<i>Продолжайте — просто отвечайте так, как есть на самом деле.</i>'
+                )
+
         await send_question(callback.message, state, pool, edit=True)
         
     except Exception as e:

@@ -200,7 +200,21 @@ def generate_share_card(normalized: dict, riasec: dict, top_professions: list) -
                  fontproperties=_fp(bold=True, size=14),
                  color=mc, ha='left', va='center')
 
-        title_short = title if len(title) <= 30 else title[:28] + "…"
+        # Умная обрезка по словам
+        if len(title) <= 30:
+            title_short = title
+        else:
+            words = title.split()
+            title_short = ""
+            for w in words:
+                candidate = (title_short + " " + w).strip()
+                if len(candidate) <= 28:
+                    title_short = candidate
+                else:
+                    break
+            if not title_short:
+                title_short = title[:28]
+            title_short += "…"
         ax4.text(0.10, yp + 0.055, title_short,
                  transform=ax4.transAxes,
                  fontproperties=_fp(bold=True, size=10),

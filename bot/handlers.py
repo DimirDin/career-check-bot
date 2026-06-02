@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 from datetime import datetime
@@ -406,35 +407,41 @@ async def finish_test(message: Message, state: FSMContext, pool: asyncpg.Pool):
             
             await message.answer(prof_text)
         
-        # Генерируем и отправляем PDF
+        # Генерируем PDF в отдельном потоке — не блокируем event loop
         try:
             user_data = {
                 'name': message.from_user.full_name or 'Пользователь',
                 'date': datetime.now().strftime('%d.%m.%Y'),
                 'telegram_id': message.chat.id
             }
-            
+
             details_list = []
             for p in top_professions[:3]:
                 det = await get_profession_details(pool, p['title'])
                 details_list.append(det or {})
-            
-            pdf_path = generate_pdf(
-                user_data=user_data,
-                normalized_scores=normalized,
-                riasec=riasec,
-                top_professions=top_professions,
-                details_list=details_list
+
+            await message.answer('📄 Генерирую PDF-отчёт, секунду...')
+
+            loop = asyncio.get_event_loop()
+            pdf_path = await loop.run_in_executor(
+                None,  # использует ThreadPoolExecutor по умолчанию
+                lambda: generate_pdf(
+                    user_data=user_data,
+                    normalized_scores=normalized,
+                    riasec=riasec,
+                    top_professions=top_professions,
+                    details_list=details_list
+                )
             )
-            
+
             await message.answer_document(
                 document=types.FSInputFile(pdf_path),
-                caption='📄 Ваш персональный отчет CAREERCHECK'
+                caption='📄 Ваш персональный отчёт CAREERCHECK'
             )
-            
+
             if os.path.exists(pdf_path):
                 os.remove(pdf_path)
-                
+
         except Exception as e:
             logger.error(f"PDF generation error: {e}")
             import traceback

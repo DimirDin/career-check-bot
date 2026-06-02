@@ -10,9 +10,14 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-from db.database import create_user, get_user, get_questions, save_result, get_professions, get_profession_details, get_stats, get_last_result
+from db.database import (
+    create_user, get_user, get_questions, save_result, 
+    get_professions, get_profession_details, get_stats, get_last_result,
+    save_progress, get_progress, clear_progress
+)
 from services.calculator import calculate_scores, calculate_riasec, match_professions
 from services.pdf_generator import generate_pdf
+from services.card_generator import generate_share_card
 from config.settings import ADMIN_IDS
 
 router = Router()
@@ -127,6 +132,11 @@ def get_trait_comment(trait: str, user_val: int, req_val: int) -> str:
     else:
         return "🚨 Нужно прокачать"
 
+
+# ============================================================
+# /start — с проверкой прогресса
+# ============================================================
+
 @router.message(Command('start'))
 async def cmd_start(message: Message, state: FSMContext, pool: asyncpg.Pool):
     await state.clear()
@@ -140,14 +150,38 @@ async def cmd_start(message: Message, state: FSMContext, pool: asyncpg.Pool):
     except Exception as e:
         logger.error(f"DB create_user error: {e}")
 
+    # === ПРОВЕРЯЕМ НЕЗАВЕРШЁННЫЙ ТЕСТ ===
+    # Проверяем у всех — даже завершившие могут начать новый и бросить
+    if user:
+        progress = await get_progress(pool, user['id'])
+        if progress and 0 < progress['current_question'] < 60:
+            completed = progress['current_question']
+            percent = round(completed / 60 * 100)
+            minutes_left = (60 - completed) * 15 // 60
+            
+            builder = InlineKeyboardBuilder()
+            builder.button(text='▶️ Продолжить тест', callback_data='resume_test')
+            builder.button(text='🔄 Начать заново', callback_data='start_test_fresh')
+            builder.button(text='📖 Подробнее о тесте', callback_data='about_test')
+            builder.adjust(1)
+            
+            await message.answer(
+                f'⏸️ <b>У вас есть незавершённый тест!</b>\n\n'
+                f'Пройдено: <b>{completed} из 60 вопросов</b> ({percent}%)\n'
+                f'Осталось примерно <b>{minutes_left} минут</b>\n\n'
+                f'Хотите продолжить с того места, где остановились?',
+                reply_markup=builder.as_markup()
+            )
+            return
+
+    # === СТАНДАРТНОЕ ПРИВЕТСТВИЕ ===
     builder = InlineKeyboardBuilder()
-    builder.button(text='🚀 Начать тест',       callback_data='start_test')
+    builder.button(text='🚀 Начать тест', callback_data='start_test_fresh')
     builder.button(text='📖 Подробнее о тесте', callback_data='about_test')
     if user and user.get('test_completed'):
         builder.button(text='📋 Мой результат', callback_data='my_result')
     builder.adjust(1)
 
-    # Сначала картинка, потом текст с кнопками
     img_path = os.path.join(os.path.dirname(__file__), '..', 'assets', 'welcome.png')
     try:
         await message.answer_photo(photo=types.FSInputFile(img_path))
@@ -156,10 +190,85 @@ async def cmd_start(message: Message, state: FSMContext, pool: asyncpg.Pool):
 
     await message.answer(WELCOME_TEXT, reply_markup=builder.as_markup())
 
+
+# ============================================================
+# Возобновление теста
+# ============================================================
+
+@router.callback_query(F.data == 'resume_test')
+async def resume_test(callback: CallbackQuery, state: FSMContext, pool: asyncpg.Pool):
+    await callback.answer()
+    
+    user = await get_user(pool, callback.from_user.id)
+    if not user:
+        await callback.message.edit_text('❌ Ошибка. Нажмите /start')
+        return
+    
+    progress = await get_progress(pool, user['id'])
+    if not progress or progress['current_question'] >= 60:
+        await callback.message.edit_text('❌ Прогресс не найден или тест завершён. /start')
+        return
+    
+    questions = await get_questions(pool)
+    if not questions:
+        await callback.message.edit_text('❌ Вопросы не загружены.')
+        return
+    
+    await state.set_state(TestStates.in_progress)
+    await state.update_data(
+        answers=progress['answers'],
+        current_question=progress['current_question'],
+        questions=questions
+    )
+    
+    await callback.message.edit_text(
+        f'▶️ <b>Продолжаем!</b>\n\n'
+        f'Вопрос {progress["current_question"] + 1} из 60.\n'
+        f'Отвечайте честно — от этого зависит точность.'
+    )
+    
+    await send_question(callback.message, state, pool, edit=False)
+
+
+# ============================================================
+# Начать тест с чистого листа
+# ============================================================
+
+@router.callback_query(F.data == 'start_test_fresh')
+async def start_test_fresh(callback: CallbackQuery, state: FSMContext, pool: asyncpg.Pool):
+    """Начать тест с чистого листа — очищает старый прогресс."""
+    user = await get_user(pool, callback.from_user.id)
+    if user:
+        await clear_progress(pool, user['id'])
+    
+    try:
+        questions = await get_questions(pool)
+        if not questions:
+            await callback.message.edit_text('❌ Вопросы не загружены.')
+            return
+        
+        await state.set_state(TestStates.in_progress)
+        await state.update_data(answers=[], current_question=0, questions=questions)
+        
+        await callback.message.edit_text(
+            '✅ <b>Тест начался!</b>\n\n'
+            '60 вопросов, ~15 минут. Отвечайте честно — от этого зависит точность.'
+        )
+        await send_question(callback.message, state, pool, edit=False)
+        
+    except Exception as e:
+        logger.error(f"Start test error: {e}")
+        await callback.message.edit_text('❌ Ошибка. /start')
+
+
+# ============================================================
+# Старые хендлеры (about, back, share, myresult, help, admin)
+# ============================================================
+
 @router.callback_query(F.data == 'about_test')
 async def about_test(callback: CallbackQuery):
     builder = InlineKeyboardBuilder()
-    builder.button(text='🚀 Начать тест', callback_data='start_test')
+    builder.button(text='🚀 Начать тест', callback_data='start_test_fresh')
     builder.button(text='🔙 Назад', callback_data='back_to_start')
     builder.adjust(1)
     
@@ -187,38 +296,120 @@ async def about_test(callback: CallbackQuery):
     
     await callback.message.edit_text(about_text, reply_markup=builder.as_markup())
 
+
+@router.callback_query(F.data == 'share_result')
+async def cb_share_result(callback: CallbackQuery, pool: asyncpg.Pool):
+    await callback.answer()
+    try:
+        user = await get_user(pool, callback.from_user.id)
+        if not user:
+            await callback.message.answer('❌ Сначала пройдите тест.')
+            return
+
+        row = await get_last_result(pool, user['id'])
+        if not row:
+            await callback.message.answer('❌ Результатов нет. /start чтобы пройти тест.')
+            return
+
+        import json
+        normalized = json.loads(row['normalized_scores']) if isinstance(row['normalized_scores'], str) else dict(row['normalized_scores'])
+        riasec     = json.loads(row['riasec_profile'])    if isinstance(row['riasec_profile'], str)    else dict(row['riasec_profile'])
+        top        = json.loads(row['top_professions'])   if isinstance(row['top_professions'], str)    else list(row['top_professions'])
+
+        await callback.message.answer('🎨 Генерирую карточку...')
+
+        loop = asyncio.get_event_loop()
+        card_bytes = await loop.run_in_executor(
+            None,
+            lambda: generate_share_card(normalized, riasec, top)
+        )
+
+        await callback.message.answer_photo(
+            photo=types.BufferedInputFile(card_bytes, filename='careercheck.png'),
+            caption=(
+                '📤 <b>Сохрани и поделись результатом!</b>\n\n'
+                'Отправь друзьям — пусть тоже узнают свой тип 👇\n'
+                't.me/CareerCheck_Bot'
+            )
+        )
+
+    except Exception as e:
+        logger.error(f"Share card error: {e}")
+        await callback.message.answer('❌ Ошибка генерации карточки.')
+
+
 @router.callback_query(F.data == 'back_to_start')
 async def back_to_start(callback: CallbackQuery, pool: asyncpg.Pool):
     user = await get_user(pool, callback.from_user.id)
     builder = InlineKeyboardBuilder()
-    builder.button(text='🚀 Начать тест',        callback_data='start_test')
-    builder.button(text='📖 Подробнее о тесте',  callback_data='about_test')
+    builder.button(text='🚀 Начать тест', callback_data='start_test_fresh')
+    builder.button(text='📖 Подробнее о тесте', callback_data='about_test')
     if user and user.get('test_completed'):
-        builder.button(text='📋 Мой результат',  callback_data='my_result')
+        builder.button(text='📋 Мой результат', callback_data='my_result')
     builder.adjust(1)
     await callback.answer()
     await callback.message.answer(WELCOME_TEXT, reply_markup=builder.as_markup())
 
-@router.callback_query(F.data == 'start_test')
-async def start_test(callback: CallbackQuery, state: FSMContext, pool: asyncpg.Pool):
+
+# ============================================================
+# Обработка ответов с сохранением прогресса
+# ============================================================
+
+@router.callback_query(F.data.startswith('score_'))
+async def process_answer(callback: CallbackQuery, state: FSMContext, pool: asyncpg.Pool):
+    user_id = callback.from_user.id
+
+    if user_id in _processing_users:
+        await callback.answer('⏳ Подожди секунду...', show_alert=False)
+        return
+    _processing_users.add(user_id)
+
     try:
-        questions = await get_questions(pool)
-        if not questions:
-            await callback.message.edit_text('❌ Вопросы не загружены.')
+        await callback.answer()
+
+        score = int(callback.data.split('_')[1])
+        data = await state.get_data()
+        questions = data.get('questions', [])
+        current = data.get('current_question', 0)
+        answers = data.get('answers', [])
+        
+        if current >= len(questions):
+            logger.warning(f"PROCESS_ANSWER: current ({current}) >= len(questions) ({len(questions)}), ignoring")
             return
-        await state.set_state(TestStates.in_progress)
-        await state.update_data(answers=[], current_question=0, questions=questions)
-        await callback.message.edit_text('✅ Тест начался! Отвечайте честно — от этого зависит точность.')
+            
+        q = questions[current]
+        answers.append({
+            'question_id': q['id'],
+            'trait': q['trait'],
+            'is_inverted': q['is_inverted'],
+            'score': score
+        })
+        
+        next_question = current + 1
+        
+        # === СОХРАНЯЕМ ПРОГРЕСС В БД ===
+        user = await get_user(pool, callback.from_user.id)
+        if user:
+            await save_progress(pool, user['id'], answers, next_question)
+        
+        await state.update_data(answers=answers, current_question=next_question)
+        logger.info(f"PROCESS_ANSWER: Saved answer {next_question}/{len(questions)}")
+        
         await send_question(callback.message, state, pool, edit=True)
+        
     except Exception as e:
-        logger.error(f"Start test error: {e}")
-        await callback.message.edit_text('❌ Ошибка. /start')
+        logger.error(f"Process answer error: {e}")
+        await callback.message.answer('❌ Ошибка. /cancel')
+    finally:
+        _processing_users.discard(user_id)
+
 
 def _make_progress_bar(current: int, total: int, width: int = 12) -> str:
     filled = round(current / total * width)
     bar = '▓' * filled + '░' * (width - filled)
     percent = round(current / total * 100)
     return f'[{bar}] {percent}%'
+
 
 async def send_question(message: Message, state: FSMContext, pool: asyncpg.Pool, edit: bool = False):
     try:
@@ -246,10 +437,9 @@ async def send_question(message: Message, state: FSMContext, pool: asyncpg.Pool,
         builder.button(text='😐 Нейтрально', callback_data='score_3')
         builder.button(text='✅ Скорее да',  callback_data='score_4')
         builder.button(text='💯 Да',         callback_data='score_5')
-        builder.adjust(2, 1, 2)  # [❌ 🤔] [😐] [✅ 💯]
+        builder.adjust(2, 1, 2)
         
         if edit:
-            # Редактируем то же сообщение — предыдущий вопрос исчезает
             await message.edit_text(text, reply_markup=builder.as_markup())
         else:
             await message.answer(text, reply_markup=builder.as_markup())
@@ -257,48 +447,10 @@ async def send_question(message: Message, state: FSMContext, pool: asyncpg.Pool,
         logger.error(f"Send question error: {e}")
         await message.answer('❌ Ошибка. /cancel и /start')
 
-@router.callback_query(F.data.startswith('score_'))
-async def process_answer(callback: CallbackQuery, state: FSMContext, pool: asyncpg.Pool):
-    user_id = callback.from_user.id
 
-    # Защита от двойного нажатия
-    if user_id in _processing_users:
-        await callback.answer('⏳ Подожди секунду...', show_alert=False)
-        return
-    _processing_users.add(user_id)
-
-    try:
-        await callback.answer()  # убираем «часики» на кнопке
-
-        score = int(callback.data.split('_')[1])
-        data = await state.get_data()
-        questions = data.get('questions', [])
-        current = data.get('current_question', 0)
-        answers = data.get('answers', [])
-        
-        if current >= len(questions):
-            logger.warning(f"PROCESS_ANSWER: current ({current}) >= len(questions) ({len(questions)}), ignoring")
-            return
-            
-        q = questions[current]
-        answers.append({
-            'question_id': q['id'],
-            'trait': q['trait'],
-            'is_inverted': q['is_inverted'],
-            'score': score
-        })
-        
-        await state.update_data(answers=answers, current_question=current + 1)
-        logger.info(f"PROCESS_ANSWER: Saved answer {current + 1}/{len(questions)}")
-        
-        # edit=True — следующий вопрос заменяет текущее сообщение
-        await send_question(callback.message, state, pool, edit=True)
-        
-    except Exception as e:
-        logger.error(f"Process answer error: {e}")
-        await callback.message.answer('❌ Ошибка. /cancel')
-    finally:
-        _processing_users.discard(user_id)
+# ============================================================
+# Завершение теста — с очисткой прогресса
+# ============================================================
 
 async def finish_test(message: Message, state: FSMContext, pool: asyncpg.Pool):
     try:
@@ -317,12 +469,13 @@ async def finish_test(message: Message, state: FSMContext, pool: asyncpg.Pool):
         
         logger.info(f"FINISH_TEST: Calculated scores, top profession: {top_professions[0]['title'] if top_professions else 'None'}")
         
-        # Получаем пользователя по chat.id (это telegram_id)
         user = await get_user(pool, message.chat.id)
         if user:
             try:
                 await save_result(pool, user['id'], raw, normalized, riasec, top_professions)
-                logger.info(f"FINISH_TEST: Result saved for user_id={user['id']}")
+                # === ОЧИЩАЕМ ПРОГРЕСС ===
+                await clear_progress(pool, user['id'])
+                logger.info(f"FINISH_TEST: Result saved, progress cleared for user_id={user['id']}")
             except Exception as e:
                 logger.error(f"FINISH_TEST: save_result failed: {e}")
                 import traceback
@@ -407,7 +560,7 @@ async def finish_test(message: Message, state: FSMContext, pool: asyncpg.Pool):
             
             await message.answer(prof_text)
         
-        # Генерируем PDF в отдельном потоке — не блокируем event loop
+        # Генерируем PDF
         try:
             user_data = {
                 'name': message.from_user.full_name or 'Пользователь',
@@ -424,7 +577,7 @@ async def finish_test(message: Message, state: FSMContext, pool: asyncpg.Pool):
 
             loop = asyncio.get_event_loop()
             pdf_path = await loop.run_in_executor(
-                None,  # использует ThreadPoolExecutor по умолчанию
+                None,
                 lambda: generate_pdf(
                     user_data=user_data,
                     normalized_scores=normalized,
@@ -449,7 +602,8 @@ async def finish_test(message: Message, state: FSMContext, pool: asyncpg.Pool):
 
         builder = InlineKeyboardBuilder()
         builder.button(text='🏠 На главную',    callback_data='back_to_start')
-        builder.button(text='🔄 Пройти заново', callback_data='start_test')
+        builder.button(text='📤 Поделиться',    callback_data='share_result')
+        builder.button(text='🔄 Пройти заново', callback_data='start_test_fresh')
         builder.adjust(1)
         await message.answer(
             '✨ <b>Готово!</b> Что дальше?',
@@ -462,6 +616,76 @@ async def finish_test(message: Message, state: FSMContext, pool: asyncpg.Pool):
         import traceback
         logger.error(traceback.format_exc())
         await message.answer('❌ Ошибка обработки. /cancel и /start')
+
+
+# ============================================================
+# /cancel — с сохранением прогресса
+# ============================================================
+
+@router.message(Command('cancel'))
+async def cmd_cancel(message: Message, state: FSMContext, pool: asyncpg.Pool):
+    current_state = await state.get_state()
+    
+    if current_state == TestStates.in_progress:
+        data = await state.get_data()
+        current = data.get('current_question', 0)
+        
+        if current > 0:
+            builder = InlineKeyboardBuilder()
+            builder.button(text='💾 Сохранить прогресс', callback_data='save_and_exit')
+            builder.button(text='🗑️ Удалить прогресс', callback_data='clear_and_exit')
+            builder.adjust(1)
+            
+            await message.answer(
+                f'⚠️ <b>Тест не завершён!</b>\n\n'
+                f'Вы ответили на <b>{current} из 60</b> вопросов.\n'
+                f'Сохранить прогресс, чтобы продолжить позже?',
+                reply_markup=builder.as_markup()
+            )
+            return
+    
+    await state.clear()
+    await message.answer('❌ Отменено. /start для начала.')
+
+
+@router.callback_query(F.data == 'save_and_exit')
+async def save_and_exit(callback: CallbackQuery, state: FSMContext, pool: asyncpg.Pool):
+    """Прогресс уже сохранён в БД через save_progress — просто очищаем FSM state."""
+    await callback.answer('💾 Прогресс сохранён')
+    # Убеждаемся что прогресс точно в БД (на случай если save_progress не успел)
+    try:
+        data = await state.get_data()
+        answers = data.get('answers', [])
+        current = data.get('current_question', 0)
+        if answers and current > 0:
+            user = await get_user(pool, callback.from_user.id)
+            if user:
+                await save_progress(pool, user['id'], answers, current)
+    except Exception as e:
+        logger.warning(f"save_and_exit: extra save failed: {e}")
+
+    await state.clear()
+    await callback.message.edit_text(
+        '✅ <b>Прогресс сохранён!</b>\n\n'
+        f'Вернитесь в любое время — продолжите с того же вопроса.\n'
+        'Нажмите /start — бот предложит продолжить.'
+    )
+
+
+@router.callback_query(F.data == 'clear_and_exit')
+async def clear_and_exit(callback: CallbackQuery, state: FSMContext, pool: asyncpg.Pool):
+    user = await get_user(pool, callback.from_user.id)
+    if user:
+        await clear_progress(pool, user['id'])
+    
+    await callback.answer('🗑️ Прогресс удалён')
+    await state.clear()
+    await callback.message.edit_text('❌ Тест отменён. /start для начала.')
+
+
+# ============================================================
+# Остальные команды (admin, myresult, help)
+# ============================================================
 
 @router.message(Command('admin'))
 async def cmd_admin(message: Message, pool: asyncpg.Pool):
@@ -512,6 +736,7 @@ async def cmd_admin(message: Message, pool: asyncpg.Pool):
     except Exception as e:
         logger.error(f"Admin error: {e}")
         await message.answer('❌ Ошибка загрузки статистики')
+
 
 @router.callback_query(F.data == 'my_result')
 async def cb_my_result(callback: CallbackQuery, pool: asyncpg.Pool):
@@ -568,7 +793,8 @@ async def _show_myresult(message: Message, telegram_id: int, pool: asyncpg.Pool)
             text += f'{medals[i]} {prof["title"]} — {prof["match"]}%\n'
 
         builder = InlineKeyboardBuilder()
-        builder.button(text='🔄 Пройти заново', callback_data='start_test')
+        builder.button(text='📤 Поделиться',    callback_data='share_result')
+        builder.button(text='🔄 Пройти заново', callback_data='start_test_fresh')
         builder.adjust(1)
 
         await message.answer(text, reply_markup=builder.as_markup())
@@ -591,8 +817,3 @@ async def cmd_help(message: Message):
         '30 профессий с детальным разбором.\n\n'
         'Отвечайте честно — алгоритм уловит несоответствие.'
     )
-
-@router.message(Command('cancel'))
-async def cmd_cancel(message: Message, state: FSMContext):
-    await state.clear()
-    await message.answer('❌ Отменено. /start для начала.')

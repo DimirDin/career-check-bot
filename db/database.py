@@ -153,3 +153,66 @@ async def get_stats(pool: asyncpg.Pool):
         'avg_scores':  dict(avg_scores) if avg_scores else {},
         'top_profs':   [dict(r) for r in top_profs] if top_profs else [],
     }
+
+
+# ============================================================
+# НОВЫЕ ФУНКЦИИ: СОХРАНЕНИЕ ПРОГРЕССА ТЕСТА
+# ============================================================
+
+async def save_progress(pool: asyncpg.Pool, user_id: int, answers: list, current_question: int):
+    """Сохраняет прогресс теста после каждого ответа."""
+    async with pool.acquire() as conn:
+        await conn.execute(
+            '''INSERT INTO test_progress (user_id, answers, current_question)
+               VALUES ($1, $2, $3)
+               ON CONFLICT (user_id) DO UPDATE SET
+                   answers = EXCLUDED.answers,
+                   current_question = EXCLUDED.current_question,
+                   updated_at = NOW()''',
+            user_id, json.dumps(answers), current_question
+        )
+    logger.info(f"PROGRESS SAVED: user_id={user_id}, question {current_question}/60")
+
+
+async def get_progress(pool: asyncpg.Pool, user_id: int):
+    """Возвращает сохранённый прогресс или None."""
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            'SELECT answers, current_question FROM test_progress WHERE user_id = $1',
+            user_id
+        )
+        if not row:
+            return None
+        
+        answers = row['answers']
+        if isinstance(answers, str):
+            answers = json.loads(answers)
+        
+        return {
+            'answers': answers,
+            'current_question': row['current_question']
+        }
+
+
+async def clear_progress(pool: asyncpg.Pool, user_id: int):
+    """Удаляет прогресс при завершении или отмене теста."""
+    async with pool.acquire() as conn:
+        result = await conn.execute(
+            'DELETE FROM test_progress WHERE user_id = $1',
+            user_id
+        )
+        if result != "DELETE 0":
+            logger.info(f"PROGRESS CLEARED: user_id={user_id}")
+
+
+async def cleanup_old_progress(pool: asyncpg.Pool, days: int = 7):
+    """TTL: удаляет прогресс старше N дней. Вызывать при старте бота."""
+    async with pool.acquire() as conn:
+        result = await conn.execute(
+            'DELETE FROM test_progress WHERE updated_at < NOW() - make_interval(days => $1)',
+            days
+        )
+        deleted = int(result.split()[-1]) if result.split()[-1].isdigit() else 0
+        if deleted > 0:
+            logger.info(f"TTL CLEANUP: deleted {deleted} old progress records")
+        return deleted

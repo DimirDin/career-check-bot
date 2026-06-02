@@ -228,7 +228,7 @@ async def resume_test(callback: CallbackQuery, state: FSMContext, pool: asyncpg.
         f'Отвечайте честно — от этого зависит точность.'
     )
     
-    await send_question(callback.message, state, pool, edit=False)
+    await send_question(callback.message, state, pool, edit=False, telegram_user=callback.from_user)
 
 
 # ============================================================
@@ -256,7 +256,7 @@ async def start_test_fresh(callback: CallbackQuery, state: FSMContext, pool: asy
             '✅ <b>Тест начался!</b>\n\n'
             '60 вопросов, ~15 минут. Отвечайте честно — от этого зависит точность.'
         )
-        await send_question(callback.message, state, pool, edit=False)
+        await send_question(callback.message, state, pool, edit=False, telegram_user=callback.from_user)
         
     except Exception as e:
         logger.error(f"Start test error: {e}")
@@ -425,7 +425,7 @@ async def process_answer(callback: CallbackQuery, state: FSMContext, pool: async
                     f'<i>Продолжайте — просто отвечайте так, как есть на самом деле.</i>'
                 )
 
-        await send_question(callback.message, state, pool, edit=True)
+        await send_question(callback.message, state, pool, edit=True, telegram_user=callback.from_user)
         
     except Exception as e:
         logger.error(f"Process answer error: {e}")
@@ -441,7 +441,7 @@ def _make_progress_bar(current: int, total: int, width: int = 12) -> str:
     return f'[{bar}] {percent}%'
 
 
-async def send_question(message: Message, state: FSMContext, pool: asyncpg.Pool, edit: bool = False):
+async def send_question(message: Message, state: FSMContext, pool: asyncpg.Pool, edit: bool = False, telegram_user=None):
     try:
         data = await state.get_data()
         questions = data.get('questions', [])
@@ -449,7 +449,7 @@ async def send_question(message: Message, state: FSMContext, pool: asyncpg.Pool,
         
         if current >= len(questions):
             logger.info(f"SEND_QUESTION: Test complete, calling finish_test (current={current}, total={len(questions)})")
-            await finish_test(message, state, pool)
+            await finish_test(message, state, pool, telegram_user=telegram_user)
             return
             
         q = questions[current]
@@ -482,7 +482,7 @@ async def send_question(message: Message, state: FSMContext, pool: asyncpg.Pool,
 # Завершение теста — с очисткой прогресса
 # ============================================================
 
-async def finish_test(message: Message, state: FSMContext, pool: asyncpg.Pool):
+async def finish_test(message: Message, state: FSMContext, pool: asyncpg.Pool, telegram_user=None):
     try:
         data = await state.get_data()
         answers = data.get('answers', [])
@@ -593,9 +593,9 @@ async def finish_test(message: Message, state: FSMContext, pool: asyncpg.Pool):
         # Генерируем PDF
         try:
             user_data = {
-                'name': message.from_user.full_name or 'Пользователь',
+                'full_name': (telegram_user.full_name if telegram_user else None) or message.from_user.full_name or 'Пользователь',
                 'date': datetime.now().strftime('%d.%m.%Y'),
-                'telegram_id': message.chat.id
+                'telegram_id': message.chat.id,
             }
 
             details_list = []
@@ -606,24 +606,21 @@ async def finish_test(message: Message, state: FSMContext, pool: asyncpg.Pool):
             await message.answer('📄 Генерирую PDF-отчёт, секунду...')
 
             loop = asyncio.get_event_loop()
-            pdf_path = await loop.run_in_executor(
+            pdf_bytes = await loop.run_in_executor(
                 None,
                 lambda: generate_pdf(
                     user_data=user_data,
                     normalized_scores=normalized,
                     riasec=riasec,
                     top_professions=top_professions,
-                    details_list=details_list
+                    details_list=details_list,
                 )
             )
 
             await message.answer_document(
-                document=types.FSInputFile(pdf_path),
-                caption='📄 Ваш персональный отчёт CAREERCHECK'
+                document=types.BufferedInputFile(pdf_bytes, filename='careercheck.pdf'),
+                caption='📄 Ваш персональный отчёт CareerCheck',
             )
-
-            if os.path.exists(pdf_path):
-                os.remove(pdf_path)
 
         except Exception as e:
             logger.error(f"PDF generation error: {e}")

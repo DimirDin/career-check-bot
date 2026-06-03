@@ -18,3 +18,6 @@ REDIS_CONFIG = {
     'port': int(os.getenv('REDIS_PORT', 6379)),
     'decode_responses': True
 }
+
+# Админы бота (telegram_id)
+ADMIN_IDS = [756303]  # замени на свои ID

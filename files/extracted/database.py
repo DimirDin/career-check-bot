@@ -110,7 +110,7 @@ async def get_profession_details(pool: asyncpg.Pool, title: str, lang: str = "ru
     async with pool.acquire() as conn:
         if lang == "ru":
             row = await conn.fetchrow(
-                '''SELECT pd.profession_id, pd.reality, pd.pros, pd.cons FROM profession_details pd
+                '''SELECT pd.* FROM profession_details pd
                    JOIN professions p ON p.id = pd.profession_id
                    WHERE p.title = $1''', title
             )
@@ -119,7 +119,7 @@ async def get_profession_details(pool: asyncpg.Pool, title: str, lang: str = "ru
             pros_col= _lang_col("pros",    lang)
             cons_col= _lang_col("cons",    lang)
             row = await conn.fetchrow(
-                f'''SELECT pd.profession_id,
+                f'''SELECT pd.id, pd.profession_id,
                        COALESCE(pd.{r_col}, pd.reality) AS reality,
                        COALESCE(pd.{pros_col}, pd.pros) AS pros,
                        COALESCE(pd.{cons_col}, pd.cons) AS cons
@@ -154,7 +154,7 @@ async def get_profession_details_by_title_lang(
 
         if lang == "ru":
             row = await conn.fetchrow(
-                f'''SELECT pd.profession_id, pd.reality, pd.pros, pd.cons FROM profession_details pd
+                f'''SELECT pd.* FROM profession_details pd
                    JOIN professions p ON p.id = pd.profession_id
                    WHERE p.title = $1''', title_localized
             )
@@ -163,7 +163,7 @@ async def get_profession_details_by_title_lang(
             pros_col = _lang_col("pros", lang)
             cons_col = _lang_col("cons", lang)
             row = await conn.fetchrow(
-                f'''SELECT pd.profession_id,
+                f'''SELECT pd.id, pd.profession_id,
                        COALESCE(pd.{r_col}, pd.reality) AS reality,
                        COALESCE(pd.{pros_col}, pd.pros) AS pros,
                        COALESCE(pd.{cons_col}, pd.cons) AS cons

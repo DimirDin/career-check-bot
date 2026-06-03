@@ -122,12 +122,16 @@ async def cmd_start(message: Message, state: FSMContext, pool: asyncpg.Pool):
             logger.info(f"Created new user: {message.from_user.id}, lang={lang}")
             user = await get_user(pool, message.from_user.id)
         else:
-            # Всегда обновляем язык из Telegram — пользователь мог сменить язык
-            await update_user_lang(pool, message.from_user.id, lang)
+            # Обновляем язык если пользователь поменял его в Telegram
+            if user.get('lang') != lang:
+                await update_user_lang(pool, message.from_user.id, lang)
     except Exception as e:
         logger.error(f"DB create_user error: {e}")
 
-    # lang уже определён из Telegram — НЕ перезаписываем из БД
+    # Получаем актуальный язык из БД (у вернувшегося пользователя может быть другой)
+    if user and user.get('lang'):
+        lang = user['lang']
+        t    = lambda key, **kw: get_text(key, lang, **kw)
 
     # ── Проверяем незавершённый тест ──────────────────────────────────────────
     if user:

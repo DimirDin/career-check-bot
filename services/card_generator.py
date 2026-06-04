@@ -1,8 +1,9 @@
 """
-CareerCheck — sharing card generator v2.
-Изменения v2:
+CareerCheck — sharing card generator v3 Aurora.
+Изменения v3:
+- Тема Aurora: мятный (#00d4aa) + индиго (#6c5ce7)
+- Убран @Dimirdin, добавлен @CareerCheckSupport
 - Принимает lang: str для локализации подписей
-- @Dimirdin в футере
 """
 
 import io
@@ -33,20 +34,21 @@ def _fp(bold=False, size=10):
         return fm.FontProperties(fname=path, size=size)
     return fm.FontProperties(size=size)
 
-# ── Палитра ───────────────────────────────────────────────────────────────────
-BG       = "#0d0d1a"
-BG_PANEL = "#12122a"
-PURPLE   = "#7c3aed"
-BLUE     = "#3b82f6"
-CYAN     = "#06b6d4"
-GREEN    = "#10b981"
-ORANGE   = "#f59e0b"
+# ── Палитра Aurora ────────────────────────────────────────────────────────────
+# Фон: #080e1a  Мятный: #00d4aa  Индиго: #6c5ce7
+BG       = "#080e1a"   # основной фон
+BG_PANEL = "#0d1829"   # панели
+PURPLE   = "#6c5ce7"   # индиго — главный фиолетовый акцент
+BLUE     = "#00b4d8"   # голубой
+CYAN     = "#00d4aa"   # мятный — главный акцент
+GREEN    = "#a8ff78"   # лаймовый
+ORANGE   = "#fdcb6e"   # янтарный
 WHITE    = "#ffffff"
-GRAY     = "#94a3b8"
-DIM      = "#334155"
-GOLD     = "#fbbf24"
-SILVER   = "#94a3b8"
-BRONZE   = "#cd7c3f"
+GRAY     = "#8892a4"
+DIM      = "#1a2840"
+GOLD     = "#ffd700"
+SILVER   = "#8892a4"
+BRONZE   = "#cd8f5a"
 
 TRAIT_COLORS = [PURPLE, BLUE, ORANGE, GREEN, CYAN]
 TRAIT_KEYS   = ["O", "C", "E", "A", "S"]
@@ -122,7 +124,7 @@ def generate_share_card(
     fig.text(0.06, 0.965, "CAREER", fontproperties=_fp(bold=True, size=22),
              color=WHITE, va='top', transform=fig.transFigure)
     fig.text(0.345, 0.965, "CHECK", fontproperties=_fp(bold=True, size=22),
-             color=PURPLE, va='top', transform=fig.transFigure)
+             color=CYAN, va='top', transform=fig.transFigure)
 
     fig.text(0.06, 0.935, t("card_your_type"),
              fontproperties=_fp(size=9), color=GRAY,
@@ -246,9 +248,9 @@ def generate_share_card(
     fig.text(0.06, 0.035, t("card_footer"),
              fontproperties=_fp(size=8), color=GRAY,
              transform=fig.transFigure)
-    # @Dimirdin — правый угол футера
-    fig.text(0.94, 0.035, "@Dimirdin",
-             fontproperties=_fp(size=7), color=PURPLE,
+    # Футер — бот поддержки
+    fig.text(0.94, 0.035, "@CareerCheckSupport",
+             fontproperties=_fp(size=7), color=CYAN,
              transform=fig.transFigure, ha='right')
 
     # ── Экспорт ───────────────────────────────────────────────────────────────

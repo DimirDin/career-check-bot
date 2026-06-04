@@ -128,6 +128,9 @@ STRINGS: dict[str, str] = {
         "<b>Paso 3:</b> Mapeo a 6 tipos de carrera (RIASEC)\n"
         "<b>Paso 4:</b> Comparación con 30 profesiones reales\n"
         "<b>Paso 5:</b> Análisis personalizado con recomendaciones\n\n"
+        "<b>🔬 Base científica:</b>\n"
+        "• Big Five — el modelo de personalidad más validado (miles de estudios)\n"
+        "• RIASEC — teoría de John Holland, más de 50 años en orientación profesional\n\n"
         "<b>⚠️ Importante:</b>\n"
         "• No hay respuestas correctas — sé honesto\n"
         "• El resultado es un punto de partida, no un veredicto\n"
@@ -142,7 +145,9 @@ STRINGS: dict[str, str] = {
         "/help — ayuda\n"
         "/cancel — cancelar el test\n\n"
         "<b>Sobre el test:</b>\n"
-        "60 preguntas, 15 minutos, modelo científico Big Five + RIASEC.\n\n"
+        "60 preguntas, 15 minutos, modelo científico Big Five + RIASEC.\n"
+        "30 profesiones con análisis detallado.\n\n"
+        "Responde con honestidad — el algoritmo detectará inconsistencias.\n\n"
         "<i>Creado por @Dimirdin</i>"
     ),
 

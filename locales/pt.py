@@ -21,7 +21,7 @@ STRINGS: dict[str, str] = {
         "• <b>Amabilidade (A)</b> — empatia, harmonia, cuidado com os outros\n"
         "• <b>Estabilidade emocional (S)</b> — resiliência ao estresse, confiança, calma\n\n"
         "<b>🎯 O QUE VOCÊ VAI RECEBER</b>\n\n"
-        "Não apenas «você seria um bom gerente».\n"
+        "Não apenas ).replace('»', você seria um bom gerente».\n"
         "Uma análise detalhada: por quê, quanto, o que será difícil, "
         "como melhorar — a realidade da profissão sem rodeios.\n\n"
         "<b>🏆 30 PROFISSÕES — DO TÉCNICO AO EMPREENDEDOR</b>\n\n"
@@ -123,11 +123,14 @@ STRINGS: dict[str, str] = {
 
     "about_text": (
         "<b>📚 COMO O TESTE FUNCIONA</b>\n\n"
-        "<b>Passo 1:</b> 60 perguntas numa escala de «discordo totalmente» a «concordo totalmente»\n"
+        "<b>Passo 1:</b> 60 perguntas numa escala de ).replace('»', discordo totalmente» a ).replace('»', concordo totalmente»\n"
         "<b>Passo 2:</b> O algoritmo calcula 5 traços de personalidade (Big Five)\n"
         "<b>Passo 3:</b> Mapeamento para 6 tipos de carreira (RIASEC)\n"
         "<b>Passo 4:</b> Correspondência com 30 profissões reais\n"
         "<b>Passo 5:</b> Análise personalizada com recomendações\n\n"
+        "<b>🔬 Base científica:</b>\n"
+        "• Big Five — o modelo de personalidade mais validado (milhares de estudos)\n"
+        "• RIASEC — teoria de John Holland, mais de 50 anos em orientação profissional\n\n"
         "<b>⚠️ Importante:</b>\n"
         "• Não há respostas certas — seja honesto\n"
         "• O resultado é um ponto de partida, não um veredito\n"
@@ -142,7 +145,9 @@ STRINGS: dict[str, str] = {
         "/help — ajuda\n"
         "/cancel — cancelar o teste\n\n"
         "<b>Sobre o teste:</b>\n"
-        "60 perguntas, 15 minutos, modelo científico Big Five + RIASEC.\n\n"
+        "60 perguntas, 15 minutos, modelo científico Big Five + RIASEC.\n"
+        "30 profissões com análise detalhada.\n\n"
+        "Responda com honestidade — o algoritmo detectará inconsistências.\n\n"
         "<i>Criado por @Dimirdin</i>"
     ),
 
@@ -182,13 +187,13 @@ STRINGS: dict[str, str] = {
         "Você não suporta modelos prontos. Seu valor é a unicidade de perspectiva e estilo. "
         "Você cria o que antes não existia.\n\n"
         "<b>Seu superpoder:</b> ver beleza e significado onde outros não veem nada.\n"
-        "<b>Seu ponto cego:</b> prazos, burocracia, «faça como todos».\n\n"
+        "<b>Seu ponto cego:</b> prazos, burocracia, ).replace('»', faça como todos».\n\n"
         "<b>Melhores ambientes:</b> estúdios, agências, freelance, palco\n"
         "<b>Piores ambientes:</b> bancos, corporações rígidas, linha de produção"
     ),
     "riasec_S": (
         "🤝 <b>Social (Social)</b>\n\n"
-        "Você se energiza com as pessoas. Não apenas «gostar de pessoas» — você as entende, "
+        "Você se energiza com as pessoas. Não apenas ).replace('»', gostar de pessoas» — você as entende, "
         "as sente, ajuda a crescer.\n\n"
         "<b>Seu superpoder:</b> criar confiança em minutos, não meses.\n"
         "<b>Seu ponto cego:</b> conflitos não resolvidos, trabalho isolado.\n\n"
@@ -209,7 +214,7 @@ STRINGS: dict[str, str] = {
         "Você é o pilar. Em um mundo de caos você cria ordem. "
         "Você precisa de clareza: quem, o quê, quando, quanto.\n\n"
         "<b>Seu superpoder:</b> simplificar o complexo através de sistemas e processos.\n"
-        "<b>Seu ponto cego:</b> incerteza, «descubra você mesmo», mudanças constantes.\n\n"
+        "<b>Seu ponto cego:</b> incerteza, ).replace('»', descubra você mesmo», mudanças constantes.\n\n"
         "<b>Melhores ambientes:</b> contabilidade, administração, auditoria, logística\n"
         "<b>Piores ambientes:</b> startups sem processos, caos criativo"
     ),

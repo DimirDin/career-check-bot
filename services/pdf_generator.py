@@ -1,8 +1,8 @@
 """
-CareerCheck — тёмный PDF-отчёт v4.
-Изменения v4:
-- Принимает lang: str для локализации всех текстов
-- Добавлен @Dimirdin в футер
+CareerCheck — тёмный PDF-отчёт v5 Aurora.
+Изменения v5:
+- Тема Aurora: мятный (#00d4aa) + индиго (#6c5ce7)
+- Убран @Dimirdin, добавлен @CareerCheckSupport
 """
 
 import os
@@ -27,30 +27,31 @@ logger = logging.getLogger(__name__)
 W, H = A4
 M    = 18 * mm
 
-# ── Палитра ───────────────────────────────────────────────────────────────────
-BG        = (0.051, 0.051, 0.102)
-PANEL     = (0.071, 0.071, 0.165)
-PANEL2    = (0.090, 0.090, 0.200)
-PURPLE    = (0.486, 0.227, 0.929)
-BLUE      = (0.231, 0.510, 0.965)
-CYAN      = (0.024, 0.714, 0.831)
-GREEN     = (0.063, 0.725, 0.506)
-ORANGE    = (0.961, 0.620, 0.043)
+# ── Палитра Aurora ────────────────────────────────────────────────────────────
+# Фон: #080e1a  Мятный акцент: #00d4aa  Индиго: #6c5ce7
+BG        = (0.031, 0.055, 0.102)   # #080e1a — почти чёрный с синевой
+PANEL     = (0.051, 0.094, 0.161)   # #0d1829 — панели
+PANEL2    = (0.071, 0.125, 0.220)   # #122038 — выделенные панели
+PURPLE    = (0.424, 0.361, 0.906)   # #6c5ce7 — индиго (главный фиолетовый)
+BLUE      = (0.000, 0.706, 0.847)   # #00b4d8 — голубой
+CYAN      = (0.000, 0.831, 0.667)   # #00d4aa — мятный (главный акцент)
+GREEN     = (0.659, 1.000, 0.471)   # #a8ff78 — лаймовый
+ORANGE    = (0.992, 0.796, 0.431)   # #fdcb6e — тёплый янтарный
 WHITE     = (1, 1, 1)
-GRAY      = (0.580, 0.635, 0.722)
-DIM       = (0.118, 0.141, 0.251)
-GOLD      = (0.984, 0.749, 0.141)
-SILVER    = (0.580, 0.635, 0.722)
-BRONZE    = (0.804, 0.486, 0.247)
-MUTED     = (0.290, 0.318, 0.376)
-DARK_TEXT = (0.500, 0.560, 0.650)
-RED_SOFT  = (0.929, 0.267, 0.267)
-GREEN_SOFT= (0.063, 0.725, 0.506)
+GRAY      = (0.533, 0.573, 0.643)   # #8892a4 — нейтральный серый
+DIM       = (0.102, 0.157, 0.251)   # #1a2840 — разделители
+GOLD      = (1.000, 0.843, 0.000)   # #ffd700 — золото (медали)
+SILVER    = (0.533, 0.573, 0.643)   # #8892a4 — серебро
+BRONZE    = (0.804, 0.561, 0.353)   # #cd8f5a — бронза
+MUTED     = (0.239, 0.314, 0.408)   # #3d5068 — приглушённый текст
+DARK_TEXT = (0.353, 0.478, 0.588)   # #5a7a96 — тёмный вспомогательный
+RED_SOFT  = (1.000, 0.420, 0.420)   # #ff6b6b — мягкий красный (минусы)
+GREEN_SOFT= (0.000, 0.831, 0.667)   # #00d4aa — мятный (плюсы)
 
-TRAIT_COLORS  = [PURPLE, BLUE, ORANGE, GREEN, CYAN]
+TRAIT_COLORS  = [CYAN, PURPLE, ORANGE, GREEN, BLUE]   # O C E A S
 TRAIT_KEYS    = ['O', 'C', 'E', 'A', 'S']
 RIASEC_KEYS   = ['R', 'I', 'A', 'S', 'E', 'C']
-RIASEC_COLORS = [GRAY, PURPLE, ORANGE, GREEN, BLUE, CYAN]
+RIASEC_COLORS = [GRAY, CYAN, ORANGE, GREEN, PURPLE, BLUE]
 MEDAL_COLORS  = [GOLD, SILVER, BRONZE]
 MEDALS        = ['#1', '#2', '#3']
 
@@ -143,15 +144,16 @@ def multiline(c, x, y, s, font, size, color, max_w, lh):
     return y
 
 def gradient_bar(c, x, y, length, thickness=3):
+    """Градиент мятный → индиго (Aurora)."""
     n = 60; dx = length / n
     for i in range(n):
         t2 = i / n
         if t2 < 0.5:
             t3  = t2 * 2
-            col = tuple(PURPLE[j]*(1-t3) + BLUE[j]*t3 for j in range(3))
+            col = tuple(CYAN[j]*(1-t3) + BLUE[j]*t3 for j in range(3))
         else:
             t3  = (t2 - 0.5) * 2
-            col = tuple(BLUE[j]*(1-t3) + CYAN[j]*t3 for j in range(3))
+            col = tuple(BLUE[j]*(1-t3) + PURPLE[j]*t3 for j in range(3))
         srgb(c, col); c.setLineWidth(thickness)
         c.line(x + i*dx, y, x + (i+1)*dx, y)
 
@@ -267,7 +269,7 @@ def draw_footer(c, page_num, total, lang):
     y = 13*mm
     srgb(c, DIM); c.setLineWidth(0.4); c.line(M, y, W-M, y)
     y -= 8
-    text(c, M,   y, get_text("pdf_footer_left",   lang), FONT_REG, 6, MUTED)
+    text(c, M,   y, "@CareerCheckSupport  ·  careercheck.app", FONT_REG, 6, MUTED)
     text(c, W/2, y, get_text("pdf_footer_center", lang), FONT_REG, 6, MUTED, align='center')
     text(c, W-M, y, f'{page_num} / {total}',              FONT_REG, 6, MUTED, align='right')
 

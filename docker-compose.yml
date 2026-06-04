@@ -1,23 +1,66 @@
 version: '3.8'
 
 services:
-  postgres:
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: python main.py
+    env_file: .env
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    networks: [internal]
+
+  webapp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: uvicorn webapp.server:app --host 0.0.0.0 --port 8000 --workers 2
+    env_file: .env
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    networks: [internal, web]
+
+  db:
     image: postgres:16-alpine
     container_name: career_db
+    restart: unless-stopped
     environment:
-      POSTGRES_USER: career_user
-      POSTGRES_PASSWORD: career_pass
-      POSTGRES_DB: career_db
-    ports:
-      - "5432:5432"
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - pgdata:/var/lib/postgresql/data
+    networks: [internal]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   redis:
     image: redis:7-alpine
     container_name: career_redis
-    ports:
-      - "6379:6379"
+    restart: unless-stopped
+    networks: [internal]
+
+  watchtower:
+    image: containrrr/watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: --interval 86400 --cleanup
+    networks: [internal]
 
 volumes:
   pgdata:
+
+networks:
+  internal:
+    driver: bridge
+  web:
+    driver: bridge

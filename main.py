@@ -10,6 +10,7 @@ from aiogram.enums import ParseMode
 
 from config.settings import BOT_TOKEN, DB_CONFIG
 from bot.handlers import router
+from bot.premium_handlers import premium_router
 from db.database import cleanup_old_progress
 from middlewares.rate_limit import RateLimitMiddleware
 
@@ -100,6 +101,7 @@ async def main() -> None:
     logger.info("Rate limit middleware registered")
 
     dp.include_router(router)
+    dp.include_router(premium_router)
 
     # Пул доступен во всех хендлерах через аргумент pool=
     dp["pool"] = pool

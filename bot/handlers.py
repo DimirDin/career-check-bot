@@ -18,6 +18,7 @@ from db.database import (
 )
 from services.calculator import calculate_scores, calculate_riasec, match_professions
 from services.pdf_generator import generate_pdf
+from bot.premium_handlers import premium_keyboard
 from services.card_generator import generate_share_card
 from config.settings import ADMIN_IDS
 from locales import get_text, resolve_lang
@@ -527,42 +528,16 @@ async def finish_test(
 
             await message.answer(prof_text)
 
-        # PDF
-        try:
-            user_data = {
-                'full_name': (telegram_user.full_name if telegram_user else None)
-                              or message.from_user.full_name or 'User',
-                'date': datetime.now().strftime('%d.%m.%Y'),
-                'telegram_id': message.chat.id,
-            }
-
-            details_list = []
-            for p in top_professions[:3]:
-                det = await get_profession_details_by_title_lang(pool, p['title'], lang)
-                details_list.append(det or {})
-
-            await message.answer(t("generating_pdf"))
-
-            loop     = asyncio.get_event_loop()
-            pdf_bytes = await loop.run_in_executor(
-                None,
-                lambda: generate_pdf(
-                    user_data=user_data,
-                    normalized_scores=normalized,
-                    riasec=riasec,
-                    top_professions=top_professions,
-                    details_list=details_list,
-                    lang=lang,
-                )
-            )
-
-            await message.answer_document(
-                document=types.BufferedInputFile(pdf_bytes, filename='careercheck.pdf'),
-                caption=t("pdf_caption"),
-            )
-
-        except Exception as e:
-            logger.error(f"PDF generation error: {e}", exc_info=True)
+        # Premium PDF offer
+        await message.answer(
+            "🌟 <b>Хотите детальный отчёт?</b>\n\n"
+            "Premium PDF — 6 страниц с персональным AI-анализом:\n"
+            "• Психологический портрет\n"
+            "• Карьерное видение на 5 и 10 лет\n"
+            "• Роадмап и конкретные шаги\n\n"
+            "Всего <b>99 Stars</b> (~$1)",
+            reply_markup=premium_keyboard(lang),
+        )
 
         builder = InlineKeyboardBuilder()
         builder.button(text=t("btn_home"),    callback_data='back_to_start')

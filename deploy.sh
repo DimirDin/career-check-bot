@@ -131,9 +131,10 @@ cmd_db_backup() {
 
     echo "✅ Бекап сохранён: $BACKUP_FILE ($(du -h "$BACKUP_FILE" | cut -f1))"
 
-    # Удаляем бекапы старше 30 дней
-    find "$BACKUP_DIR" -name "*.sql.gz" -mtime +30 -delete
-    echo "Бекапы старше 30 дней удалены"
+    # Удаляем бекапы старше 30 дней (оставляем минимум 14 последних)
+    ls -t "$BACKUP_DIR"/careercheck_*.sql.gz 2>/dev/null | tail -n +15 | xargs -r rm
+    find "$BACKUP_DIR" -name "careercheck_*.sql.gz" -mtime +30 -delete
+    echo "Старые бекапы удалены"
 }
 
 # ─────────────────────────────────────────────────────────────────

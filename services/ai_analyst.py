@@ -7,6 +7,8 @@ import logging
 import anthropic
 from typing import Optional
 
+from services.circuit_breaker import anthropic_breaker
+
 logger = logging.getLogger(__name__)
 
 MODEL = "claude-sonnet-4-20250514"
@@ -82,11 +84,16 @@ async def generate_ai_analysis(
     api_key: str,
     timeout: float = 60.0,
 ) -> Optional[dict]:
+    # B10: circuit breaker — при OPEN сразу возвращаем None (graceful degradation)
+    if anthropic_breaker.is_open:
+        logger.warning(f"AI analysis skipped: circuit breaker OPEN (stats={anthropic_breaker.stats()})")
+        return None
+
     prompt = _build_prompt(name, normalized, riasec, top_professions, details_list, lang)
     try:
         client = anthropic.AsyncAnthropic(
             api_key=api_key,
-            max_retries=3,       # built-in retry: 429, 500, 502, 503, 504, 529
+            max_retries=3,
             timeout=timeout,
         )
         message = await client.messages.create(
@@ -101,14 +108,17 @@ async def generate_ai_analysis(
                 raw = raw[4:]
             raw = raw.strip()
         result = json.loads(raw)
+        anthropic_breaker.record_success()
         logger.info(f"AI analysis OK: '{name}', lang={lang}, tokens={message.usage.output_tokens}")
         return result
     except json.JSONDecodeError as e:
         logger.error(f"AI JSON parse error: {e}")
         return None
     except anthropic.APIError as e:
+        anthropic_breaker.record_failure()
         logger.error(f"Anthropic API error {e.status_code}: {e.message}")
         return None
     except Exception as e:
+        anthropic_breaker.record_failure()
         logger.error(f"AI analysis error: {e}")
         return None

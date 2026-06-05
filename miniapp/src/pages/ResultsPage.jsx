@@ -6,6 +6,8 @@ import { useTelegram } from '../hooks/useTelegram'
 import { useNavigate } from '../context/NavigationContext'
 import { track }       from '../hooks/useAnalytics'
 
+const isRuLang = (tg) => tg?.initDataUnsafe?.user?.language_code?.startsWith('ru')
+
 const BOT_USERNAME = 'CareerCheck_Bot'
 
 const TRAIT_LABELS = ['Открытость', 'Сознательность', 'Экстраверсия', 'Доброжелат.', 'Стабильность']
@@ -271,13 +273,26 @@ export function ResultsPage({ results, onBack }) {
         {/* ── Share Card (U4) ────────────────────────────────────────────── */}
         <ShareCard results={results} />
 
+        {/* ── AI Chat (N4) ───────────────────────────────────────────────── */}
+        <button
+          className="ai-chat-btn"
+          onClick={() => { haptic.medium?.(); track('ai_chat_open_from_results'); navigate('/ai-chat') }}
+        >
+          <span className="ai-chat-btn-icon">🤖</span>
+          <div>
+            <div className="ai-chat-btn-title">{isRuLang(tg) ? 'AI-консультант' : 'AI Career Coach'}</div>
+            <div className="ai-chat-btn-sub">{isRuLang(tg) ? '3 бесплатных вопроса о твоей карьере' : '3 free questions about your career'}</div>
+          </div>
+          <span style={{ marginLeft: 'auto', color: 'rgba(255,255,255,0.4)' }}>→</span>
+        </button>
+
         {/* ── Compare + Refer (N2, M3) ───────────────────────────────────── */}
         <div style={{ display: 'flex', gap: 8 }}>
           <button className="share-card-btn" style={{ flex: 1 }} onClick={handleCompare}>
-            👥 {initData ? (tg?.initDataUnsafe?.user?.language_code?.startsWith('ru') ? 'Сравнить с другом' : 'Compare with friend') : 'Compare'}
+            👥 {isRuLang(tg) ? 'Сравнить' : 'Compare'}
           </button>
           <button className="share-card-btn" style={{ flex: 1 }} onClick={handleRefer}>
-            🔗 {tg?.initDataUnsafe?.user?.language_code?.startsWith('ru') ? 'Пригласить' : 'Invite'}
+            🔗 {isRuLang(tg) ? 'Пригласить' : 'Invite'}
           </button>
         </div>
 

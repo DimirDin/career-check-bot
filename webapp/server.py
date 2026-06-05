@@ -597,6 +597,143 @@ async def get_compare(hash_code: str, request: Request):
     return json.loads(raw)
 
 
+# ── History (all test results) ───────────────────────────────────────────────
+
+@app.get("/api/history")
+async def get_history(init_data: str, request: Request):
+    """Возвращает все результаты тестов пользователя (для страницы истории)."""
+    user = validate_init_data(init_data)
+    if not user:
+        raise HTTPException(status_code=403)
+    pool    = request.app.state.pool
+    db_user = await get_user(pool, user["id"])
+    if not db_user:
+        return {"results": []}
+
+    def parse(v):
+        return json.loads(v) if isinstance(v, str) else (v or {})
+
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT normalized_scores, riasec_profile, top_professions, completed_at "
+            "FROM test_results WHERE user_id = $1 ORDER BY completed_at ASC",
+            db_user["id"]
+        )
+    return {
+        "results": [
+            {
+                "normalized_scores": parse(r["normalized_scores"]),
+                "riasec_profile":    parse(r["riasec_profile"]),
+                "top_professions":   parse(r["top_professions"]),
+                "completed_at":      r["completed_at"].isoformat() if r["completed_at"] else None,
+            }
+            for r in rows
+        ]
+    }
+
+
+# ── Professions catalog ───────────────────────────────────────────────────────
+
+@app.get("/api/professions")
+async def get_all_professions(lang: str = "ru", init_data: str = "", request: Request = None):
+    """Все профессии с optional user-match если передан init_data."""
+    pool = request.app.state.pool
+    professions = await get_professions(pool, lang=lang)
+
+    user_norm = {}
+    user_riasec = {}
+    if init_data:
+        u = validate_init_data(init_data)
+        if u:
+            db_user = await get_user(pool, u["id"])
+            if db_user:
+                result = await get_last_result(pool, db_user["id"])
+                if result:
+                    def p(v): return json.loads(v) if isinstance(v, str) else (v or {})
+                    user_norm   = p(result["normalized_scores"])
+                    user_riasec = p(result["riasec_profile"])
+
+    if user_norm:
+        top = match_professions(user_norm, user_riasec, professions)
+        match_map = {item["title"]: item["match"] for item in top}
+        for prof in professions:
+            prof["match"] = match_map.get(prof["title"], 0)
+    else:
+        for prof in professions:
+            prof["match"] = None
+
+    return {"professions": professions}
+
+
+@app.get("/api/professions/detail")
+async def get_profession_detail(title: str, lang: str = "ru", request: Request = None):
+    """Детали одной профессии по названию."""
+    pool = request.app.state.pool
+    from db.database import get_profession_details
+    details = await get_profession_details(pool, title, lang)
+    # Основные данные профессии
+    async with pool.acquire() as conn:
+        if lang == "ru":
+            row = await conn.fetchrow(
+                "SELECT id, title, description, required_traits, riasec_type, salary_range, growth_potential "
+                "FROM professions WHERE title = $1", title
+            )
+        else:
+            tc = f"COALESCE(title_{lang}, title)"
+            dc = f"COALESCE(description_{lang}, description)"
+            row = await conn.fetchrow(
+                f"SELECT id, {tc} AS title, {dc} AS description, required_traits, riasec_type, salary_range, growth_potential "
+                f"FROM professions WHERE COALESCE(title_{lang}, title) = $1", title
+            )
+    if not row:
+        raise HTTPException(status_code=404, detail="Profession not found")
+    result = dict(row)
+    if isinstance(result.get("required_traits"), str):
+        result["required_traits"] = json.loads(result["required_traits"])
+    if details:
+        result["details"] = details
+    return result
+
+
+# ── Challenges status ─────────────────────────────────────────────────────────
+
+@app.get("/api/challenges/status")
+async def challenges_status(init_data: str, request: Request):
+    user = validate_init_data(init_data)
+    if not user:
+        raise HTTPException(status_code=403)
+    pool = request.app.state.pool
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT subscribed, streak FROM user_challenges WHERE user_telegram_id = $1",
+            user["id"]
+        )
+    return {
+        "subscribed": row["subscribed"] if row else False,
+        "streak":     row["streak"]     if row else 0,
+    }
+
+
+@app.post("/api/challenges/toggle")
+async def challenges_toggle(body: CompareCreateRequest, request: Request):
+    user = validate_init_data(body.init_data)
+    if not user:
+        raise HTTPException(status_code=403)
+    pool = request.app.state.pool
+    from db.database import subscribe_challenges, unsubscribe_challenges
+    row = None
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT subscribed FROM user_challenges WHERE user_telegram_id = $1", user["id"]
+        )
+    if row and row["subscribed"]:
+        await unsubscribe_challenges(pool, user["id"])
+        return {"subscribed": False}
+    else:
+        await subscribe_challenges(pool, user["id"])
+        return {"subscribed": True}
+
+
 # ── Static files + SPA fallback ───────────────────────────────────────────────
 
 DIST = Path(__file__).parent / "dist"

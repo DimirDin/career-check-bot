@@ -42,16 +42,19 @@ export function MenuPage() {
     if (!el) return
 
     const onTouchStart = (e) => {
-      if (el.scrollTop === 0) {
+      // Pull-to-refresh только если: контент вверху И тач начался в ВЕРХНЕЙ трети экрана
+      if (el.scrollTop === 0 && e.touches[0].clientY < window.innerHeight * 0.35) {
         pullStartY.current = e.touches[0].clientY
         isPulling.current  = true
+      } else {
+        isPulling.current = false
       }
     }
     const onTouchEnd = (e) => {
       if (!isPulling.current) return
-      const delta = e.changedTouches[0].clientY - pullStartY.current
-      if (delta > 60) { refresh(); haptic.light?.() }
       isPulling.current = false
+      const delta = e.changedTouches[0].clientY - pullStartY.current
+      if (delta > 70) { refresh(); haptic.light?.() }
     }
 
     el.addEventListener('touchstart', onTouchStart, { passive: true })
@@ -140,7 +143,7 @@ export function MenuPage() {
           profession={s.topProfession}
           language={s.language}
           haptic={haptic}
-          onClick={() => navigate(`/profession/${s.topProfession.id}`)}
+          onClick={() => navigate('/professions')}
         />
       )}
 

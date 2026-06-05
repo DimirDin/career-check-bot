@@ -12,8 +12,11 @@ import { QuickTestPage }     from './pages/QuickTestPage'
 import { QuickResultsPage }  from './pages/QuickResultsPage'
 import { ComparisonPage }    from './pages/ComparisonPage'
 import { QuizLoadingSkeleton, ResultsLoadingSkeleton } from './components/Skeleton'
-import { AIChatPage }       from './pages/AIChatPage'
-import { track }             from './hooks/useAnalytics'
+import { AIChatPage }           from './pages/AIChatPage'
+import { SettingsPage }         from './pages/SettingsPage'
+import { ProfessionsPage }      from './pages/ProfessionsPage'
+import { ProfessionDetailPage } from './pages/ProfessionDetailPage'
+import { track }                from './hooks/useAnalytics'
 import './styles.css'
 
 const SCREEN = {
@@ -29,8 +32,11 @@ const SCREEN = {
   QUICK_TEST:   'quick_test',
   QUICK_RESULTS:'quick_results',
   COMPARISON:   'comparison',
-  AI_CHAT:      'ai_chat',
-  COMING_SOON:  'coming_soon',
+  AI_CHAT:        'ai_chat',
+  SETTINGS:       'settings',
+  PROFESSIONS:    'professions',
+  PROF_DETAIL:    'prof_detail',
+  COMING_SOON:    'coming_soon',
   ERROR:        'error',
 }
 
@@ -62,16 +68,19 @@ const ROUTE_MAP = {
   '/professions': SCREEN.COMING_SOON,
   '/history':     SCREEN.HISTORY,
   '/ai-chat':     SCREEN.AI_CHAT,
+  '/settings':    SCREEN.SETTINGS,
+  '/professions': SCREEN.PROFESSIONS,
   '/settings':    SCREEN.COMING_SOON,
   '/support':     SCREEN.COMING_SOON,
 }
 
 export default function App() {
   const { user, initData, haptic, tg } = useTelegram()
-  const [screen,       setScreen]       = useState(SCREEN.SPLASH)
-  const [route,        setRoute]        = useState('/menu')
-  const [quickResults, setQuickResults] = useState(null)
-  const [compareHash,  setCompareHash]  = useState(null)
+  const [screen,           setScreen]           = useState(SCREEN.SPLASH)
+  const [route,            setRoute]            = useState('/menu')
+  const [quickResults,     setQuickResults]     = useState(null)
+  const [compareHash,      setCompareHash]      = useState(null)
+  const [selectedProfTitle,setSelectedProfTitle]= useState(null)
   const [questions, setQuestions] = useState([])
   const [results,   setResults]   = useState(null)
   const [error,     setError]     = useState(null)
@@ -228,6 +237,27 @@ export default function App() {
         )
       case SCREEN.AI_CHAT:
         return <AIChatPage onBack={() => navigate('/results')} />
+      case SCREEN.SETTINGS:
+        return <SettingsPage onBack={() => navigate('/menu')} />
+      case SCREEN.PROFESSIONS:
+        return (
+          <ProfessionsPage
+            userResults={results}
+            onBack={() => navigate('/menu')}
+            onSelectProfession={(title) => {
+              setSelectedProfTitle(title)
+              setScreen(SCREEN.PROF_DETAIL)
+            }}
+          />
+        )
+      case SCREEN.PROF_DETAIL:
+        return (
+          <ProfessionDetailPage
+            professionTitle={selectedProfTitle}
+            userResults={results}
+            onBack={() => setScreen(SCREEN.PROFESSIONS)}
+          />
+        )
       case SCREEN.HISTORY:
         return (
           <HistoryPage

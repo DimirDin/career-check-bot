@@ -1,5 +1,6 @@
 import { IconBrain } from './Icon'
 import { ProgressBar } from './ProgressBar'
+import { MagneticBtn } from './MagneticBtn'
 import styles from '../styles/MenuPage.module.css'
 
 const T = {
@@ -31,9 +32,9 @@ export function PrimaryCTA({ userState, onClick }) {
           <p className={styles.ctaProgress}>{currentQuestion} / 60</p>
         </>
       )}
-      <button className={styles.ctaButton} onClick={onClick}>
+      <MagneticBtn className={styles.ctaButton} onClick={onClick}>
         {btnText}
-      </button>
+      </MagneticBtn>
     </div>
   )
 }

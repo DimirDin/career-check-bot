@@ -49,12 +49,14 @@ export function useTelegram() {
 
     // Haptics
     haptic: {
-      light:   () => tg?.HapticFeedback.impactOccurred('light'),
-      medium:  () => tg?.HapticFeedback.impactOccurred('medium'),
-      heavy:   () => tg?.HapticFeedback.impactOccurred('heavy'),
-      success: () => tg?.HapticFeedback.notificationOccurred('success'),
-      error:   () => tg?.HapticFeedback.notificationOccurred('error'),
-      select:  () => tg?.HapticFeedback.selectionChanged(),
+      light:     () => tg?.HapticFeedback?.impactOccurred('light'),
+      medium:    () => tg?.HapticFeedback?.impactOccurred('medium'),
+      heavy:     () => tg?.HapticFeedback?.impactOccurred('heavy'),
+      rigid:     () => tg?.HapticFeedback?.impactOccurred('rigid'),
+      success:   () => tg?.HapticFeedback?.notificationOccurred('success'),
+      error:     () => tg?.HapticFeedback?.notificationOccurred('error'),
+      select:    () => tg?.HapticFeedback?.selectionChanged(),
+      selection: () => tg?.HapticFeedback?.selectionChanged(),
     },
 
     // Закрыть Mini App

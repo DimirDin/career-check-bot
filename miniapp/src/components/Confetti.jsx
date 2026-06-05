@@ -1,4 +1,5 @@
 import { useRef, useEffect } from 'react'
+import { useTelegram } from '../hooks/useTelegram'
 
 const COLORS = ['#7F77DD', '#1D9E75', '#EF9F27', '#D4537E', '#2ed1f2', '#a78bfa']
 
@@ -22,9 +23,11 @@ function createParticle(W) {
 export function Confetti({ active }) {
   const canvasRef = useRef(null)
   const stateRef  = useRef({ particles: [], raf: null, startedAt: 0 })
+  const { haptic } = useTelegram()
 
   useEffect(() => {
     if (!active) return
+    haptic.success?.()
     const canvas = canvasRef.current
     if (!canvas) return
     const ctx = canvas.getContext('2d')

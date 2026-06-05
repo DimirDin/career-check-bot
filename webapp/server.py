@@ -33,9 +33,10 @@ import httpx
 import base64
 from services.ai_chat import ask_career_ai
 from services.circuit_breaker import anthropic_breaker
-from db.database import get_last_result, save_result, create_user, get_user
-from services.calculator import calculate_scores, calculate_riasec, match_professions
-from db.database import get_professions
+from db.database import (
+    get_last_result, save_result, create_user, get_user, get_professions,
+    check_user_premium, get_referrer, count_referred_completions, grant_referral_premium,
+)
 
 from config.logging_config import configure_logging
 configure_logging()
@@ -194,6 +195,7 @@ async def get_user_state(init_data: str, request: Request):
     tg_lang     = (user.get("language_code") or "en")[:2]
 
     db_user = await get_user(pool, telegram_id)
+    has_premium = await check_user_premium(pool, telegram_id)
     if not db_user:
         return {
             "hasResults":      False,
@@ -249,7 +251,7 @@ async def get_user_state(init_data: str, request: Request):
 
     return {
         "hasResults":      bool(result),
-        "hasPremium":      False,
+        "hasPremium":      has_premium,
         "testInProgress":  test_in_progress,
         "currentQuestion": current_question,
         "lastResultDate":  last_result_date,
@@ -340,6 +342,17 @@ async def save_results_from_miniapp(body: SaveResultRequest, request: Request):
     top = match_professions(normalized, riasec, professions)
 
     await save_result(pool, db_user["id"], raw, normalized, riasec, top)
+
+    # T7: проверяем реферальный бонус
+    try:
+        referrer_id = await get_referrer(pool, telegram_id)
+        if referrer_id:
+            completions = await count_referred_completions(pool, referrer_id)
+            if completions >= 2:
+                await grant_referral_premium(pool, referrer_id)
+                await _notify_referral_bonus(referrer_id)
+    except Exception as e:
+        logger.warning(f"Referral bonus check error: {e}")
 
     return {
         "normalized_scores": normalized,
@@ -733,6 +746,54 @@ async def challenges_toggle(body: CompareCreateRequest, request: Request):
     else:
         await subscribe_challenges(pool, user["id"])
         return {"subscribed": True}
+
+
+async def _notify_referral_bonus(tg_id: int):
+    """Уведомляет реферера о бесплатном Premium через Bot API."""
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            await client.post(
+                f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
+                json={
+                    "chat_id": tg_id,
+                    "text": (
+                        "🎉 Поздравляем! 3 твоих друга прошли тест — "
+                        "тебе начислен бесплатный Premium PDF!\n\n"
+                        "Открой приложение чтобы получить."
+                    ),
+                },
+            )
+    except Exception as e:
+        logger.warning(f"Referral bonus notify error: {e}")
+
+
+@app.get("/api/referral/progress")
+async def referral_progress(init_data: str, request: Request):
+    """Прогресс реферальной программы: сколько друзей завершили тест."""
+    user = validate_init_data(init_data)
+    if not user:
+        raise HTTPException(status_code=403)
+    pool = request.app.state.pool
+    async with pool.acquire() as conn:
+        total = await conn.fetchval(
+            "SELECT COUNT(*) FROM referrals WHERE referrer_id = $1", user["id"]
+        ) or 0
+        completed = await conn.fetchval(
+            """SELECT COUNT(*) FROM referrals r
+               JOIN users u ON u.telegram_id = r.referred_id
+               WHERE r.referrer_id = $1 AND u.test_completed = TRUE""",
+            user["id"]
+        ) or 0
+        granted = await conn.fetchval(
+            "SELECT COUNT(*) FROM purchases WHERE telegram_id = $1 AND payload = 'referral_bonus'",
+            user["id"]
+        ) or 0
+    return {
+        "count":   int(completed),
+        "total":   int(total),
+        "needed":  3,
+        "granted": granted > 0,
+    }
 
 
 # ── Static files + SPA fallback ───────────────────────────────────────────────

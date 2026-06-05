@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useTelegram } from '../hooks/useTelegram'
+import { useSwipeToDismiss } from '../hooks/useSwipeToDismiss'
 
 const TRAITS    = ['O','C','E','A','S']
 const TRAIT_RU  = { O:'Открытость', C:'Сознательность', E:'Экстраверсия', A:'Доброжелательность', S:'Стабильность' }
@@ -12,6 +13,7 @@ export function ProfessionDetailPage({ professionTitle, userResults, onBack }) {
   const lang  = tg?.initDataUnsafe?.user?.language_code?.slice(0, 2) || 'ru'
   const isRu  = lang !== 'en'
   const tn    = isRu ? TRAIT_RU : TRAIT_EN
+  const { ref: swipeRef, handlers: swipeHandlers } = useSwipeToDismiss(onBack)
 
   const [prof,    setProf]    = useState(null)
   const [loading, setLoading] = useState(true)
@@ -68,7 +70,7 @@ export function ProfessionDetailPage({ professionTitle, userResults, onBack }) {
   const cons = Array.isArray(details.cons) ? details.cons : []
 
   return (
-    <div className="prof-detail-page">
+    <div className="prof-detail-page swipe-page" ref={swipeRef} {...swipeHandlers}>
       {/* Hero */}
       <div className="prof-detail-hero">
         <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>

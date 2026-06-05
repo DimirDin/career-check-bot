@@ -16,6 +16,9 @@ import { AIChatPage }           from './pages/AIChatPage'
 import { SettingsPage }         from './pages/SettingsPage'
 import { ProfessionsPage }      from './pages/ProfessionsPage'
 import { ProfessionDetailPage } from './pages/ProfessionDetailPage'
+import { PremiumPromoPage }     from './pages/PremiumPromoPage'
+import { StarField }            from './components/StarField'
+import { LiquidTransition }     from './components/LiquidTransition'
 import { track }                from './hooks/useAnalytics'
 import './styles.css'
 
@@ -37,6 +40,7 @@ const SCREEN = {
   PROFESSIONS:    'professions',
   PROF_DETAIL:    'prof_detail',
   COMING_SOON:    'coming_soon',
+  PREMIUM_PROMO:  'premium_promo',
   ERROR:        'error',
 }
 
@@ -64,7 +68,7 @@ const ROUTE_MAP = {
   '/test':        SCREEN.QUIZ,
   '/results':     SCREEN.RESULTS,
   '/welcome':     SCREEN.WELCOME,
-  '/premium':     SCREEN.COMING_SOON,
+  '/premium':     SCREEN.PREMIUM_PROMO,
   '/professions': SCREEN.COMING_SOON,
   '/history':     SCREEN.HISTORY,
   '/ai-chat':     SCREEN.AI_CHAT,
@@ -84,11 +88,28 @@ export default function App() {
   const [questions, setQuestions] = useState([])
   const [results,   setResults]   = useState(null)
   const [error,     setError]     = useState(null)
+  const [liquidActive,  setLiquidActive]  = useState(false)
+  const [liquidOrigin,  setLiquidOrigin]  = useState({ x: 0, y: 0 })
+  const lastTapOrigin = { x: window.innerWidth / 2, y: window.innerHeight / 2 }
   const lang = tg?.initDataUnsafe?.user?.language_code?.slice(0, 2) || 'ru'
+
+  // Отслеживаем координаты тапа для LiquidTransition
+  useEffect(() => {
+    const handler = (e) => {
+      const src = e.touches ? e.touches[0] : e
+      lastTapOrigin.x = src.clientX
+      lastTapOrigin.y = src.clientY
+    }
+    window.addEventListener('touchstart', handler, { passive: true })
+    window.addEventListener('mousedown', handler)
+    return () => {
+      window.removeEventListener('touchstart', handler)
+      window.removeEventListener('mousedown', handler)
+    }
+  }, [])
 
   // ── Навигация ────────────────────────────────────────────────────────────
   const navigate = useCallback((path) => {
-    // U1: показываем onboarding при первом переходе к тесту
     if (path === '/test' && !localStorage.getItem('cc_onboarding_done')) {
       setRoute('/test')
       setScreen(SCREEN.ONBOARDING)
@@ -96,9 +117,16 @@ export default function App() {
     }
     const base = '/' + path.replace(/^\//, '').split('/')[0]
     const target = ROUTE_MAP[path] || ROUTE_MAP[base] || SCREEN.COMING_SOON
-    setRoute(path)
-    setScreen(target)
-  }, [])
+
+    // D11: Liquid reveal transition
+    setLiquidOrigin({ x: lastTapOrigin.x, y: lastTapOrigin.y })
+    setLiquidActive(true)
+    setTimeout(() => {
+      setRoute(path)
+      setScreen(target)
+    }, 300)
+    setTimeout(() => setLiquidActive(false), 550)
+  }, []) // eslint-disable-line
 
   // ── Инициализация ────────────────────────────────────────────────────────
   const initApp = useCallback(async () => {
@@ -267,6 +295,13 @@ export default function App() {
             onStartTest={() => navigate('/test')}
           />
         )
+      case SCREEN.PREMIUM_PROMO:
+        return (
+          <PremiumPromoPage
+            onBack={() => navigate('/menu')}
+            onBuy={() => navigate('/results')}
+          />
+        )
       case SCREEN.COMING_SOON:
         return <ComingSoonScreen route={route} onBack={() => navigate('/menu')} tg={tg} />
       default:
@@ -280,7 +315,9 @@ export default function App() {
 
   return (
     <NavigationContext.Provider value={{ navigate, current: route }}>
-      <div key={transitionKey} className={transitionKey ? 'screen-enter' : undefined} style={{ display: 'contents' }}>
+      <StarField count={55} />
+      <LiquidTransition active={liquidActive} origin={liquidOrigin} />
+      <div key={transitionKey} className={transitionKey ? 'screen-enter' : undefined} style={{ position: 'relative', zIndex: 1, display: 'contents' }}>
         {renderScreen()}
       </div>
     </NavigationContext.Provider>

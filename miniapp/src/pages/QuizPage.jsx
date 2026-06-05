@@ -93,7 +93,9 @@ export function QuizPage({ questions, onFinish }) {
 
   const handleSelect = useCallback(async (score) => {
     if (transitioning || milestone) return
-    haptic.select()
+    if (score <= 2)      haptic.light?.()
+    else if (score === 3) haptic.medium?.()
+    else                  haptic.rigid?.()
     setSelected(score)
 
     const newAnswer = {

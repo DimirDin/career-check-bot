@@ -34,6 +34,24 @@ export function calculateRiasec(normalized) {
   }
 }
 
+export function getBadges(normalized) {
+  const { O, C, E, A, S } = normalized
+  const badges = []
+  if (O >= 80)           badges.push({ id: 'visionary',     emoji: '🔭', title: 'Визионер',             desc: 'Открытость зашкаливает' })
+  if (O <= 25)           badges.push({ id: 'pragmatist',    emoji: '⚙️', title: 'Чистый прагматик',      desc: 'Факты важнее фантазий' })
+  if (C >= 80)           badges.push({ id: 'architect',     emoji: '📐', title: 'Архитектор систем',      desc: 'Порядок во всём' })
+  if (C <= 25)           badges.push({ id: 'freespirit',    emoji: '🌊', title: 'Свободный дух',          desc: 'Правила — не твоё' })
+  if (E >= 80)           badges.push({ id: 'magnet',        emoji: '⚡', title: 'Социальный магнит',      desc: 'Энергия заряжает всех' })
+  if (E <= 25)           badges.push({ id: 'introvert',     emoji: '🌙', title: 'Абсолютный интроверт',   desc: 'Сила в тишине' })
+  if (A >= 80)           badges.push({ id: 'empath',        emoji: '💜', title: 'Эмпат',                  desc: 'Чувствуешь людей' })
+  if (A <= 25)           badges.push({ id: 'challenger',    emoji: '🔥', title: 'Бросает вызов',          desc: 'Конкуренция — топливо' })
+  if (S <= 25)           badges.push({ id: 'unshakeable',   emoji: '🏔️', title: 'Несокрушимый',           desc: 'Стресс тебя не берёт' })
+  if (S >= 75)           badges.push({ id: 'sensitive',     emoji: '🎯', title: 'Тонко чувствующий',      desc: 'Эмоции — твой компас' })
+  if (O >= 70 && E >= 70) badges.push({ id: 'ideagenerator', emoji: '💡', title: 'Генератор идей',        desc: 'Идеи бьют ключом' })
+  if (C >= 70 && A >= 70) badges.push({ id: 'mentor',       emoji: '🎓', title: 'Прирождённый ментор',    desc: 'Помогать — призвание' })
+  return badges
+}
+
 export function matchProfessions(normalized, riasec, professions) {
   const userRiasecMax = Object.entries(riasec).sort((a, b) => b[1] - a[1])[0][0]
   const userVector = ['O', 'C', 'E', 'A', 'S'].map(k => normalized[k])

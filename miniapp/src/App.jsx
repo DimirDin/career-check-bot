@@ -5,17 +5,37 @@ import { WelcomePage }       from './pages/WelcomePage'
 import { QuizPage }          from './pages/QuizPage'
 import { ResultsPage }       from './pages/ResultsPage'
 import { MenuPage }          from './pages/MenuPage'
+import { Onboarding }        from './components/Onboarding'
 import './styles.css'
 
 const SCREEN = {
   LOADING:      'loading',
   MENU:         'menu',
   WELCOME:      'welcome',
+  ONBOARDING:   'onboarding',
   QUIZ:         'quiz',
   SAVING:       'saving',
   RESULTS:      'results',
   COMING_SOON:  'coming_soon',
   ERROR:        'error',
+}
+
+const QUESTIONS_CACHE_TTL = 3600 * 1000
+
+function getCachedQuestions(lang) {
+  try {
+    const raw = sessionStorage.getItem(`cc_q_${lang}`)
+    if (!raw) return null
+    const { questions, ts } = JSON.parse(raw)
+    if (Date.now() - ts > QUESTIONS_CACHE_TTL) return null
+    return questions
+  } catch { return null }
+}
+
+function setCachedQuestions(lang, questions) {
+  try {
+    sessionStorage.setItem(`cc_q_${lang}`, JSON.stringify({ questions, ts: Date.now() }))
+  } catch {}
 }
 
 // Маршруты → экраны
@@ -42,7 +62,12 @@ export default function App() {
 
   // ── Навигация ────────────────────────────────────────────────────────────
   const navigate = useCallback((path) => {
-    // Извлекаем базовый путь без параметров (/profession/123 → /profession)
+    // U1: показываем onboarding при первом переходе к тесту
+    if (path === '/test' && !localStorage.getItem('cc_onboarding_done')) {
+      setRoute('/test')
+      setScreen(SCREEN.ONBOARDING)
+      return
+    }
     const base = '/' + path.replace(/^\//, '').split('/')[0]
     const target = ROUTE_MAP[path] || ROUTE_MAP[base] || SCREEN.COMING_SOON
     setRoute(path)
@@ -52,10 +77,17 @@ export default function App() {
   // ── Инициализация ────────────────────────────────────────────────────────
   const initApp = useCallback(async () => {
     try {
-      const res = await fetch(`/api/questions?lang=${lang}`)
-      if (!res.ok) throw new Error('Failed to load questions')
-      const data = await res.json()
-      setQuestions(data.questions)
+      // F2: sessionStorage cache (TTL 1h)
+      const cached = getCachedQuestions(lang)
+      if (cached) {
+        setQuestions(cached)
+      } else {
+        const res = await fetch(`/api/questions?lang=${lang}`)
+        if (!res.ok) throw new Error('Failed to load questions')
+        const data = await res.json()
+        setQuestions(data.questions)
+        setCachedQuestions(lang, data.questions)
+      }
 
       // Если есть initData — проверяем наличие результатов
       if (user && initData) {
@@ -109,6 +141,13 @@ export default function App() {
         return <MenuPage />
       case SCREEN.WELCOME:
         return <WelcomePage onStart={() => navigate('/test')} />
+      case SCREEN.ONBOARDING:
+        return (
+          <Onboarding onDone={() => {
+            localStorage.setItem('cc_onboarding_done', '1')
+            setScreen(SCREEN.QUIZ)
+          }} />
+        )
       case SCREEN.QUIZ:
         return (
           <QuizPage

@@ -121,7 +121,8 @@ function drawCard(canvas, { norm, riasec, profs, lang }) {
 
     ctx.fillStyle = '#fbbf24'
     ctx.font = 'bold 15px -apple-system, Arial, sans-serif'
-    ctx.fillText('🥇 ' + prof.title, 36, profY + 26)
+    const cardTitle = prof.title.length > 28 ? prof.title.slice(0, 26) + '...' : prof.title
+    ctx.fillText('#1 ' + cardTitle, 36, profY + 26)
 
     ctx.fillStyle = '#2ed1f2'
     ctx.font = 'bold 18px -apple-system, Arial, sans-serif'
@@ -222,10 +223,12 @@ function drawLinkedInCard(canvas, { norm, riasec, profs, lang }) {
 
     ctx.fillStyle = '#fbbf24'
     ctx.font = 'bold 28px Arial, sans-serif'
-    ctx.fillText(isRu ? '🥇 Лучшая профессия' : '🥇 Top Career Match', 660, 120)
+    ctx.fillText(isRu ? '#1 Профессия' : '#1 Career Match', 660, 120)
     ctx.fillStyle = '#ffffff'
     ctx.font = 'bold 36px Arial, sans-serif'
-    ctx.fillText(prof.title, 660, 175)
+    // Обрезаем длинные названия
+    const profTitle = prof.title.length > 24 ? prof.title.slice(0, 22) + '...' : prof.title
+    ctx.fillText(profTitle, 660, 175)
     ctx.fillStyle = '#2ed1f2'
     ctx.font = 'bold 52px Arial, sans-serif'
     ctx.fillText(`${prof.match}%`, 660, 255)
@@ -233,7 +236,7 @@ function drawLinkedInCard(canvas, { norm, riasec, profs, lang }) {
     ctx.font = '22px Arial, sans-serif'
     ctx.fillText(isRu ? 'совпадение профиля' : 'profile match', 660, 285)
 
-    // Top 2-3
+    // Top 2-3 (без emoji)
     profs.slice(1, 3).forEach((p, i) => {
       const py = 360 + i * 72
       ctx.fillStyle = 'rgba(255,255,255,0.07)'
@@ -241,7 +244,9 @@ function drawLinkedInCard(canvas, { norm, riasec, profs, lang }) {
       ctx.fill()
       ctx.fillStyle = 'rgba(255,255,255,0.7)'
       ctx.font = 'bold 20px Arial, sans-serif'
-      ctx.fillText(['🥈','🥉'][i] + ' ' + p.title, 680, py + 26)
+      const medal = ['#2', '#3'][i]
+      const pTitle = p.title.length > 26 ? p.title.slice(0, 24) + '...' : p.title
+      ctx.fillText(`${medal} ${pTitle}`, 680, py + 26)
       ctx.fillStyle = '#94a3b8'
       ctx.font = 'bold 20px Arial, sans-serif'
       ctx.textAlign = 'right'
@@ -272,10 +277,14 @@ export function ShareCard({ results }) {
   useEffect(() => {
     if (!results) return
     const data = { norm: results.normalized_scores, riasec: results.riasec_profile, profs: results.top_professions, lang }
-    const canvas = canvasRef.current
-    if (canvas) { drawCard(canvas, data); setImgUrl(canvas.toDataURL('image/png')) }
-    const li = liCanvasRef.current
-    if (li) { drawLinkedInCard(li, data); setLiImgUrl(li.toDataURL('image/png')) }
+    try {
+      const canvas = canvasRef.current
+      if (canvas) { drawCard(canvas, data); setImgUrl(canvas.toDataURL('image/png')) }
+    } catch (e) { console.error('ShareCard draw error:', e) }
+    try {
+      const li = liCanvasRef.current
+      if (li) { drawLinkedInCard(li, data); setLiImgUrl(li.toDataURL('image/png')) }
+    } catch (e) { console.error('LinkedIn card draw error:', e) }
   }, [results, lang])
 
   function handleShow() {
@@ -309,7 +318,22 @@ export function ShareCard({ results }) {
 
   function handleLinkedIn() {
     haptic.success()
-    if (!liImgUrl) return
+    if (!liImgUrl) {
+      // Canvas ещё не готов или ошибка — генерируем заново
+      try {
+        const li = liCanvasRef.current
+        if (!li) return
+        const data = { norm: results.normalized_scores, riasec: results.riasec_profile, profs: results.top_professions, lang }
+        drawLinkedInCard(li, data)
+        const url = li.toDataURL('image/png')
+        setLiImgUrl(url)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = 'CareerCheck_LinkedIn.png'
+        a.click()
+      } catch (e) { console.error('LinkedIn retry error:', e) }
+      return
+    }
     const a = document.createElement('a')
     a.href = liImgUrl
     a.download = 'CareerCheck_LinkedIn.png'

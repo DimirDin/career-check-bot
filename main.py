@@ -13,6 +13,7 @@ import redis.asyncio as aioredis
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
+from aiogram.fsm.storage.redis import RedisStorage
 
 from config.settings import BOT_TOKEN, DB_CONFIG, REDIS_CONFIG
 from bot.handlers import router
@@ -100,7 +101,11 @@ async def main() -> None:
         token=BOT_TOKEN,
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),
     )
-    dp = Dispatcher()
+    fsm_storage = RedisStorage.from_url(
+        f"redis://{REDIS_CONFIG['host']}:{REDIS_CONFIG['port']}",
+        key_prefix="fsm:",
+    )
+    dp = Dispatcher(storage=fsm_storage)
 
     # ── Rate limiting middleware ──────────────────────────────────
     #   Message:  1 сообщение / 1 сек

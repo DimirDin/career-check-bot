@@ -7,6 +7,7 @@ import { PrimaryCTA }          from '../components/PrimaryCTA'
 import { QuickActionsGrid }    from '../components/QuickActionsGrid'
 import { SmartRecommendation } from '../components/SmartRecommendation'
 import { MenuFooter }          from '../components/MenuFooter'
+import { NeuralNet }           from '../components/NeuralNet'
 import styles from '../styles/MenuPage.module.css'
 
 const MAIN_BTN_TEXTS = {
@@ -25,6 +26,16 @@ export function MenuPage() {
   // Toast
   const [toast, setToast] = useState(null)
   const toastTimerRef = useRef(null)
+
+  // D1: Aurora blobs — следуют за пальцем
+  const [blobPos, setBlobPos] = useState({ x: 100, y: 200 })
+  const rafRef = useRef(null)
+  const handlePointerMove = useCallback((e) => {
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY
+    if (rafRef.current) cancelAnimationFrame(rafRef.current)
+    rafRef.current = requestAnimationFrame(() => setBlobPos({ x: clientX, y: clientY }))
+  }, [])
 
   const showToast = useCallback((msg) => {
     setToast(msg)
@@ -108,7 +119,16 @@ export function MenuPage() {
   }
 
   return (
-    <div className={styles.menuContainer} ref={containerRef}>
+    <div
+      className={styles.menuContainer}
+      ref={containerRef}
+      onMouseMove={handlePointerMove}
+      onTouchMove={handlePointerMove}
+      style={{ position: 'relative' }}
+    >
+      <NeuralNet />
+      <div className="aurora-blob aurora-blob-purple" style={{ left: blobPos.x - 80, top: blobPos.y - 80 }} />
+      <div className="aurora-blob aurora-blob-cyan"   style={{ left: blobPos.x + 40, top: blobPos.y + 20 }} />
       <div className={styles.safeAreaTop} />
 
       <HeroBanner
@@ -128,12 +148,7 @@ export function MenuPage() {
         userState={s}
         haptic={haptic}
         onResults    ={() => navigate('/results')}
-        onPremium    ={() => {
-          // Если есть результаты — сразу на страницу результатов с Premium-кнопкой
-          // Если нет — напоминаем пройти тест
-          if (s.hasResults) navigate('/results')
-          else navigate('/premium')
-        }}
+        onPremium    ={() => navigate('/premium')}
         onProfessions={() => navigate('/professions')}
         onHistory    ={() => navigate('/history')}
       />

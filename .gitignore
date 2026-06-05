@@ -45,3 +45,7 @@ miniapp/node_modules/
 # Build artifacts
 webapp/dist/
 .venv/
+
+# Контекст проекта (не для репозитория — может содержать токены)
+PROJECT_CONTEXT.md
+PROJECT_CONTEXT2.md

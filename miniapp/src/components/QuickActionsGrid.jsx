@@ -34,7 +34,7 @@ export function QuickActionsGrid({ userState, onResults, onPremium, onProfession
       {cards.map(({ icon, label, badge, onClick, color }, i) => (
         <div
           key={i}
-          className={styles.quickCard}
+          className={`${styles.quickCard} ${color === 'gold' ? 'card-holo' : ''}`}
           style={{ '--card-delay': `${(i + 1) * 0.08}s` }}
           onClick={() => { haptic?.medium?.(); onClick() }}
         >

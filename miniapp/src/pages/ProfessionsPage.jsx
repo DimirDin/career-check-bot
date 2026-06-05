@@ -101,7 +101,7 @@ export function ProfessionsPage({ userResults, onBack, onSelectProfession }) {
       </div>
 
       {/* List */}
-      <div className="profs-list">
+      <div className="profs-list stagger-list">
         {loading && <div className="loading-screen" style={{ minHeight: 200 }}><div className="loading-spinner" /></div>}
 
         {!loading && filtered.length === 0 && (

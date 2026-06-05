@@ -8,7 +8,7 @@ RUN npm run build
 # Результат: /app/miniapp/../webapp/dist/
 
 # ── Stage 2: Python app ───────────────────────────────────────────
-FROM python:3.12-slim
+FROM python:3.12-slim AS app
 
 # Системные зависимости для matplotlib / ReportLab / asyncpg
 RUN apt-get update && apt-get install -y --no-install-recommends \

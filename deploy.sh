@@ -98,6 +98,11 @@ cmd_deploy() {
     echo "=== Ждём старта БД ==="
     sleep 5
 
+    echo "=== Alembic миграции ==="
+    docker compose exec -T webapp alembic upgrade head || \
+        docker compose exec -T webapp alembic stamp head
+    echo "Migrations done"
+
     echo "=== Статус ==="
     docker compose ps
 

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { useTelegram }  from '../hooks/useTelegram'
+import { useTelegram }          from '../hooks/useTelegram'
+import { useSwipeToDismiss }    from '../hooks/useSwipeToDismiss'
 
 const TRAITS     = ['O', 'C', 'E', 'A', 'S']
 const TRAIT_RU   = { O:'Открытость', C:'Сознат.', E:'Экстравер.', A:'Доброжелат.', S:'Стабильность' }
@@ -40,6 +41,7 @@ export function HistoryPage({ lastResult, onBack, onStartTest }) {
   const lang  = tg?.initDataUnsafe?.user?.language_code?.slice(0, 2) || 'ru'
   const isRu  = lang !== 'en'
   const tn    = isRu ? TRAIT_RU : TRAIT_EN
+  const { ref: swipeRef, handlers: swipeHandlers } = useSwipeToDismiss(onBack)
 
   const [results,  setResults]  = useState(null)
   const [loading,  setLoading]  = useState(true)
@@ -107,7 +109,7 @@ export function HistoryPage({ lastResult, onBack, onStartTest }) {
   const multi  = results.length > 1
 
   return (
-    <div className="history-page">
+    <div className="history-page swipe-page" ref={swipeRef} {...swipeHandlers}>
       <div className="history-header">
         <h2 className="history-title">{T.title}</h2>
         <span className="history-count">{T.count(results.length)}</span>

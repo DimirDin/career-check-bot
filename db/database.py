@@ -427,6 +427,45 @@ async def mark_challenge_sent(pool: asyncpg.Pool, user_telegram_id: int, challen
         )
 
 
+async def check_user_premium(pool: asyncpg.Pool, telegram_id: int) -> bool:
+    """Возвращает True если пользователь когда-либо покупал Premium."""
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT COUNT(*) AS cnt FROM purchases WHERE telegram_id = $1",
+            telegram_id
+        )
+        return (row['cnt'] or 0) > 0
+
+
+async def count_referred_completions(pool: asyncpg.Pool, referrer_id: int) -> int:
+    """Сколько рефералов реферера завершили тест (бонус ещё не выдан)."""
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """SELECT COUNT(*) AS cnt
+               FROM referrals r
+               JOIN users u ON u.telegram_id = r.referred_id
+               WHERE r.referrer_id = $1
+                 AND u.test_completed = TRUE
+                 AND r.bonus_granted = FALSE""",
+            referrer_id
+        )
+        return (row['cnt'] or 0)
+
+
+async def grant_referral_premium(pool: asyncpg.Pool, referrer_id: int):
+    """Отмечает бонус выданным и добавляет запись о бесплатном Premium."""
+    async with pool.acquire() as conn:
+        async with conn.transaction():
+            await conn.execute(
+                "UPDATE referrals SET bonus_granted = TRUE WHERE referrer_id = $1 AND bonus_granted = FALSE",
+                referrer_id
+            )
+            await conn.execute(
+                "INSERT INTO purchases (telegram_id, stars, ab_group, payload) VALUES ($1, 0, -1, 'referral_bonus')",
+                referrer_id
+            )
+
+
 async def cleanup_old_progress(pool: asyncpg.Pool, days: int = 7):
     async with pool.acquire() as conn:
         result = await conn.execute(

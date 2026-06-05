@@ -1,10 +1,14 @@
 import { useEffect, useState, useMemo, useRef } from 'react'
-import { RadarChart }  from '../components/RadarChart'
-import { ShareCard }   from '../components/ShareCard'
-import { Confetti }    from '../components/Confetti'
-import { useTelegram } from '../hooks/useTelegram'
-import { useNavigate } from '../context/NavigationContext'
-import { track }       from '../hooks/useAnalytics'
+import { RadarChart }      from '../components/RadarChart'
+import { ShareCard }       from '../components/ShareCard'
+import { Confetti }        from '../components/Confetti'
+import { TypewriterText }  from '../components/TypewriterText'
+import { OdometerNumber }  from '../components/OdometerNumber'
+import { MagneticBtn }     from '../components/MagneticBtn'
+import { useTelegram }     from '../hooks/useTelegram'
+import { useNavigate }     from '../context/NavigationContext'
+import { track }           from '../hooks/useAnalytics'
+import { getBadges }       from '../utils/calculator'
 
 const isRuLang = (tg) => tg?.initDataUnsafe?.user?.language_code?.startsWith('ru')
 
@@ -36,7 +40,9 @@ export function ResultsPage({ results, onBack }) {
   const [compareLink,     setCompareLink]     = useState(null)
   const [premiumLoading,  setPremiumLoading]  = useState(false)
   const [premiumMsg,      setPremiumMsg]      = useState(null)
+  const [referralProgress, setReferralProgress] = useState(null)
   const premiumRef = useRef(null)
+  const badges = useMemo(() => getBadges(norm), [norm])
 
   const { normalized_scores: norm, riasec_profile: riasec, top_professions: profs } = results
 
@@ -67,6 +73,15 @@ export function ResultsPage({ results, onBack }) {
 
   // M1: view_results event
   useEffect(() => { track('view_results') }, [])
+
+  // T7: referral progress
+  useEffect(() => {
+    if (!initData) return
+    fetch(`/api/referral/progress?init_data=${encodeURIComponent(initData)}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => d && setReferralProgress(d))
+      .catch(() => {})
+  }, [initData])
 
   // Последовательный reveal + confetti если топ-матч ≥ 80%
   useEffect(() => {
@@ -242,7 +257,9 @@ export function ResultsPage({ results, onBack }) {
       <div className={`results-hero ${visible >= 1 ? 'visible' : ''}`}>
         <div className="hero-bg" />
         <div className="results-type-label">Твой профессиональный тип</div>
-        <div className="results-type-name">{domLabel}</div>
+        <div className="results-type-name">
+          <TypewriterText text={domLabel} delay={300} speed={40} />
+        </div>
         <div className="results-top-trait">
           Сильная черта: <strong>{TRAIT_LABELS[TRAIT_KEYS.indexOf(topTrait)]}</strong> — {norm[topTrait]}%
         </div>
@@ -258,7 +275,7 @@ export function ResultsPage({ results, onBack }) {
               <div key={key} className="trait-row">
                 <div className="trait-header">
                   <span className="trait-name">{TRAIT_LABELS[i]}</span>
-                  <span className="trait-score">{norm[key]}%</span>
+                  <span className="trait-score"><OdometerNumber value={norm[key]} delay={i * 120} />%</span>
                 </div>
                 <div className="trait-bar-bg">
                   <div className="trait-bar-fill" style={{ '--target-w': `${norm[key]}%`, '--delay': `${i * 70}ms` }} />
@@ -268,6 +285,24 @@ export function ResultsPage({ results, onBack }) {
             ))}
           </div>
         </div>
+
+        {/* ── Badges / Ачивки ───────────────────────────────────────────── */}
+        {badges.length > 0 && (
+          <div className={`section-card ${visible >= 2 ? 'visible' : ''}`}>
+            <h3 className="section-title">Твои ачивки</h3>
+            <div className="badges-list stagger-list">
+              {badges.map(b => (
+                <div key={b.id} className="badge-card">
+                  <span className="badge-emoji">{b.emoji}</span>
+                  <div className="badge-info">
+                    <p className="badge-title">{b.title}</p>
+                    <p className="badge-desc">{b.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* ── Radar Charts ───────────────────────────────────────────────── */}
         <div className={`section-card radars-card ${visible >= 3 ? 'visible' : ''}`}>
@@ -341,17 +376,17 @@ export function ResultsPage({ results, onBack }) {
         </div>
 
         {/* ── Premium (V4: shimmer on first view) ────────────────────────── */}
-        <div ref={premiumRef} className="premium-block">
+        <div ref={premiumRef} className="premium-block card-holo">
           <div className="premium-title">🌟 Хотите детальный отчёт?</div>
           <div className="premium-desc">
             Premium PDF — 6 страниц с персональным AI‑анализом:<br />
             психологический портрет, карьерное видение, роадмап
           </div>
-          <button className="btn-premium" onClick={handlePremium} disabled={premiumLoading}>
+          <MagneticBtn className="btn-premium" onClick={handlePremium} disabled={premiumLoading}>
             {premiumLoading
               ? (isRuLang(tg) ? '⏳ Загрузка…' : '⏳ Loading…')
               : `🌟 ${isRuLang(tg) ? 'Получить Premium PDF' : 'Get Premium PDF'}`}
-          </button>
+          </MagneticBtn>
           {premiumMsg && (
             <p style={{ marginTop: 8, fontSize: 13, color: 'rgba(255,255,255,0.7)', textAlign: 'center' }}>
               {premiumMsg}
@@ -364,6 +399,28 @@ export function ResultsPage({ results, onBack }) {
 
         {/* AI Chat — временно скрыт (N4, будет добавлен позже) */}
         {null}
+
+        {/* ── T7: Referral Premium widget ─────────────────────────────────── */}
+        {referralProgress && !referralProgress.granted && (
+          <div className="referral-widget">
+            <p className="referral-title">
+              {isRuLang(tg)
+                ? 'Пригласи 3 друзей → Premium бесплатно'
+                : 'Invite 3 friends → Free Premium'}
+            </p>
+            <div className="referral-dots">
+              {[0, 1, 2].map(i => (
+                <span key={i} className={`referral-dot ${i < referralProgress.count ? 'filled' : ''}`} />
+              ))}
+              <span className="referral-progress-text">
+                {referralProgress.count} из 3 прошли тест
+              </span>
+            </div>
+            <button className="btn-refer-cta" onClick={handleRefer}>
+              {isRuLang(tg) ? 'Пригласить друга →' : 'Invite a friend →'}
+            </button>
+          </div>
+        )}
 
         {/* ── Поделиться с другом (Compare + Refer объединены — issue 1) ─── */}
         <button className="btn-share-friend" onClick={handleRefer}>

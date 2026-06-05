@@ -1,3 +1,6 @@
+import { useEffect } from 'react'
+import { useTelegram } from '../hooks/useTelegram'
+
 const TRAIT_META = {
   O: { ru: 'Открытость к опыту',   en: 'Openness',          emoji: '🎨' },
   C: { ru: 'Сознательность',        en: 'Conscientiousness', emoji: '⚡' },
@@ -23,6 +26,8 @@ function getTopTrait(answers) {
 }
 
 export function MilestoneCard({ answers, totalQuestions, lang, onContinue }) {
+  const { haptic } = useTelegram()
+  useEffect(() => { haptic.success?.() }, []) // eslint-disable-line
   const { trait, pct } = getTopTrait(answers)
   const meta      = TRAIT_META[trait]
   const remaining = totalQuestions - answers.length

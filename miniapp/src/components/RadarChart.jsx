@@ -4,6 +4,7 @@
  */
 
 import { useState } from 'react'
+import { useTelegram } from '../hooks/useTelegram'
 
 const TRAIT_FULL = {
   O: 'Открытость к опыту',
@@ -18,6 +19,7 @@ const TRAIT_FULL = {
 
 export function RadarChart({ values, labels, color, size = 200, interactive = false }) {
   const [activeIdx, setActiveIdx] = useState(null)
+  const { haptic } = useTelegram()
 
   const N  = labels.length
   const cx = size / 2
@@ -47,6 +49,7 @@ export function RadarChart({ values, labels, color, size = 200, interactive = fa
 
   function handleDotClick(i) {
     if (!interactive) return
+    haptic.selection?.()
     setActiveIdx(activeIdx === i ? null : i)
   }
 

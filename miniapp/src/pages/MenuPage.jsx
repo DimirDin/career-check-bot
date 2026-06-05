@@ -125,7 +125,12 @@ export function MenuPage() {
         userState={s}
         haptic={haptic}
         onResults    ={() => navigate('/results')}
-        onPremium    ={() => navigate('/premium')}
+        onPremium    ={() => {
+          // Если есть результаты — сразу на страницу результатов с Premium-кнопкой
+          // Если нет — напоминаем пройти тест
+          if (s.hasResults) navigate('/results')
+          else navigate('/premium')
+        }}
         onProfessions={() => navigate('/professions')}
         onHistory    ={() => navigate('/history')}
       />
@@ -143,7 +148,6 @@ export function MenuPage() {
         language={s.language}
         haptic={haptic}
         onSettings={() => navigate('/settings')}
-        onSupport ={() => navigate('/support')}
       />
 
       <div className={styles.safeAreaBottom} />

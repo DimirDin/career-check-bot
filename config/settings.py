@@ -26,14 +26,14 @@ BOT_USERNAME        = os.getenv("BOT_USERNAME", "CareerCheck_Bot")
 ANTHROPIC_API_KEY   = os.getenv("ANTHROPIC_API_KEY", "")
 PREMIUM_PRICE_STARS = int(os.getenv("PREMIUM_PRICE_STARS", "99"))
 
-# M2: A/B тест цены Premium
-# Группа A: 49 Stars, B: 99 Stars, C: 149 Stars
+# M2: A/B тест цены — пока все платят 99. Для включения A/B задай env-переменные:
+# PREMIUM_PRICE_A=49  PREMIUM_PRICE_B=99  PREMIUM_PRICE_C=149
 PREMIUM_PRICES_AB = [
-    int(os.getenv("PREMIUM_PRICE_A", "49")),
+    int(os.getenv("PREMIUM_PRICE_A", "99")),
     int(os.getenv("PREMIUM_PRICE_B", "99")),
-    int(os.getenv("PREMIUM_PRICE_C", "149")),
+    int(os.getenv("PREMIUM_PRICE_C", "99")),
 ]
 
 def get_ab_price(telegram_id: int) -> int:
-    """Детерминированно выбирает цену по user_id % 3."""
+    """Возвращает цену для пользователя. По умолчанию все в группе B (99 Stars)."""
     return PREMIUM_PRICES_AB[int(telegram_id) % 3]

@@ -43,26 +43,8 @@ export function ResultsPage({ results }) {
 
   const handleShare = () => {
     haptic.medium()
-    const text = `Прошёл карьерный тест CareerCheck 🚀\nМой тип: ${domLabel}\nУзнай свой → @CareerCheck_Bot`
-    // Telegram: открываем нативный шаринг
-    if (tg?.openTelegramLink) {
-      const encoded = encodeURIComponent(text)
-      tg.openTelegramLink(`https://t.me/share/url?url=https://careercheck.app&text=${encoded}`)
-    } else if (navigator.share) {
-      navigator.share({ text })
-    } else {
-      navigator.clipboard?.writeText(text)
-      tg?.showAlert?.('Текст скопирован!')
-    }
-  }
-
-  const handlePremium = () => {
-    haptic.medium()
-    // Открываем бота — там кнопка Premium PDF
-    if (tg?.openTelegramLink) {
-      tg.openTelegramLink('https://t.me/CareerCheck_Bot?start=premium')
-    } else {
-      window.open('https://t.me/CareerCheck_Bot?start=premium', '_blank')
+    if (tg?.switchInlineQuery) {
+      tg.switchInlineQuery(`Мой тип: ${domLabel} — узнай свой на @CareerCheckBot`)
     }
   }
 
@@ -220,18 +202,6 @@ export function ResultsPage({ results }) {
               )}
             </div>
           ))}
-
-          {/* Premium PDF */}
-          <div className="premium-block">
-            <div className="premium-title">🌟 Хотите детальный отчёт?</div>
-            <div className="premium-desc">
-              Premium PDF — 6 страниц с персональным AI-анализом: психологический портрет,
-              карьерное видение на 5 и 10 лет, роадмап и конкретные шаги
-            </div>
-            <button className="btn-premium" onClick={handlePremium}>
-              Получить Premium PDF — 99 Stars
-            </button>
-          </div>
 
           {/* Share */}
           <button className="btn-share" onClick={handleShare}>

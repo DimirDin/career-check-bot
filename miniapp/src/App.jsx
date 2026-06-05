@@ -18,7 +18,7 @@ import { ProfessionsPage }      from './pages/ProfessionsPage'
 import { ProfessionDetailPage } from './pages/ProfessionDetailPage'
 import { PremiumPromoPage }     from './pages/PremiumPromoPage'
 import { StarField }            from './components/StarField'
-import { LiquidTransition }     from './components/LiquidTransition'
+import { AuroraStreak }         from './components/AuroraStreak'
 import { track }                from './hooks/useAnalytics'
 import './styles.css'
 
@@ -88,25 +88,8 @@ export default function App() {
   const [questions, setQuestions] = useState([])
   const [results,   setResults]   = useState(null)
   const [error,     setError]     = useState(null)
-  const [liquidActive,  setLiquidActive]  = useState(false)
-  const [liquidOrigin,  setLiquidOrigin]  = useState({ x: 0, y: 0 })
-  const lastTapOrigin = { x: window.innerWidth / 2, y: window.innerHeight / 2 }
+  const [liquidActive, setLiquidActive] = useState(false)
   const lang = tg?.initDataUnsafe?.user?.language_code?.slice(0, 2) || 'ru'
-
-  // Отслеживаем координаты тапа для LiquidTransition
-  useEffect(() => {
-    const handler = (e) => {
-      const src = e.touches ? e.touches[0] : e
-      lastTapOrigin.x = src.clientX
-      lastTapOrigin.y = src.clientY
-    }
-    window.addEventListener('touchstart', handler, { passive: true })
-    window.addEventListener('mousedown', handler)
-    return () => {
-      window.removeEventListener('touchstart', handler)
-      window.removeEventListener('mousedown', handler)
-    }
-  }, [])
 
   // ── Навигация ────────────────────────────────────────────────────────────
   const navigate = useCallback((path) => {
@@ -122,14 +105,11 @@ export default function App() {
     const base = '/' + path.replace(/^\//, '').split('/')[0]
     const target = ROUTE_MAP[path] || ROUTE_MAP[base] || SCREEN.COMING_SOON
 
-    // D11: Liquid reveal transition
-    setLiquidOrigin({ x: lastTapOrigin.x, y: lastTapOrigin.y })
+    // Aurora Streak — мгновенная смена экрана + декоративный луч
+    setRoute(path)
+    setScreen(target)
     setLiquidActive(true)
-    setTimeout(() => {
-      setRoute(path)
-      setScreen(target)
-    }, 300)
-    setTimeout(() => setLiquidActive(false), 550)
+    setTimeout(() => setLiquidActive(false), 400)
   }, []) // eslint-disable-line
 
   // ── Инициализация ────────────────────────────────────────────────────────
@@ -320,7 +300,7 @@ export default function App() {
   return (
     <NavigationContext.Provider value={{ navigate, current: route }}>
       <StarField count={55} />
-      <LiquidTransition active={liquidActive} origin={liquidOrigin} />
+      <AuroraStreak active={liquidActive} />
       <div key={transitionKey} className={transitionKey ? 'screen-enter' : undefined} style={{ position: 'relative', zIndex: 1, display: 'contents' }}>
         {renderScreen()}
       </div>

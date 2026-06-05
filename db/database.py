@@ -330,6 +330,103 @@ async def clear_progress(pool: asyncpg.Pool, user_id: int):
             logger.info(f"PROGRESS CLEARED: user_id={user_id}")
 
 
+# ── Рефералы (M3) ─────────────────────────────────────────────────────────────
+
+async def save_referral(pool: asyncpg.Pool, referrer_telegram_id: int, referred_telegram_id: int):
+    """Сохраняет реферальную связь если ещё не существует."""
+    async with pool.acquire() as conn:
+        await conn.execute(
+            '''INSERT INTO referrals (referrer_id, referred_id)
+               VALUES ($1, $2)
+               ON CONFLICT (referred_id) DO NOTHING''',
+            referrer_telegram_id, referred_telegram_id
+        )
+
+async def get_referral_count(pool: asyncpg.Pool, referrer_telegram_id: int) -> int:
+    async with pool.acquire() as conn:
+        return await conn.fetchval(
+            'SELECT COUNT(*) FROM referrals WHERE referrer_id = $1',
+            referrer_telegram_id
+        ) or 0
+
+async def mark_referral_bonus(pool: asyncpg.Pool, referred_telegram_id: int):
+    """Помечает что бонус рефереру выдан."""
+    async with pool.acquire() as conn:
+        await conn.execute(
+            'UPDATE referrals SET bonus_granted = TRUE WHERE referred_id = $1',
+            referred_telegram_id
+        )
+
+async def get_referrer(pool: asyncpg.Pool, referred_telegram_id: int):
+    """Возвращает telegram_id реферера или None."""
+    async with pool.acquire() as conn:
+        return await conn.fetchval(
+            'SELECT referrer_id FROM referrals WHERE referred_id = $1',
+            referred_telegram_id
+        )
+
+
+# ── Челленджи (N3) ────────────────────────────────────────────────────────────
+
+async def get_daily_challenge(pool: asyncpg.Pool, user_telegram_id: int, lang: str = "ru"):
+    """Выбирает следующий челлендж для пользователя (циклически)."""
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            'SELECT last_challenge_id FROM user_challenges WHERE user_telegram_id = $1',
+            user_telegram_id
+        )
+        last_id = row['last_challenge_id'] if row else 0
+
+        challenge = await conn.fetchrow(
+            'SELECT id, trait_target, text_ru, text_en FROM challenges WHERE id > $1 ORDER BY id LIMIT 1',
+            last_id or 0
+        )
+        if not challenge:
+            challenge = await conn.fetchrow(
+                'SELECT id, trait_target, text_ru, text_en FROM challenges ORDER BY id LIMIT 1'
+            )
+
+        return dict(challenge) if challenge else None
+
+async def get_challenge_subscribers(pool: asyncpg.Pool):
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            '''SELECT uc.user_telegram_id, u.lang FROM user_challenges uc
+               LEFT JOIN users u ON u.telegram_id = uc.user_telegram_id
+               WHERE uc.subscribed = TRUE
+                 AND (uc.last_sent_date IS NULL OR uc.last_sent_date < CURRENT_DATE)'''
+        )
+        return [dict(r) for r in rows]
+
+async def subscribe_challenges(pool: asyncpg.Pool, user_telegram_id: int):
+    async with pool.acquire() as conn:
+        await conn.execute(
+            '''INSERT INTO user_challenges (user_telegram_id, subscribed)
+               VALUES ($1, TRUE)
+               ON CONFLICT (user_telegram_id) DO UPDATE SET subscribed = TRUE''',
+            user_telegram_id
+        )
+
+async def unsubscribe_challenges(pool: asyncpg.Pool, user_telegram_id: int):
+    async with pool.acquire() as conn:
+        await conn.execute(
+            'UPDATE user_challenges SET subscribed = FALSE WHERE user_telegram_id = $1',
+            user_telegram_id
+        )
+
+async def mark_challenge_sent(pool: asyncpg.Pool, user_telegram_id: int, challenge_id: int):
+    async with pool.acquire() as conn:
+        await conn.execute(
+            '''INSERT INTO user_challenges (user_telegram_id, last_sent_date, last_challenge_id)
+               VALUES ($1, CURRENT_DATE, $2)
+               ON CONFLICT (user_telegram_id) DO UPDATE SET
+                   last_sent_date = CURRENT_DATE,
+                   last_challenge_id = $2,
+                   streak = COALESCE(user_challenges.streak, 0) + 1''',
+            user_telegram_id, challenge_id
+        )
+
+
 async def cleanup_old_progress(pool: asyncpg.Pool, days: int = 7):
     async with pool.acquire() as conn:
         result = await conn.execute(

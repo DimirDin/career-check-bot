@@ -14,7 +14,9 @@ from db.database import (
     create_user, get_user, update_user_lang, get_questions, save_result,
     get_professions, get_profession_details, get_profession_details_by_title_lang,
     get_stats, get_last_result,
-    save_progress, get_progress, clear_progress
+    save_progress, get_progress, clear_progress,
+    save_referral, get_referral_count, get_referrer,
+    subscribe_challenges, unsubscribe_challenges,
 )
 from services.calculator import calculate_scores, calculate_riasec, match_professions
 from services.pdf_generator import generate_pdf
@@ -108,8 +110,36 @@ async def cmd_start(message: Message, state: FSMContext, pool: asyncpg.Pool):
     tg_lang = message.from_user.language_code if message.from_user else None
     lang    = resolve_lang(tg_lang)
 
-    # Обработка deep link ?start=premium — из Mini App
     command_args = message.text.split(maxsplit=1)[1] if message.text and ' ' in message.text else ''
+
+    # Обработка deep link ?start=ref_USERID — реферальная программа (M3)
+    if command_args.startswith('ref_'):
+        try:
+            referrer_id = int(command_args[4:])
+            if referrer_id != message.from_user.id:
+                await save_referral(pool, referrer_id, message.from_user.id)
+                ref_count = await get_referral_count(pool, referrer_id)
+                try:
+                    if lang == 'ru':
+                        await message.bot.send_message(
+                            referrer_id,
+                            f"🎉 Твой друг зарегистрировался по твоей ссылке!\n"
+                            f"Всего приглашено: <b>{ref_count}</b>\n\n"
+                            f"Когда друг пройдёт тест — ты получишь скидку 50% на Premium!"
+                        )
+                    else:
+                        await message.bot.send_message(
+                            referrer_id,
+                            f"🎉 Your friend joined via your referral link!\n"
+                            f"Total invited: <b>{ref_count}</b>\n\n"
+                            f"When your friend completes the test — you'll get 50% off Premium!"
+                        )
+                except Exception:
+                    pass
+        except (ValueError, Exception) as e:
+            logger.warning(f"Referral processing error: {e}")
+
+    # Обработка deep link ?start=premium — из Mini App
     if command_args == 'premium':
         from bot.premium_handlers import premium_keyboard
         await message.answer(
@@ -858,3 +888,70 @@ async def cmd_help(message: Message, pool: asyncpg.Pool):
     user = await get_user(pool, message.from_user.id)
     lang = user['lang'] if user and user.get('lang') else resolve_lang(message.from_user.language_code)
     await message.answer(get_text("help_text", lang))
+
+
+# ── /refer — реферальная ссылка (M3) ─────────────────────────────────────────
+
+@router.message(Command('refer'))
+async def cmd_refer(message: Message, pool: asyncpg.Pool):
+    tg_id  = message.from_user.id
+    user   = await get_user(pool, tg_id)
+    lang   = user['lang'] if user and user.get('lang') else resolve_lang(message.from_user.language_code)
+    count  = await get_referral_count(pool, tg_id)
+    bot_username = (await message.bot.me()).username
+    link   = f"https://t.me/{bot_username}?start=ref_{tg_id}"
+
+    if lang == 'ru':
+        text = (
+            f"🔗 <b>Твоя реферальная ссылка</b>\n\n"
+            f"<code>{link}</code>\n\n"
+            f"👥 Приглашено друзей: <b>{count}</b>\n\n"
+            f"За каждого друга, который пройдёт тест — получишь уведомление.\n"
+            f"Когда друг пройдёт тест и купит Premium — ты получишь скидку 50% на следующую покупку!"
+        )
+    else:
+        text = (
+            f"🔗 <b>Your referral link</b>\n\n"
+            f"<code>{link}</code>\n\n"
+            f"👥 Friends invited: <b>{count}</b>\n\n"
+            f"For every friend who completes the test — you'll get a notification.\n"
+            f"When your friend buys Premium — you'll get 50% off your next purchase!"
+        )
+    await message.answer(text)
+
+
+# ── /challenges — ежедневные карьерные задания (N3) ───────────────────────────
+
+@router.message(Command('challenges'))
+async def cmd_challenges(message: Message, pool: asyncpg.Pool):
+    tg_id  = message.from_user.id
+    user   = await get_user(pool, tg_id)
+    lang   = user['lang'] if user and user.get('lang') else resolve_lang(message.from_user.language_code)
+
+    await subscribe_challenges(pool, tg_id)
+
+    if lang == 'ru':
+        text = (
+            "🎯 <b>Карьерные челленджи</b>\n\n"
+            "Ты подписан! Каждый день в 9:00 я буду присылать тебе короткое карьерное задание.\n\n"
+            "30 уникальных заданий, основанных на твоём профиле Big Five.\n\n"
+            "Чтобы отписаться: /stop_challenges"
+        )
+    else:
+        text = (
+            "🎯 <b>Career Challenges</b>\n\n"
+            "You're subscribed! Every day at 9:00 I'll send you a short career challenge.\n\n"
+            "30 unique challenges based on your Big Five profile.\n\n"
+            "To unsubscribe: /stop_challenges"
+        )
+    await message.answer(text)
+
+
+@router.message(Command('stop_challenges'))
+async def cmd_stop_challenges(message: Message, pool: asyncpg.Pool):
+    await unsubscribe_challenges(pool, message.from_user.id)
+    tg_id  = message.from_user.id
+    user   = await get_user(pool, tg_id)
+    lang   = user['lang'] if user and user.get('lang') else 'ru'
+    msg = "✅ Ты отписан от ежедневных челленджей." if lang == 'ru' else "✅ You've unsubscribed from daily challenges."
+    await message.answer(msg)

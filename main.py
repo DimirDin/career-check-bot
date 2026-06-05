@@ -15,6 +15,7 @@ from bot.handlers import router
 from bot.premium_handlers import premium_router
 from db.database import cleanup_old_progress
 from middlewares.rate_limit import RateLimitMiddleware
+from services.challenge_service import challenge_scheduler
 
 logging.basicConfig(
     level=logging.INFO,
@@ -128,6 +129,10 @@ async def main() -> None:
     heartbeat_task = asyncio.create_task(heartbeat_loop(redis_client))
     logger.info("Heartbeat task started")
 
+    # ── Daily challenges scheduler (N3) ──────────────────────────
+    challenges_task = asyncio.create_task(challenge_scheduler(bot, pool))
+    logger.info("Challenge scheduler started")
+
     # ── Polling c graceful stop ───────────────────────────────────
     logger.info("Bot started, polling…")
     try:
@@ -150,6 +155,7 @@ async def main() -> None:
         await pool.close()
 
         heartbeat_task.cancel()
+        challenges_task.cancel()
 
         logger.info("Closing Redis client…")
         await redis_client.aclose()

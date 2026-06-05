@@ -6,6 +6,8 @@ import { useTelegram } from '../hooks/useTelegram'
 import { useNavigate } from '../context/NavigationContext'
 import { track }       from '../hooks/useAnalytics'
 
+const BOT_USERNAME = 'CareerCheck_Bot'
+
 const TRAIT_LABELS = ['Открытость', 'Сознательность', 'Экстраверсия', 'Доброжелат.', 'Стабильность']
 const TRAIT_KEYS   = ['O', 'C', 'E', 'A', 'S']
 const RIASEC_KEYS  = ['R', 'I', 'A', 'S', 'E', 'C']
@@ -26,10 +28,11 @@ const TRAIT_DESCRIPTIONS = {
 export function ResultsPage({ results, onBack }) {
   const { haptic, tg }   = useTelegram()
   const navigate          = useNavigate()
-  const [expanded,   setExpanded]   = useState(null)
-  const [visible,    setVisible]    = useState(0)
-  const [confetti,   setConfetti]   = useState(false)
-  const premiumRef   = useRef(null)
+  const [expanded,     setExpanded]     = useState(null)
+  const [visible,      setVisible]      = useState(0)
+  const [confetti,     setConfetti]     = useState(false)
+  const [compareLink,  setCompareLink]  = useState(null)
+  const premiumRef     = useRef(null)
 
   const { normalized_scores: norm, riasec_profile: riasec, top_professions: profs } = results
 
@@ -101,6 +104,39 @@ export function ResultsPage({ results, onBack }) {
     } else {
       navigator.clipboard?.writeText(text)
       tg?.showAlert?.('Текст скопирован!')
+    }
+  }
+
+  // ── Compare (N2) ──────────────────────────────────────────────────────────
+  const handleCompare = async () => {
+    haptic.medium?.()
+    track('compare_create')
+    try {
+      const res  = await fetch('/api/compare/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ init_data: initData }),
+      })
+      const data = await res.json()
+      setCompareLink(data.link)
+      if (tg?.openTelegramLink) {
+        const text = `Сравни свой профиль с моим 👥 → ${data.link}`
+        tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(data.link)}&text=${encodeURIComponent(text)}`)
+      }
+    } catch (e) {
+      tg?.showAlert?.('Ошибка создания ссылки')
+    }
+  }
+
+  // ── Refer (M3) ────────────────────────────────────────────────────────────
+  const handleRefer = () => {
+    haptic.medium?.()
+    track('refer_click')
+    const uid  = user?.id
+    const link = `https://t.me/${BOT_USERNAME}?start=ref_${uid}`
+    const text = 'Пройди карьерный тест CareerCheck — 10 минут и узнаешь свой профиль!'
+    if (tg?.openTelegramLink) {
+      tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(text)}`)
     }
   }
 
@@ -234,6 +270,16 @@ export function ResultsPage({ results, onBack }) {
 
         {/* ── Share Card (U4) ────────────────────────────────────────────── */}
         <ShareCard results={results} />
+
+        {/* ── Compare + Refer (N2, M3) ───────────────────────────────────── */}
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="share-card-btn" style={{ flex: 1 }} onClick={handleCompare}>
+            👥 {initData ? (tg?.initDataUnsafe?.user?.language_code?.startsWith('ru') ? 'Сравнить с другом' : 'Compare with friend') : 'Compare'}
+          </button>
+          <button className="share-card-btn" style={{ flex: 1 }} onClick={handleRefer}>
+            🔗 {tg?.initDataUnsafe?.user?.language_code?.startsWith('ru') ? 'Пригласить' : 'Invite'}
+          </button>
+        </div>
 
         {/* ── Кнопка Назад ───────────────────────────────────────────────── */}
         <button className="btn-back-results" onClick={handleBack}>

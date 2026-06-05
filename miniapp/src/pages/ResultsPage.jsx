@@ -200,6 +200,11 @@ export function ResultsPage({ results, onBack }) {
       if (!res.ok) throw new Error('invoice_failed')
       const { invoice_link } = await res.json()
 
+      // Сбрасываем loading ДО openInvoice — React должен завершить re-render
+      // перед тем как Telegram откроет нативный payment sheet
+      setPremiumLoading(false)
+      await new Promise(r => setTimeout(r, 80))
+
       tg.openInvoice(invoice_link, async (status) => {
         if (status === 'paid') {
           haptic.success?.()
@@ -242,10 +247,9 @@ export function ResultsPage({ results, onBack }) {
       })
     } catch (e) {
       console.error('Premium invoice error:', e)
-      // Fallback — открываем бота
+      setPremiumLoading(false)
       openLink('https://t.me/CareerCheck_Bot?start=premium')
     }
-    setPremiumLoading(false)
   }
 
   return (

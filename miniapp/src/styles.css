@@ -614,3 +614,156 @@ html, body {
   transition: background 0.15s, color 0.15s;
 }
 .btn-back-results:active { background: rgba(255,255,255,0.12); color: var(--white); }
+
+/* ── Onboarding ────────────────────────────────────────────────── */
+.onboarding {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 28px calc(32px + var(--safe-bottom));
+  padding-top: calc(var(--safe-top) + 16px);
+  gap: 0;
+  min-height: 100dvh;
+}
+
+.onboarding-skip {
+  position: absolute;
+  top: calc(var(--safe-top) + 14px);
+  right: 20px;
+  background: none;
+  border: none;
+  color: var(--gray);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 6px 8px;
+}
+
+.onboarding-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  flex: 1;
+  justify-content: center;
+  animation: ob-in 0.3s ease;
+}
+@keyframes ob-in {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.onboarding-emoji {
+  font-size: 72px;
+  line-height: 1;
+}
+
+.onboarding-title {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--white);
+  text-align: center;
+  line-height: 1.3;
+}
+
+.onboarding-desc {
+  font-size: 15px;
+  color: var(--gray);
+  text-align: center;
+  line-height: 1.65;
+  max-width: 300px;
+}
+
+.onboarding-dots {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 28px;
+}
+.ob-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--dim);
+  transition: background 0.25s, transform 0.25s;
+}
+.ob-dot-active {
+  background: var(--purple);
+  transform: scale(1.3);
+}
+
+.onboarding-btn {
+  width: 100%;
+  background: var(--purple);
+  border: none;
+  color: white;
+  border-radius: var(--radius-sm);
+  padding: 16px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.1s;
+}
+.onboarding-btn:active { opacity: 0.85; transform: scale(0.98); }
+
+/* ── Milestone card ────────────────────────────────────────────── */
+.milestone-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0 16px calc(24px + var(--safe-bottom));
+  z-index: 100;
+  animation: ms-fade-in 0.25s ease;
+}
+@keyframes ms-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.milestone-card {
+  width: 100%;
+  max-width: 420px;
+  background: linear-gradient(135deg, #1a1040, #12122a);
+  border: 1px solid rgba(124,58,237,0.5);
+  border-radius: var(--radius);
+  padding: 24px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  animation: ms-slide-up 0.3s cubic-bezier(0.22,1,0.36,1);
+}
+@keyframes ms-slide-up {
+  from { transform: translateY(40px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+.milestone-badge {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--gold);
+  text-align: center;
+}
+
+.milestone-text {
+  font-size: 15px;
+  color: var(--white);
+  line-height: 1.65;
+  text-align: center;
+  white-space: pre-line;
+}
+
+.milestone-btn {
+  background: var(--purple);
+  border: none;
+  color: white;
+  border-radius: var(--radius-sm);
+  padding: 14px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.milestone-btn:active { opacity: 0.85; }

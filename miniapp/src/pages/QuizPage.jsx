@@ -1,84 +1,136 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useTelegram } from '../hooks/useTelegram'
-
-// Вопросы загружаются с сервера или из props
-// В dev-режиме используется заглушка
+import { MilestoneCard } from '../components/MilestoneCard'
 
 const SCORE_LABELS = ['Совсем нет', 'Скорее нет', 'Нейтрально', 'Скорее да', 'Полностью да']
 const SCORE_COLORS = ['#ef4444', '#f97316', '#eab308', '#84cc16', '#22c55e']
 
+const PROGRESS_KEY = 'cc_progress'
+const MILESTONES   = [20, 40]
+
+function saveProgress(questionIndex, answers) {
+  try {
+    localStorage.setItem(PROGRESS_KEY, JSON.stringify({
+      questionIndex,
+      answers,
+      ts: Date.now(),
+    }))
+  } catch {}
+}
+
+function loadProgress() {
+  try {
+    const raw = localStorage.getItem(PROGRESS_KEY)
+    if (!raw) return null
+    const { questionIndex, answers, ts } = JSON.parse(raw)
+    // Прогресс старше 24 часов не восстанавливаем
+    if (Date.now() - ts > 86400 * 1000) {
+      localStorage.removeItem(PROGRESS_KEY)
+      return null
+    }
+    return { questionIndex, answers }
+  } catch {
+    return null
+  }
+}
+
+function clearProgress() {
+  try { localStorage.removeItem(PROGRESS_KEY) } catch {}
+}
+
 export function QuizPage({ questions, onFinish }) {
-  const { haptic, showBackButton, hideBackButton } = useTelegram()
+  const { haptic, tg, showBackButton, hideBackButton } = useTelegram()
+  const lang = tg?.initDataUnsafe?.user?.language_code?.slice(0, 2) || 'ru'
 
-  const [current, setCurrent] = useState(0)
-  const [answers, setAnswers] = useState([])
-  const [selected, setSelected] = useState(null)
-  const [animDir, setAnimDir] = useState('in') // 'in' | 'out-left' | 'out-right'
-  const [transitioning, setTransitioning] = useState(false)
+  // Восстанавливаем прогресс из localStorage если есть
+  const saved = loadProgress()
+  const initIdx     = saved && saved.questionIndex < questions.length ? saved.questionIndex : 0
+  const initAnswers = saved && saved.answers.length === initIdx ? saved.answers : []
 
-  const q = questions[current]
+  const [current,      setCurrent]      = useState(initIdx)
+  const [answers,      setAnswers]      = useState(initAnswers)
+  const [selected,     setSelected]     = useState(null)
+  const [animDir,      setAnimDir]      = useState('in')
+  const [transitioning,setTransitioning]= useState(false)
+  const [milestone,    setMilestone]    = useState(null)  // answers snapshot when milestone hit
+
+  const q        = questions[current]
   const progress = current / questions.length
 
   useEffect(() => {
-    if (current > 0) {
-      showBackButton(() => handleBack())
-    } else {
-      hideBackButton()
-    }
+    if (current > 0) showBackButton(() => handleBack())
+    else hideBackButton()
   }, [current])
 
-  // Анимация появления нового вопроса
   useEffect(() => {
     setAnimDir('in')
     setSelected(null)
   }, [current])
 
   const handleSelect = useCallback(async (score) => {
-    if (transitioning) return
+    if (transitioning || milestone) return
     haptic.select()
     setSelected(score)
 
     const newAnswer = {
-      question_id: q.id,
-      trait: q.trait,
+      question_id:  q.id,
+      trait:        q.trait,
       score,
-      is_inverted: q.is_inverted,
+      is_inverted:  q.is_inverted,
     }
 
     await new Promise(r => setTimeout(r, 220))
 
     setTransitioning(true)
     setAnimDir('out-left')
-
     await new Promise(r => setTimeout(r, 200))
 
     const newAnswers = [...answers, newAnswer]
     setAnswers(newAnswers)
 
-    if (current + 1 >= questions.length) {
+    const nextIdx = current + 1
+
+    if (nextIdx >= questions.length) {
+      clearProgress()
       haptic.success()
       onFinish(newAnswers)
-    } else {
-      setCurrent(c => c + 1)
-      setTransitioning(false)
+      return
     }
-  }, [transitioning, current, answers, q, haptic, onFinish])
+
+    // Сохраняем прогресс после каждого ответа
+    saveProgress(nextIdx, newAnswers)
+
+    // Milestone на вопросах 20 и 40
+    if (MILESTONES.includes(nextIdx)) {
+      haptic.success()
+      setMilestone(newAnswers)
+      setCurrent(nextIdx)
+      setTransitioning(false)
+      return
+    }
+
+    setCurrent(nextIdx)
+    setTransitioning(false)
+  }, [transitioning, milestone, current, answers, q, haptic, onFinish, questions.length])
 
   const handleBack = useCallback(async () => {
-    if (current === 0 || transitioning) return
+    if (current === 0 || transitioning || milestone) return
     haptic.light()
     setTransitioning(true)
     setAnimDir('out-right')
     await new Promise(r => setTimeout(r, 200))
-    setAnswers(a => a.slice(0, -1))
-    setCurrent(c => c - 1)
+    const prevAnswers = answers.slice(0, -1)
+    setAnswers(prevAnswers)
+    const prevIdx = current - 1
+    setCurrent(prevIdx)
+    saveProgress(prevIdx, prevAnswers)
     setTransitioning(false)
-  }, [current, transitioning, haptic])
+  }, [current, transitioning, milestone, answers, haptic])
 
   const animClass = {
-    'in':        'q-enter',
-    'out-left':  'q-exit-left',
-    'out-right': 'q-exit-right',
+    'in':         'q-enter',
+    'out-left':   'q-exit-left',
+    'out-right':  'q-exit-right',
   }[animDir]
 
   return (
@@ -108,7 +160,7 @@ export function QuizPage({ questions, onFinish }) {
             className={`score-btn ${selected === score ? 'score-selected' : ''}`}
             style={{ '--accent': SCORE_COLORS[score - 1] }}
             onClick={() => handleSelect(score)}
-            disabled={transitioning}
+            disabled={transitioning || !!milestone}
           >
             <span className="score-circle">{score}</span>
             <span className="score-label">{SCORE_LABELS[score - 1]}</span>
@@ -116,13 +168,23 @@ export function QuizPage({ questions, onFinish }) {
         ))}
       </div>
 
-      {/* Mini progress dots (last 5) */}
+      {/* Mini progress dots */}
       <div className="progress-dots">
         {Array.from({ length: Math.min(current + 1, 5) }, (_, i) => (
           <div key={i} className="progress-dot done" />
         ))}
         <div className="progress-dot current" />
       </div>
+
+      {/* Milestone overlay */}
+      {milestone && (
+        <MilestoneCard
+          answers={milestone}
+          totalQuestions={questions.length}
+          lang={lang}
+          onContinue={() => setMilestone(null)}
+        />
+      )}
     </div>
   )
 }

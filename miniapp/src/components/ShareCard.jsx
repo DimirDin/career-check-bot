@@ -1,12 +1,13 @@
 import { useRef, useEffect, useState } from 'react'
 import { useTelegram } from '../hooks/useTelegram'
 
-const TRAIT_SHORT = { O: 'Открыт.', C: 'Сознат.', E: 'Экстр.', A: 'Доброж.', S: 'Стабил.' }
-const TRAIT_SHORT_EN = { O: 'Open.', C: 'Consc.', E: 'Extra.', A: 'Agree.', S: 'Stabil.' }
-const RIASEC = {
-  ru: { R:'Реалистичный', I:'Исследоват.', A:'Артистичный', S:'Социальный', E:'Предприимч.', C:'Конвенц.' },
+const TRAIT_FULL_RU = { O:'Открытость к опыту', C:'Сознательность', E:'Экстраверсия', A:'Доброжелательность', S:'Эмоц. стабильность' }
+const TRAIT_FULL_EN = { O:'Openness', C:'Conscientiousness', E:'Extraversion', A:'Agreeableness', S:'Stability' }
+const RIASEC_FULL = {
+  ru: { R:'Реалистичный', I:'Исследовательский', A:'Артистичный', S:'Социальный', E:'Предприимчивый', C:'Конвенциональный' },
   en: { R:'Realistic', I:'Investigative', A:'Artistic', S:'Social', E:'Enterprising', C:'Conventional' },
 }
+const MEDAL_COLORS = ['#fbbf24', '#94a3b8', '#cd7c3f']
 
 function roundRect(ctx, x, y, w, h, r) {
   ctx.beginPath()
@@ -22,124 +23,159 @@ function roundRect(ctx, x, y, w, h, r) {
   ctx.closePath()
 }
 
+// ── Полная карточка результатов (аналог ResultsPage) ──────────────────────────
 function drawCard(canvas, { norm, riasec, profs, lang }) {
-  const ctx = canvas.getContext('2d')
-  const W = 400, H = 520
+  const ctx  = canvas.getContext('2d')
+  const W    = 400
   const isRu = lang !== 'en'
+  const TRAITS  = ['O', 'C', 'E', 'A', 'S']
+  const tNames  = isRu ? TRAIT_FULL_RU : TRAIT_FULL_EN
+  const rNames  = RIASEC_FULL[isRu ? 'ru' : 'en'] || RIASEC_FULL.en
+
+  // ── Вычисляем высоту динамически ──────────────────────────────────────────
+  const HEADER_H  = 90      // лого + тип
+  const SECTION_H = 28      // заголовок секции
+  const TRAIT_H   = 44      // строка Big Five
+  const DIV_H     = 16      // разделитель
+  const PROF_H    = 60      // строка профессии
+  const FOOTER_H  = 36
+  const numProfs  = Math.min(profs?.length || 0, 3)
+  const H = HEADER_H + DIV_H + SECTION_H + TRAITS.length * TRAIT_H
+          + DIV_H + SECTION_H + numProfs * PROF_H + FOOTER_H
+
+  canvas.height = H
 
   // Background
   ctx.fillStyle = '#0d0f1a'
   ctx.fillRect(0, 0, W, H)
-
-  // Purple gradient overlay
-  const grad = ctx.createRadialGradient(200, 0, 0, 200, 0, 280)
-  grad.addColorStop(0, 'rgba(115,71,230,0.35)')
-  grad.addColorStop(1, 'rgba(115,71,230,0)')
+  const grad = ctx.createRadialGradient(200, 0, 0, 200, 0, H * 0.6)
+  grad.addColorStop(0, 'rgba(115,71,230,0.3)')
+  grad.addColorStop(1, 'rgba(0,0,0,0)')
   ctx.fillStyle = grad
   ctx.fillRect(0, 0, W, H)
 
-  // Title "CareerCheck"
-  ctx.font = 'bold 20px -apple-system, Arial, sans-serif'
+  // ── Header ────────────────────────────────────────────────────────────────
+  ctx.font = 'bold 18px Arial, sans-serif'
   ctx.fillStyle = '#ffffff'
-  const careerW = ctx.measureText('Career').width
-  ctx.fillText('Career', 24, 46)
+  const cw = ctx.measureText('Career').width
+  ctx.fillText('Career', 24, 32)
   ctx.fillStyle = '#a78bfa'
-  ctx.fillText('Check', 24 + careerW, 46)
+  ctx.fillText('Check', 24 + cw, 32)
 
-  // RIASEC dominant type
-  const dom = Object.entries(riasec).sort((a, b) => b[1] - a[1])[0][0]
-  const domLabel = (RIASEC[isRu ? 'ru' : 'en'] || RIASEC.en)[dom]
-  ctx.fillStyle = '#2ed1f2'
-  ctx.font = 'bold 26px -apple-system, Arial, sans-serif'
-  ctx.fillText(domLabel, 24, 88)
+  const dom      = Object.entries(riasec).sort((a, b) => b[1] - a[1])[0][0]
+  const domLabel = rNames[dom] || dom
+  ctx.fillStyle  = '#2ed1f2'
+  ctx.font       = 'bold 22px Arial, sans-serif'
+  ctx.fillText(domLabel, 24, 62)
 
   ctx.fillStyle = 'rgba(255,255,255,0.4)'
-  ctx.font = '13px -apple-system, Arial, sans-serif'
-  ctx.fillText(isRu ? 'Профессиональный тип' : 'Professional type', 24, 110)
+  ctx.font      = '12px Arial, sans-serif'
+  ctx.fillText(isRu ? 'Профессиональный тип' : 'Professional type', 24, 80)
 
-  // Divider
-  ctx.strokeStyle = 'rgba(255,255,255,0.08)'
-  ctx.lineWidth = 1
-  ctx.beginPath(); ctx.moveTo(24, 128); ctx.lineTo(376, 128); ctx.stroke()
+  // ── Big Five ──────────────────────────────────────────────────────────────
+  let y = HEADER_H + DIV_H
 
-  // Big Five label
+  // Section label
   ctx.fillStyle = 'rgba(255,255,255,0.35)'
-  ctx.font = '10px -apple-system, Arial, sans-serif'
-  ctx.fillText('BIG FIVE', 24, 150)
+  ctx.font      = '10px Arial, sans-serif'
+  ctx.fillText('BIG FIVE', 24, y + 10)
+  y += SECTION_H
 
-  // Big Five bars
-  const traits = ['O', 'C', 'E', 'A', 'S']
-  const tShort = isRu ? TRAIT_SHORT : TRAIT_SHORT_EN
-  const barStartY = 162
-  const barH = 7
-  const labelW = 68
-  const barW = 230
+  const BAR_X   = 175   // начало полосы
+  const BAR_W   = W - BAR_X - 52  // ширина полосы
+  const SCORE_X = W - 24
 
-  traits.forEach((t, i) => {
-    const y = barStartY + i * 36
-    const pct = norm[t] || 0
+  TRAITS.forEach(t => {
+    const pct  = norm[t] || 0
+    const name = tNames[t] || t
 
-    ctx.fillStyle = 'rgba(255,255,255,0.65)'
-    ctx.font = '12px -apple-system, Arial, sans-serif'
+    ctx.fillStyle = 'rgba(255,255,255,0.75)'
+    ctx.font      = '12px Arial, sans-serif'
     ctx.textAlign = 'left'
-    ctx.fillText(tShort[t], 24, y + barH)
+    ctx.fillText(name, 24, y + 14)
 
     // Bar background
-    ctx.fillStyle = 'rgba(255,255,255,0.08)'
-    roundRect(ctx, 24 + labelW, y, barW, barH, 3)
+    ctx.fillStyle = 'rgba(255,255,255,0.1)'
+    roundRect(ctx, BAR_X, y + 5, BAR_W, 8, 4)
     ctx.fill()
 
     // Bar fill
     if (pct > 0) {
-      const fg = ctx.createLinearGradient(24 + labelW, 0, 24 + labelW + barW, 0)
+      const fg = ctx.createLinearGradient(BAR_X, 0, BAR_X + BAR_W, 0)
       fg.addColorStop(0, '#7347e6')
       fg.addColorStop(1, '#2ed1f2')
       ctx.fillStyle = fg
-      roundRect(ctx, 24 + labelW, y, barW * pct / 100, barH, 3)
+      roundRect(ctx, BAR_X, y + 5, BAR_W * pct / 100, 8, 4)
       ctx.fill()
     }
 
     // Score
-    ctx.fillStyle = '#2ed1f2'
-    ctx.font = 'bold 12px -apple-system, Arial, sans-serif'
-    ctx.textAlign = 'right'
-    ctx.fillText(`${pct}%`, W - 24, y + barH)
-    ctx.textAlign = 'left'
+    ctx.fillStyle  = '#2ed1f2'
+    ctx.font       = 'bold 12px Arial, sans-serif'
+    ctx.textAlign  = 'right'
+    ctx.fillText(`${pct}%`, SCORE_X, y + 14)
+    ctx.textAlign  = 'left'
+
+    // Subtle divider
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)'
+    ctx.lineWidth   = 1
+    ctx.beginPath(); ctx.moveTo(24, y + TRAIT_H - 2); ctx.lineTo(W - 24, y + TRAIT_H - 2); ctx.stroke()
+
+    y += TRAIT_H
   })
 
-  // Top profession card
-  const prof = profs?.[0]
-  if (prof) {
-    const profY = 360
-    ctx.fillStyle = 'rgba(115,71,230,0.15)'
-    roundRect(ctx, 24, profY, W - 48, 60, 10)
+  // ── Top Professions ───────────────────────────────────────────────────────
+  y += DIV_H
+  ctx.fillStyle = 'rgba(255,255,255,0.35)'
+  ctx.font      = '10px Arial, sans-serif'
+  ctx.textAlign = 'left'
+  ctx.fillText(isRu ? 'ТОП ПРОФЕССИИ' : 'TOP CAREERS', 24, y + 10)
+  y += SECTION_H
+
+  ;(profs || []).slice(0, 3).forEach((prof, i) => {
+    const mColor = MEDAL_COLORS[i]
+    const title  = prof.title || ''
+    const match  = prof.match || 0
+
+    // Card bg
+    ctx.fillStyle = 'rgba(255,255,255,0.04)'
+    roundRect(ctx, 24, y, W - 48, PROF_H - 6, 10)
     ctx.fill()
-    ctx.strokeStyle = 'rgba(115,71,230,0.4)'
-    ctx.lineWidth = 1
-    roundRect(ctx, 24, profY, W - 48, 60, 10)
-    ctx.stroke()
 
-    ctx.fillStyle = '#fbbf24'
-    ctx.font = 'bold 15px -apple-system, Arial, sans-serif'
-    const cardTitle = prof.title.length > 28 ? prof.title.slice(0, 26) + '...' : prof.title
-    ctx.fillText('#1 ' + cardTitle, 36, profY + 26)
-
-    ctx.fillStyle = '#2ed1f2'
-    ctx.font = 'bold 18px -apple-system, Arial, sans-serif'
-    ctx.textAlign = 'right'
-    ctx.fillText(`${prof.match}%`, W - 36, profY + 26)
+    // Medal + title
+    ctx.fillStyle = mColor
+    ctx.font      = 'bold 15px Arial, sans-serif'
     ctx.textAlign = 'left'
+    ctx.fillText(`#${i + 1}`, 36, y + 22)
 
-    ctx.fillStyle = 'rgba(255,255,255,0.4)'
-    ctx.font = '12px -apple-system, Arial, sans-serif'
-    ctx.fillText(isRu ? 'Топ профессия' : 'Top career match', 36, profY + 46)
-  }
+    ctx.fillStyle = '#ffffff'
+    ctx.font      = 'bold 14px Arial, sans-serif'
+    ctx.fillText(title, 62, y + 22)
 
-  // Footer
-  ctx.fillStyle = 'rgba(255,255,255,0.25)'
-  ctx.font = '11px -apple-system, Arial, sans-serif'
+    // Match %
+    ctx.fillStyle  = mColor
+    ctx.font       = 'bold 16px Arial, sans-serif'
+    ctx.textAlign  = 'right'
+    ctx.fillText(`${match}%`, W - 36, y + 22)
+    ctx.textAlign  = 'left'
+
+    // Match bar
+    const BX = 62, BW = W - 62 - 60
+    ctx.fillStyle = 'rgba(255,255,255,0.08)'
+    roundRect(ctx, BX, y + 30, BW, 5, 2)
+    ctx.fill()
+    ctx.fillStyle = mColor
+    roundRect(ctx, BX, y + 30, BW * match / 100, 5, 2)
+    ctx.fill()
+
+    y += PROF_H
+  })
+
+  // ── Footer ────────────────────────────────────────────────────────────────
+  ctx.fillStyle = 'rgba(255,255,255,0.2)'
+  ctx.font      = '11px Arial, sans-serif'
   ctx.textAlign = 'center'
-  ctx.fillText('careercheck.app · ' + (isRu ? 'Узнай свой карьерный профиль' : 'Discover your career profile'), W / 2, H - 16)
+  ctx.fillText('careercheck.app  ·  @CareerCheckSupport', W / 2, H - 12)
   ctx.textAlign = 'left'
 }
 
@@ -335,7 +371,8 @@ export function ShareCard({ results }) {
 
   return (
     <>
-      <canvas ref={canvasRef}   width={400}  height={520} style={{ display: 'none' }} />
+      {/* height задаётся динамически в drawCard */}
+      <canvas ref={canvasRef}   width={400}  height={700} style={{ display: 'none' }} />
       <canvas ref={liCanvasRef} width={1200} height={627} style={{ display: 'none' }} />
 
       {/* Share card buttons — issue 2: Карточка = стиль Premium (фиолетовый) */}
@@ -368,15 +405,15 @@ export function ShareCard({ results }) {
         </div>
       )}
 
-      {/* LinkedIn card modal — issue 4: показываем изображение, не download */}
+      {/* LinkedIn card modal — полная ширина экрана */}
       {showLi && liImgUrl && (
         <div className="share-card-modal" onClick={() => setShowLi(false)}>
-          <div className="share-card-modal-inner" onClick={e => e.stopPropagation()}>
-            <p className="share-card-hint">
+          <div className="share-card-modal-inner share-card-modal-linkedin" onClick={e => e.stopPropagation()}>
+            <p className="share-card-hint" style={{ textAlign: 'center', padding: '12px 16px 4px', color: 'rgba(255,255,255,0.6)', fontSize: 13 }}>
               {isRu ? '💼 LinkedIn 1200×627 — сохрани скриншотом' : '💼 LinkedIn 1200×627 — save as screenshot'}
             </p>
             <img src={liImgUrl} alt="LinkedIn card" className="share-card-image" />
-            <button className="share-card-btn" style={{ background: 'rgba(255,255,255,0.07)' }} onClick={() => setShowLi(false)}>
+            <button className="share-card-btn" style={{ margin: '8px 16px 0', background: 'rgba(255,255,255,0.07)' }} onClick={() => setShowLi(false)}>
               {isRu ? 'Закрыть' : 'Close'}
             </button>
           </div>

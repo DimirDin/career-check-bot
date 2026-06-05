@@ -84,6 +84,11 @@ export function HeroBanner({ userState, onStartTest, onContinueTest, onViewResul
 
   let title, subtitle, btnText, onClick
 
+  // Тест пройден и нет Premium — баннер не нужен (есть кнопка в QuickActionsGrid)
+  if (userState.hasResults && !userState.hasPremium && !userState.testInProgress) {
+    return null
+  }
+
   if (userState.hasPremium) {
     title    = t.premiumTitle
     subtitle = t.premiumSub

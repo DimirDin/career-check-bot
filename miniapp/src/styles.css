@@ -925,23 +925,28 @@ html, body {
 .share-card-modal {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.8);
+  background: rgba(0,0,0,0.85);
   backdrop-filter: blur(8px);
   display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  padding: 0 16px calc(24px + var(--safe-bottom));
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-end;
   z-index: 200;
   animation: ms-fade-in 0.2s ease;
 }
 
 .share-card-modal-inner {
   width: 100%;
-  max-width: 420px;
   display: flex;
   flex-direction: column;
   gap: 12px;
+  padding: 0 0 calc(16px + var(--safe-bottom));
   animation: ms-slide-up 0.3s cubic-bezier(0.22,1,0.36,1);
+}
+
+.share-card-modal-inner .share-card-btn,
+.share-card-modal-inner .share-card-hint {
+  margin: 0 16px;
 }
 
 .share-card-hint {
@@ -952,8 +957,20 @@ html, body {
 
 .share-card-image {
   width: 100%;
-  border-radius: var(--radius);
   display: block;
+  border-radius: 0;
+}
+.share-card-modal-inner .share-card-image {
+  /* Regular card — add side margins for nice look */
+  border-radius: var(--radius);
+  margin: 0 16px;
+  width: calc(100% - 32px);
+}
+.share-card-modal-inner.share-card-modal-linkedin .share-card-image {
+  /* LinkedIn — full width, no margin */
+  border-radius: 0;
+  margin: 0;
+  width: 100%;
 }
 
 /* ── Splash screen (V1) ────────────────────────────────────────── */

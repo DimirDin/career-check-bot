@@ -4,11 +4,12 @@ import signal
 import sys
 
 import asyncpg
+import redis.asyncio as aioredis
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 
-from config.settings import BOT_TOKEN, DB_CONFIG
+from config.settings import BOT_TOKEN, DB_CONFIG, REDIS_CONFIG
 from bot.handlers import router
 from bot.premium_handlers import premium_router
 from db.database import cleanup_old_progress
@@ -70,6 +71,11 @@ async def main() -> None:
     pool = await asyncpg.create_pool(**DB_CONFIG, min_size=2, max_size=10)
     logger.info("DB pool created")
 
+    # ── Redis client ─────────────────────────────────────────────
+    redis_url = f"redis://{REDIS_CONFIG['host']}:{REDIS_CONFIG['port']}"
+    redis_client = aioredis.from_url(redis_url, decode_responses=True)
+    logger.info("Redis client created")
+
     # TTL cleanup при старте — удаляем брошенные прогрессы старше 7 дней
     try:
         deleted = await cleanup_old_progress(pool, days=7)
@@ -89,6 +95,7 @@ async def main() -> None:
     #   Callback: 3 клика / 2 сек
     #   Flood:    5 нарушений → cooldown 60 сек
     rate_limiter = RateLimitMiddleware(
+        redis_client=redis_client,
         msg_limit=1,
         msg_window=1.0,
         cb_limit=3,
@@ -126,6 +133,9 @@ async def main() -> None:
 
         logger.info("Closing DB pool…")
         await pool.close()
+
+        logger.info("Closing Redis client…")
+        await redis_client.aclose()
 
         logger.info("Shutdown complete ✓")
 

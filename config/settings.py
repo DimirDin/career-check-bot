@@ -22,6 +22,7 @@ REDIS_CONFIG = {
 # Админы бота (telegram_id)
 ADMIN_IDS = [756303]  # замени на свои ID
 
+BOT_USERNAME        = os.getenv("BOT_USERNAME", "CareerCheck_Bot")
 ANTHROPIC_API_KEY   = os.getenv("ANTHROPIC_API_KEY", "")
 PREMIUM_PRICE_STARS = int(os.getenv("PREMIUM_PRICE_STARS", "99"))
 

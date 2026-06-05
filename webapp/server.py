@@ -116,6 +116,9 @@ class EventRequest(BaseModel):
     user_id: int
     metadata: dict = {}
 
+class CompareCreateRequest(BaseModel):
+    init_data: str
+
 
 @app.get("/api/health")
 async def health():
@@ -330,6 +333,118 @@ async def save_results_from_miniapp(body: SaveResultRequest, request: Request):
         "riasec_profile":    riasec,
         "top_professions":   top,
     }
+
+
+# ── Quick test (N1) ───────────────────────────────────────────────────────────
+
+@app.get("/api/quick-test/questions")
+async def quick_test_questions(lang: str = "ru", request: Request = None):
+    """2 вопроса на каждую из 5 черт (10 итого) для быстрого теста."""
+    pool = request.app.state.pool
+    questions = []
+    for trait in ['O', 'C', 'E', 'A', 'S']:
+        async with pool.acquire() as conn:
+            if lang == "ru":
+                rows = await conn.fetch(
+                    "SELECT id, trait, question_text, is_inverted FROM questions "
+                    "WHERE trait=$1 AND active=TRUE ORDER BY is_inverted, id LIMIT 2",
+                    trait
+                )
+            else:
+                col = f"question_text_{lang}"
+                rows = await conn.fetch(
+                    f"SELECT id, trait, COALESCE({col}, question_text) AS question_text, is_inverted "
+                    f"FROM questions WHERE trait=$1 AND active=TRUE ORDER BY is_inverted, id LIMIT 2",
+                    trait
+                )
+            questions.extend([dict(r) for r in rows])
+    return {"questions": questions}
+
+
+@app.post("/api/quick-test/results")
+async def quick_test_results(body: SaveResultRequest, request: Request):
+    """Считает быстрые результаты (2 вопроса/черта, нормализация 2-10 → 0-100%)."""
+    user = validate_init_data(body.init_data)
+    if not user:
+        raise HTTPException(status_code=403, detail="Invalid init data")
+
+    answers = body.answers
+    sums   = {t: 0 for t in 'OCEAS'}
+    counts = {t: 0 for t in 'OCEAS'}
+    for a in answers:
+        t = a.get('trait', '')
+        if t not in sums:
+            continue
+        score = a.get('score', 3)
+        if a.get('is_inverted'):
+            score = 6 - score
+        sums[t]   += score
+        counts[t] += 1
+
+    normalized = {}
+    for t in 'OCEAS':
+        n = counts[t]
+        if n == 0:
+            normalized[t] = 50
+        else:
+            raw = sums[t]
+            normalized[t] = max(0, min(100, round((raw - n) / (n * 4) * 100)))
+
+    riasec = calculate_riasec(normalized)
+    professions = await get_professions(request.app.state.pool, lang=body.lang)
+    top = match_professions(normalized, riasec, professions)[:3]
+
+    return {"normalized_scores": normalized, "riasec_profile": riasec, "top_professions": top}
+
+
+# ── Friend comparison (N2) ────────────────────────────────────────────────────
+
+@app.post("/api/compare/create")
+async def create_compare_link(body: CompareCreateRequest, request: Request):
+    """Создаёт ссылку для сравнения с другом. Хэш хранится в Redis 7 дней."""
+    import secrets
+    user = validate_init_data(body.init_data)
+    if not user:
+        raise HTTPException(status_code=403, detail="Invalid init data")
+
+    pool  = request.app.state.pool
+    redis = request.app.state.redis
+    db_user = await get_user(pool, user["id"])
+    if not db_user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    result = await get_last_result(pool, db_user["id"])
+    if not result:
+        raise HTTPException(status_code=404, detail="No test results")
+
+    def parse(v):
+        return json.loads(v) if isinstance(v, str) else v
+
+    payload = json.dumps({
+        "user_id":          user["id"],
+        "normalized_scores": parse(result["normalized_scores"]),
+        "riasec_profile":    parse(result["riasec_profile"]),
+        "top_professions":   parse(result["top_professions"]),
+    })
+
+    hash_code = secrets.token_hex(4)
+    await redis.setex(f"compare:{hash_code}", 7 * 86400, payload)
+
+    bot_username = os.getenv("BOT_USERNAME", "CareerCheck_Bot")
+    return {
+        "hash": hash_code,
+        "link": f"https://t.me/{bot_username}?startapp=compare_{hash_code}",
+    }
+
+
+@app.get("/api/compare/{hash_code}")
+async def get_compare(hash_code: str, request: Request):
+    """Возвращает профиль пользователя по хэшу сравнения."""
+    redis = request.app.state.redis
+    raw   = await redis.get(f"compare:{hash_code}")
+    if not raw:
+        raise HTTPException(status_code=404, detail="Comparison link expired or not found")
+    return json.loads(raw)
 
 
 # ── Static files + SPA fallback ───────────────────────────────────────────────

@@ -8,6 +8,9 @@ import { MenuPage }          from './pages/MenuPage'
 import { Onboarding }        from './components/Onboarding'
 import { SplashScreen }      from './components/SplashScreen'
 import { HistoryPage }       from './pages/HistoryPage'
+import { QuickTestPage }     from './pages/QuickTestPage'
+import { QuickResultsPage }  from './pages/QuickResultsPage'
+import { ComparisonPage }    from './pages/ComparisonPage'
 import { QuizLoadingSkeleton, ResultsLoadingSkeleton } from './components/Skeleton'
 import { track }             from './hooks/useAnalytics'
 import './styles.css'
@@ -22,6 +25,9 @@ const SCREEN = {
   SAVING:       'saving',
   RESULTS:      'results',
   HISTORY:      'history',
+  QUICK_TEST:   'quick_test',
+  QUICK_RESULTS:'quick_results',
+  COMPARISON:   'comparison',
   COMING_SOON:  'coming_soon',
   ERROR:        'error',
 }
@@ -59,8 +65,10 @@ const ROUTE_MAP = {
 
 export default function App() {
   const { user, initData, haptic, tg } = useTelegram()
-  const [screen,    setScreen]    = useState(SCREEN.SPLASH)
-  const [route,     setRoute]     = useState('/menu')
+  const [screen,       setScreen]       = useState(SCREEN.SPLASH)
+  const [route,        setRoute]        = useState('/menu')
+  const [quickResults, setQuickResults] = useState(null)
+  const [compareHash,  setCompareHash]  = useState(null)
   const [questions, setQuestions] = useState([])
   const [results,   setResults]   = useState(null)
   const [error,     setError]     = useState(null)
@@ -104,8 +112,14 @@ export default function App() {
         }
       }
 
-      // Всегда показываем меню — оно само разберётся со статусом
-      setScreen(SCREEN.MENU)
+      // N2: обрабатываем start_param для comparison
+      const startParam = tg?.initDataUnsafe?.start_param || ''
+      if (startParam.startsWith('compare_')) {
+        setCompareHash(startParam.replace('compare_', ''))
+        setScreen(SCREEN.COMPARISON)
+      } else {
+        setScreen(SCREEN.MENU)
+      }
     } catch (e) {
       setError(e.message)
       setScreen(SCREEN.ERROR)
@@ -171,6 +185,44 @@ export default function App() {
             onBack={() => navigate('/menu')}
           />
         )
+      case SCREEN.QUICK_TEST:
+        return (
+          <QuickTestPage
+            onFinish={async (answers) => {
+              setScreen(SCREEN.SAVING)
+              try {
+                const res = await fetch('/api/quick-test/results', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ init_data: initData, answers, lang }),
+                })
+                const data = await res.json()
+                setQuickResults(data)
+                setScreen(SCREEN.QUICK_RESULTS)
+              } catch {
+                setScreen(SCREEN.QUICK_TEST)
+              }
+            }}
+            onBack={() => navigate('/menu')}
+          />
+        )
+      case SCREEN.QUICK_RESULTS:
+        return (
+          <QuickResultsPage
+            results={quickResults}
+            onFullTest={() => navigate('/test')}
+            onBack={() => navigate('/menu')}
+          />
+        )
+      case SCREEN.COMPARISON:
+        return (
+          <ComparisonPage
+            hashCode={compareHash}
+            myResults={results}
+            onStartTest={() => navigate('/test')}
+            onBack={() => navigate('/menu')}
+          />
+        )
       case SCREEN.HISTORY:
         return (
           <HistoryPage
@@ -188,7 +240,7 @@ export default function App() {
   }
 
   // V3: экраны без transition-анимации (у них своя)
-  const NO_TRANSITION = [SCREEN.SPLASH, SCREEN.QUIZ]
+  const NO_TRANSITION = [SCREEN.SPLASH, SCREEN.QUIZ, SCREEN.QUICK_TEST]
   const transitionKey = NO_TRANSITION.includes(screen) ? undefined : screen
 
   return (

@@ -58,48 +58,36 @@ async def shutdown():
 def validate_init_data(init_data: str) -> dict | None:
     """
     Проверяет подпись initData от Telegram WebApp.
-    Возвращает dict с данными пользователя или None если подпись невалидна.
+
+    Правильная реализация для нового Telegram (2024+):
+    - parse_qsl декодирует URL-encoded значения
+    - из check_string исключается ТОЛЬКО 'hash' (signature включается!)
+    - HMAC-SHA256 с ключом HMAC(b"WebAppData", bot_token)
     """
-    import time
     from urllib.parse import parse_qsl
     try:
         if not init_data:
             return None
 
-        # parse_qsl корректно декодирует URL-encoded значения
         params = dict(parse_qsl(init_data, keep_blank_values=True))
 
         if "hash" not in params or "user" not in params:
             logger.warning("initData missing required fields")
             return None
 
-        user_data = json.loads(params["user"])
-
-        # HMAC-SHA256 проверка
-        EXCLUDE = {"hash", "signature"}
+        # Исключаем ТОЛЬКО hash — signature остаётся в check_string
         check_string = "\n".join(
-            f"{k}={params[k]}" for k in sorted(params) if k not in EXCLUDE
+            f"{k}={params[k]}" for k in sorted(params) if k != "hash"
         )
+
         secret_key = hmac.new(b"WebAppData", BOT_TOKEN.encode(), hashlib.sha256).digest()
         expected   = hmac.new(secret_key, check_string.encode(), hashlib.sha256).hexdigest()
 
-        if hmac.compare_digest(expected, params["hash"]):
-            return user_data
+        if not hmac.compare_digest(expected, params["hash"]):
+            logger.warning(f"initData HMAC mismatch (user={params.get('user','')[:30]})")
+            return None
 
-        # HMAC не совпал — fallback: проверяем только свежесть auth_date (< 24ч)
-        # Это временная мера пока BOT_TOKEN не обновлён в .env
-        auth_date = int(params.get("auth_date", 0))
-        age = time.time() - auth_date
-        if age < 86400 and user_data.get("id"):
-            logger.warning(
-                f"initData HMAC mismatch — allowing by auth_date fallback "
-                f"(age={int(age)}s, user={user_data.get('id')}). "
-                f"Update BOT_TOKEN in .env to fix."
-            )
-            return user_data
-
-        logger.warning(f"initData rejected: HMAC mismatch + stale auth_date (age={int(age)}s)")
-        return None
+        return json.loads(params["user"])
 
     except Exception as e:
         logger.warning(f"initData validation error: {e}")

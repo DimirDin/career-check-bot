@@ -142,24 +142,140 @@ function drawCard(canvas, { norm, riasec, profs, lang }) {
   ctx.textAlign = 'left'
 }
 
+// N5: LinkedIn card 1200×627
+function drawLinkedInCard(canvas, { norm, riasec, profs, lang }) {
+  const ctx = canvas.getContext('2d')
+  const W = 1200, H = 627
+  const isRu = lang !== 'en'
+
+  ctx.fillStyle = '#0d0f1a'
+  ctx.fillRect(0, 0, W, H)
+  const grad = ctx.createRadialGradient(400, 0, 0, 400, 0, 600)
+  grad.addColorStop(0, 'rgba(115,71,230,0.4)')
+  grad.addColorStop(1, 'rgba(115,71,230,0)')
+  ctx.fillStyle = grad
+  ctx.fillRect(0, 0, W, H)
+
+  // Left panel — text
+  ctx.fillStyle = 'rgba(255,255,255,0.06)'
+  roundRect(ctx, 48, 48, 520, H - 96, 20)
+  ctx.fill()
+
+  ctx.fillStyle = '#ffffff'
+  ctx.font = 'bold 48px Arial, sans-serif'
+  ctx.fillText('Career', 80, 120)
+  ctx.fillStyle = '#a78bfa'
+  ctx.fillText('Check', 80 + ctx.measureText('Career').width, 120)
+
+  const dom = Object.entries(riasec).sort((a, b) => b[1] - a[1])[0][0]
+  const RIASEC_RU = {R:'Реалистичный',I:'Исследовательский',A:'Артистичный',S:'Социальный',E:'Предприимчивый',C:'Конвенциональный'}
+  const RIASEC_EN = {R:'Realistic',I:'Investigative',A:'Artistic',S:'Social',E:'Enterprising',C:'Conventional'}
+  const domLabel = isRu ? RIASEC_RU[dom] : RIASEC_EN[dom]
+
+  ctx.fillStyle = '#2ed1f2'
+  ctx.font = 'bold 38px Arial, sans-serif'
+  ctx.fillText(domLabel, 80, 200)
+  ctx.fillStyle = 'rgba(255,255,255,0.45)'
+  ctx.font = '22px Arial, sans-serif'
+  ctx.fillText(isRu ? 'Профессиональный тип' : 'Professional type', 80, 240)
+
+  // Big Five bars
+  const traits = ['O','C','E','A','S']
+  const SHORT_RU = {O:'Открытость',C:'Сознательность',E:'Экстраверсия',A:'Доброжелат.',S:'Стабильность'}
+  const SHORT_EN = {O:'Openness',C:'Conscientiousness',E:'Extraversion',A:'Agreeableness',S:'Stability'}
+  const short = isRu ? SHORT_RU : SHORT_EN
+
+  traits.forEach((t, i) => {
+    const y   = 290 + i * 52
+    const pct = norm[t] || 0
+    ctx.fillStyle = 'rgba(255,255,255,0.6)'
+    ctx.font = '20px Arial, sans-serif'
+    ctx.fillText(short[t], 80, y + 16)
+    ctx.fillStyle = 'rgba(255,255,255,0.1)'
+    roundRect(ctx, 80, y + 22, 340, 10, 5)
+    ctx.fill()
+    if (pct > 0) {
+      const fg = ctx.createLinearGradient(80, 0, 420, 0)
+      fg.addColorStop(0, '#7347e6')
+      fg.addColorStop(1, '#2ed1f2')
+      ctx.fillStyle = fg
+      roundRect(ctx, 80, y + 22, 340 * pct / 100, 10, 5)
+      ctx.fill()
+    }
+    ctx.fillStyle = '#2ed1f2'
+    ctx.font = 'bold 18px Arial, sans-serif'
+    ctx.textAlign = 'right'
+    ctx.fillText(`${pct}%`, 440, y + 16)
+    ctx.textAlign = 'left'
+  })
+
+  // Right panel — top professions
+  const prof = profs?.[0]
+  if (prof) {
+    ctx.fillStyle = 'rgba(255,215,0,0.08)'
+    roundRect(ctx, 620, 48, 532, H - 96, 20)
+    ctx.fill()
+    ctx.strokeStyle = 'rgba(255,215,0,0.2)'
+    ctx.lineWidth = 1.5
+    roundRect(ctx, 620, 48, 532, H - 96, 20)
+    ctx.stroke()
+
+    ctx.fillStyle = '#fbbf24'
+    ctx.font = 'bold 28px Arial, sans-serif'
+    ctx.fillText(isRu ? '🥇 Лучшая профессия' : '🥇 Top Career Match', 660, 120)
+    ctx.fillStyle = '#ffffff'
+    ctx.font = 'bold 36px Arial, sans-serif'
+    ctx.fillText(prof.title, 660, 175)
+    ctx.fillStyle = '#2ed1f2'
+    ctx.font = 'bold 52px Arial, sans-serif'
+    ctx.fillText(`${prof.match}%`, 660, 255)
+    ctx.fillStyle = 'rgba(255,255,255,0.4)'
+    ctx.font = '22px Arial, sans-serif'
+    ctx.fillText(isRu ? 'совпадение профиля' : 'profile match', 660, 285)
+
+    // Top 2-3
+    profs.slice(1, 3).forEach((p, i) => {
+      const py = 360 + i * 72
+      ctx.fillStyle = 'rgba(255,255,255,0.07)'
+      roundRect(ctx, 660, py, 450, 56, 10)
+      ctx.fill()
+      ctx.fillStyle = 'rgba(255,255,255,0.7)'
+      ctx.font = 'bold 20px Arial, sans-serif'
+      ctx.fillText(['🥈','🥉'][i] + ' ' + p.title, 680, py + 26)
+      ctx.fillStyle = '#94a3b8'
+      ctx.font = 'bold 20px Arial, sans-serif'
+      ctx.textAlign = 'right'
+      ctx.fillText(`${p.match}%`, 1090, py + 26)
+      ctx.textAlign = 'left'
+    })
+  }
+
+  // Footer
+  ctx.fillStyle = 'rgba(255,255,255,0.2)'
+  ctx.font = '20px Arial, sans-serif'
+  ctx.textAlign = 'center'
+  ctx.fillText('careercheck.app · ' + (isRu ? 'Карьерное тестирование Big Five' : 'Big Five Career Assessment'), W / 2, H - 28)
+  ctx.textAlign = 'left'
+}
+
 export function ShareCard({ results }) {
-  const canvasRef = useRef(null)
-  const [imgUrl,   setImgUrl]   = useState(null)
-  const [showImg,  setShowImg]  = useState(false)
+  const canvasRef   = useRef(null)
+  const liCanvasRef = useRef(null)
+  const [imgUrl,    setImgUrl]    = useState(null)
+  const [liImgUrl,  setLiImgUrl]  = useState(null)
+  const [showImg,   setShowImg]   = useState(false)
+  const [showLi,    setShowLi]    = useState(false)
   const { tg, haptic } = useTelegram()
   const lang = tg?.initDataUnsafe?.user?.language_code?.slice(0, 2) || 'ru'
   const isRu = lang !== 'en'
 
   useEffect(() => {
+    if (!results) return
+    const data = { norm: results.normalized_scores, riasec: results.riasec_profile, profs: results.top_professions, lang }
     const canvas = canvasRef.current
-    if (!canvas || !results) return
-    drawCard(canvas, {
-      norm:   results.normalized_scores,
-      riasec: results.riasec_profile,
-      profs:  results.top_professions,
-      lang,
-    })
-    setImgUrl(canvas.toDataURL('image/png'))
+    if (canvas) { drawCard(canvas, data); setImgUrl(canvas.toDataURL('image/png')) }
+    const li = liCanvasRef.current
+    if (li) { drawLinkedInCard(li, data); setLiImgUrl(li.toDataURL('image/png')) }
   }, [results, lang])
 
   function handleShow() {
@@ -191,10 +307,19 @@ export function ShareCard({ results }) {
     }
   }
 
+  function handleLinkedIn() {
+    haptic.success()
+    if (!liImgUrl) return
+    const a = document.createElement('a')
+    a.href = liImgUrl
+    a.download = 'CareerCheck_LinkedIn.png'
+    a.click()
+  }
+
   return (
     <>
-      {/* Hidden canvas for drawing */}
-      <canvas ref={canvasRef} width={400} height={520} style={{ display: 'none' }} />
+      <canvas ref={canvasRef}   width={400}  height={520} style={{ display: 'none' }} />
+      <canvas ref={liCanvasRef} width={1200} height={627} style={{ display: 'none' }} />
 
       {/* Share card buttons */}
       <div className="share-card-actions">
@@ -203,7 +328,7 @@ export function ShareCard({ results }) {
             <rect x="3" y="3" width="18" height="18" rx="3"/>
             <circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/>
           </svg>
-          {isRu ? 'Карточка результата' : 'Result card'}
+          {isRu ? 'Карточка' : 'Card'}
         </button>
         <button className="share-card-btn share-card-btn--share" onClick={handleShare}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -211,6 +336,9 @@ export function ShareCard({ results }) {
             <polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/>
           </svg>
           {isRu ? 'Поделиться' : 'Share'}
+        </button>
+        <button className="share-card-btn share-card-btn--linkedin" onClick={handleLinkedIn} title="LinkedIn 1200×627">
+          in
         </button>
       </div>
 

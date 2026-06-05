@@ -28,10 +28,15 @@ import asyncpg
 # Подключаем существующие модули бота
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from config.settings import BOT_TOKEN, DB_CONFIG, REDIS_CONFIG, get_ab_price
+from config.settings import BOT_TOKEN, DB_CONFIG, REDIS_CONFIG, get_ab_price, ANTHROPIC_API_KEY
+from services.ai_chat import ask_career_ai
+from services.circuit_breaker import anthropic_breaker
 from db.database import get_last_result, save_result, create_user, get_user
 from services.calculator import calculate_scores, calculate_riasec, match_professions
 from db.database import get_professions
+
+from config.logging_config import configure_logging
+configure_logging()
 
 logger = logging.getLogger(__name__)
 
@@ -118,6 +123,12 @@ class EventRequest(BaseModel):
 
 class CompareCreateRequest(BaseModel):
     init_data: str
+
+class ChatRequest(BaseModel):
+    init_data: str
+    message: str
+    history: list = []
+    lang: str = "ru"
 
 
 @app.get("/api/health")
@@ -333,6 +344,89 @@ async def save_results_from_miniapp(body: SaveResultRequest, request: Request):
         "riasec_profile":    riasec,
         "top_professions":   top,
     }
+
+
+# ── AI Chat (N4) ──────────────────────────────────────────────────────────────
+
+FREE_QUESTIONS = 3
+
+@app.post("/api/chat")
+async def ai_chat(body: ChatRequest, request: Request):
+    """AI-консультант карьеры. 3 бесплатных вопроса, далее — Premium."""
+    user = validate_init_data(body.init_data)
+    if not user:
+        raise HTTPException(status_code=403, detail="Invalid init data")
+
+    telegram_id = user["id"]
+    redis       = request.app.state.redis
+    quota_key   = f"chat:free:{telegram_id}"
+
+    # Проверяем квоту
+    raw = await redis.get(quota_key)
+    if raw is None:
+        await redis.set(quota_key, FREE_QUESTIONS)
+        remaining = FREE_QUESTIONS
+    else:
+        remaining = int(raw)
+
+    if remaining <= 0:
+        return JSONResponse({"error": "quota_exceeded", "remaining": 0}, status_code=402)
+
+    # Circuit breaker check
+    if anthropic_breaker.is_open:
+        return JSONResponse({"error": "ai_unavailable", "remaining": remaining}, status_code=503)
+
+    # Берём профиль пользователя
+    pool    = request.app.state.pool
+    db_user = await get_user(pool, telegram_id)
+    if not db_user:
+        raise HTTPException(status_code=404, detail="User not found — complete the test first")
+
+    result = await get_last_result(pool, db_user["id"])
+    if not result:
+        raise HTTPException(status_code=404, detail="No test results — complete the test first")
+
+    def parse(v):
+        return json.loads(v) if isinstance(v, str) else v
+
+    norm  = parse(result["normalized_scores"])
+    riasec = parse(result["riasec_profile"])
+    profs  = parse(result["top_professions"])
+
+    reply = await ask_career_ai(
+        question       = body.message.strip()[:500],
+        history        = body.history[-6:],   # последние 3 пары
+        normalized     = norm,
+        riasec         = riasec,
+        top_professions= profs,
+        lang           = body.lang,
+        api_key        = ANTHROPIC_API_KEY,
+    )
+
+    if reply is None:
+        return JSONResponse({"error": "ai_error", "remaining": remaining}, status_code=503)
+
+    # Списываем вопрос
+    new_remaining = await redis.decr(quota_key)
+    logger.info(f"AI chat: user={telegram_id}, remaining={new_remaining}")
+
+    return {"reply": reply, "remaining": max(0, new_remaining)}
+
+
+@app.get("/api/chat/quota")
+async def chat_quota(init_data: str, request: Request):
+    """Возвращает количество оставшихся бесплатных вопросов."""
+    user = validate_init_data(init_data)
+    if not user:
+        raise HTTPException(status_code=403)
+    raw = await request.app.state.redis.get(f"chat:free:{user['id']}")
+    return {"remaining": int(raw) if raw is not None else FREE_QUESTIONS}
+
+
+@app.get("/api/health/circuit-breaker")
+async def cb_health():
+    """Состояние circuit breaker для Anthropic API."""
+    return anthropic_breaker.stats()
 
 
 # ── Quick test (N1) ───────────────────────────────────────────────────────────

@@ -4,6 +4,9 @@ import signal
 import sys
 import time
 
+from config.logging_config import configure_logging
+configure_logging()
+
 import asyncpg
 import redis.asyncio as aioredis
 from aiogram import Bot, Dispatcher
@@ -17,10 +20,6 @@ from db.database import cleanup_old_progress
 from middlewares.rate_limit import RateLimitMiddleware
 from services.challenge_service import challenge_scheduler
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-)
 logger = logging.getLogger(__name__)
 
 

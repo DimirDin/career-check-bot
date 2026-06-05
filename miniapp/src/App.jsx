@@ -12,6 +12,7 @@ import { QuickTestPage }     from './pages/QuickTestPage'
 import { QuickResultsPage }  from './pages/QuickResultsPage'
 import { ComparisonPage }    from './pages/ComparisonPage'
 import { QuizLoadingSkeleton, ResultsLoadingSkeleton } from './components/Skeleton'
+import { AIChatPage }       from './pages/AIChatPage'
 import { track }             from './hooks/useAnalytics'
 import './styles.css'
 
@@ -28,6 +29,7 @@ const SCREEN = {
   QUICK_TEST:   'quick_test',
   QUICK_RESULTS:'quick_results',
   COMPARISON:   'comparison',
+  AI_CHAT:      'ai_chat',
   COMING_SOON:  'coming_soon',
   ERROR:        'error',
 }
@@ -59,6 +61,7 @@ const ROUTE_MAP = {
   '/premium':     SCREEN.COMING_SOON,
   '/professions': SCREEN.COMING_SOON,
   '/history':     SCREEN.HISTORY,
+  '/ai-chat':     SCREEN.AI_CHAT,
   '/settings':    SCREEN.COMING_SOON,
   '/support':     SCREEN.COMING_SOON,
 }
@@ -223,6 +226,8 @@ export default function App() {
             onBack={() => navigate('/menu')}
           />
         )
+      case SCREEN.AI_CHAT:
+        return <AIChatPage onBack={() => navigate('/results')} />
       case SCREEN.HISTORY:
         return (
           <HistoryPage

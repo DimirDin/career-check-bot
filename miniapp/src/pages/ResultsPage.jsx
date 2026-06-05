@@ -28,8 +28,8 @@ const TRAIT_DESCRIPTIONS = {
 }
 
 export function ResultsPage({ results, onBack }) {
-  const { haptic, tg }   = useTelegram()
-  const navigate          = useNavigate()
+  const { haptic, tg, user, initData } = useTelegram()
+  const navigate = useNavigate()
   const [expanded,     setExpanded]     = useState(null)
   const [visible,      setVisible]      = useState(0)
   const [confetti,     setConfetti]     = useState(false)
@@ -109,24 +109,41 @@ export function ResultsPage({ results, onBack }) {
     }
   }
 
+  // ── Открыть ссылку в Telegram (универсальный helper) ────────────────────
+  const openLink = (url) => {
+    if (tg?.openTelegramLink) tg.openTelegramLink(url)
+    else if (tg?.openLink)    tg.openLink(url)
+    else window.open(url, '_blank')
+  }
+
   // ── Compare (N2) ──────────────────────────────────────────────────────────
   const handleCompare = async () => {
     haptic.medium?.()
     track('compare_create')
+    if (!initData) {
+      // Нет initData — просто копируем ссылку на приложение
+      const link = 'https://careercheck.app'
+      navigator.clipboard?.writeText(link).catch(() => {})
+      tg?.showAlert?.('Открой CareerCheck в Telegram для создания ссылки сравнения')
+      return
+    }
     try {
       const res  = await fetch('/api/compare/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ init_data: initData }),
       })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
       setCompareLink(data.link)
-      if (tg?.openTelegramLink) {
-        const text = `Сравни свой профиль с моим 👥 → ${data.link}`
-        tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(data.link)}&text=${encodeURIComponent(text)}`)
-      }
+      const text = isRuLang(tg)
+        ? `Сравни свой профиль с моим 👥 → ${data.link}`
+        : `Compare your profile with mine 👥 → ${data.link}`
+      openLink(`https://t.me/share/url?url=${encodeURIComponent(data.link)}&text=${encodeURIComponent(text)}`)
     } catch (e) {
-      tg?.showAlert?.('Ошибка создания ссылки')
+      console.error('Compare error:', e)
+      if (tg?.showAlert) tg.showAlert('Ошибка создания ссылки. Попробуй позже.')
+      else alert('Ошибка создания ссылки. Попробуй позже.')
     }
   }
 
@@ -134,22 +151,22 @@ export function ResultsPage({ results, onBack }) {
   const handleRefer = () => {
     haptic.medium?.()
     track('refer_click')
-    const uid  = user?.id
-    const link = `https://t.me/${BOT_USERNAME}?start=ref_${uid}`
-    const text = 'Пройди карьерный тест CareerCheck — 10 минут и узнаешь свой профиль!'
-    if (tg?.openTelegramLink) {
-      tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(text)}`)
-    }
+    const uid  = user?.id || tg?.initDataUnsafe?.user?.id
+    const link = uid
+      ? `https://t.me/${BOT_USERNAME}?start=ref_${uid}`
+      : 'https://careercheck.app'
+    const text = isRuLang(tg)
+      ? 'Пройди карьерный тест CareerCheck — 10 минут и узнаешь свой профиль!'
+      : 'Take the CareerCheck career test — 10 minutes to discover your profile!'
+    const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(text)}`
+    openLink(shareUrl)
   }
 
   // ── Premium ────────────────────────────────────────────────────────────────
   const handlePremium = () => {
     haptic.medium?.()
-    if (tg?.openTelegramLink) {
-      tg.openTelegramLink('https://t.me/CareerCheck_Bot?start=premium')
-    } else {
-      window.open('https://t.me/CareerCheck_Bot?start=premium', '_blank')
-    }
+    track('view_premium_click')
+    openLink('https://t.me/CareerCheck_Bot?start=premium')
   }
 
   return (

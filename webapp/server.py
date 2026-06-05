@@ -37,6 +37,7 @@ from db.database import (
     get_last_result, save_result, create_user, get_user, get_professions,
     check_user_premium, get_referrer, count_referred_completions, grant_referral_premium,
 )
+from services.calculator import calculate_scores, calculate_riasec, match_professions
 
 from config.logging_config import configure_logging
 configure_logging()

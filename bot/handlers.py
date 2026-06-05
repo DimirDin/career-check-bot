@@ -107,6 +107,21 @@ async def cmd_start(message: Message, state: FSMContext, pool: asyncpg.Pool):
 
     tg_lang = message.from_user.language_code if message.from_user else None
     lang    = resolve_lang(tg_lang)
+
+    # Обработка deep link ?start=premium — из Mini App
+    command_args = message.text.split(maxsplit=1)[1] if message.text and ' ' in message.text else ''
+    if command_args == 'premium':
+        from bot.premium_handlers import premium_keyboard
+        await message.answer(
+            "🌟 <b>Premium Career Report</b>\n\n"
+            "Персональный AI-анализ — 6 страниц:\n"
+            "• Психологический портрет\n"
+            "• Карьерное видение на 5 и 10 лет\n"
+            "• Роадмап и конкретные шаги\n\n"
+            "Всего <b>99 Stars</b> (~$1)",
+            reply_markup=premium_keyboard(lang),
+        )
+        return
     t       = lambda key, **kw: get_text(key, lang, **kw)
 
     user = None

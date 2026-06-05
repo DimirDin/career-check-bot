@@ -1,0 +1,69 @@
+services:
+
+  # ── Telegram Bot (aiogram 3) ──────────────────────────────────────
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: python main.py
+    env_file: .env
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    networks: [internal]
+    logging:
+      driver: "json-file"
+      options: { max-size: "10m", max-file: "3" }
+
+  # ── FastAPI Mini App ───────────────────────────────────────────────
+  webapp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: uvicorn webapp.server:app --host 0.0.0.0 --port 8000 --workers 2
+    env_file: .env
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    networks: [internal, web]
+    logging:
+      driver: "json-file"
+      options: { max-size: "10m", max-file: "3" }
+
+  # ── PostgreSQL ─────────────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    env_file: .env                  # POSTGRES_DB / USER / PASSWORD
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/migration:/docker-entrypoint-initdb.d:ro  # миграции при первом старте
+    networks: [internal]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    logging:
+      driver: "json-file"
+      options: { max-size: "5m", max-file: "2" }
+
+  # ── Watchtower — авто-обновление образов ──────────────────────────
+  watchtower:
+    image: containrrr/watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: --interval 86400 --cleanup  # проверка раз в сутки
+    networks: [internal]
+
+volumes:
+  pgdata:
+
+networks:
+  internal:            # закрытая сеть: бот ↔ webapp ↔ db
+    driver: bridge
+  web:                 # открытая сеть: nginx → webapp
+    driver: bridge

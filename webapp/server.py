@@ -13,6 +13,7 @@ import json
 import hmac
 import hashlib
 import logging
+import os
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
@@ -34,10 +35,14 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="CareerCheck Mini App", docs_url=None, redoc_url=None)
 
+_raw_origins = os.getenv("ALLOWED_ORIGINS", "https://careercheck.app")
+ALLOWED_ORIGINS = [o.strip() for o in _raw_origins.split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
+    allow_origins=ALLOWED_ORIGINS,
+    allow_origin_regex=r"https://.*\.telegram\.org",
+    allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
 

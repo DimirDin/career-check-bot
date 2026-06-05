@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useTelegram } from '../hooks/useTelegram'
 import { MilestoneCard } from '../components/MilestoneCard'
 
@@ -52,7 +52,8 @@ export function QuizPage({ questions, onFinish }) {
   const [selected,     setSelected]     = useState(null)
   const [animDir,      setAnimDir]      = useState('in')
   const [transitioning,setTransitioning]= useState(false)
-  const [milestone,    setMilestone]    = useState(null)  // answers snapshot when milestone hit
+  const [milestone,    setMilestone]    = useState(null)
+  const prefetchedRef  = useRef(false)
 
   const q        = questions[current]
   const progress = current / questions.length
@@ -61,6 +62,18 @@ export function QuizPage({ questions, onFinish }) {
     if (current > 0) showBackButton(() => handleBack())
     else hideBackButton()
   }, [current])
+
+  // F5: prefetch /results при вопросе 55 — результаты будут готовы мгновенно
+  useEffect(() => {
+    if (current >= 55 && !prefetchedRef.current && tg?.initData) {
+      prefetchedRef.current = true
+      const uid = tg?.initDataUnsafe?.user?.id
+      if (uid) {
+        fetch(`/api/results/${uid}?init_data=${encodeURIComponent(tg.initData)}`)
+          .catch(() => {})
+      }
+    }
+  }, [current, tg])
 
   useEffect(() => {
     setAnimDir('in')

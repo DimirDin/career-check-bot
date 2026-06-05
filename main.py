@@ -2,6 +2,7 @@ import asyncio
 import logging
 import signal
 import sys
+import time
 
 import asyncpg
 import redis.asyncio as aioredis
@@ -59,6 +60,16 @@ class GracefulShutdown:
 _shutdown = GracefulShutdown()
 
 
+async def heartbeat_loop(redis_client: aioredis.Redis) -> None:
+    """Пишет timestamp в Redis каждые 30 сек. /api/health/bot проверяет актуальность."""
+    while True:
+        try:
+            await redis_client.set("bot:heartbeat", str(time.time()), ex=90)
+        except Exception as e:
+            logger.warning(f"Heartbeat Redis error: {e}")
+        await asyncio.sleep(30)
+
+
 # ────────────────────────────────────────────────────────────────
 # Main
 # ────────────────────────────────────────────────────────────────
@@ -113,6 +124,10 @@ async def main() -> None:
     # Пул доступен во всех хендлерах через аргумент pool=
     dp["pool"] = pool
 
+    # ── Heartbeat ────────────────────────────────────────────────
+    heartbeat_task = asyncio.create_task(heartbeat_loop(redis_client))
+    logger.info("Heartbeat task started")
+
     # ── Polling c graceful stop ───────────────────────────────────
     logger.info("Bot started, polling…")
     try:
@@ -133,6 +148,8 @@ async def main() -> None:
 
         logger.info("Closing DB pool…")
         await pool.close()
+
+        heartbeat_task.cancel()
 
         logger.info("Closing Redis client…")
         await redis_client.aclose()

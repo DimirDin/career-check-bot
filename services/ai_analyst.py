@@ -1,23 +1,14 @@
 """
-ai_analyst.py — генерирует AI-контент для Premium PDF через Claude API.
+ai_analyst.py — генерирует AI-контент для Premium PDF через Anthropic SDK.
 """
 
 import json
 import logging
-import httpx
+import anthropic
 from typing import Optional
-
-from tenacity import (
-    retry,
-    stop_after_attempt,
-    wait_exponential,
-    retry_if_exception,
-    before_sleep_log,
-)
 
 logger = logging.getLogger(__name__)
 
-ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages"
 MODEL = "claude-sonnet-4-20250514"
 
 RIASEC_LABELS_ALL = {
@@ -81,37 +72,6 @@ RIASEC доминант: {rl.get(dom)} ({dom}) — {riasec.get(dom)} балло�
 Каждый пункт уникален для ЭТОГО профиля. Используй числа. Только JSON."""
 
 
-def _is_retryable(exc: BaseException) -> bool:
-    """Повторяем только на транзиентные ошибки: сеть, 429, 500, 529."""
-    if isinstance(exc, httpx.TransportError):
-        return True
-    if isinstance(exc, httpx.HTTPStatusError):
-        return exc.response.status_code in (429, 500, 529)
-    return False
-
-
-@retry(
-    retry=retry_if_exception(_is_retryable),
-    stop=stop_after_attempt(3),
-    wait=wait_exponential(multiplier=1, min=1, max=4),
-    before_sleep=before_sleep_log(logger, logging.WARNING),
-    reraise=True,
-)
-async def _call_anthropic(prompt: str, api_key: str, timeout: float) -> dict:
-    async with httpx.AsyncClient(timeout=timeout) as client:
-        resp = await client.post(
-            ANTHROPIC_API_URL,
-            headers={
-                "x-api-key": api_key,
-                "anthropic-version": "2023-06-01",
-                "content-type": "application/json",
-            },
-            json={"model": MODEL, "max_tokens": 3000, "messages": [{"role": "user", "content": prompt}]},
-        )
-        resp.raise_for_status()
-        return resp.json()
-
-
 async def generate_ai_analysis(
     name: str,
     normalized: dict,
@@ -124,18 +84,30 @@ async def generate_ai_analysis(
 ) -> Optional[dict]:
     prompt = _build_prompt(name, normalized, riasec, top_professions, details_list, lang)
     try:
-        data = await _call_anthropic(prompt, api_key, timeout)
-        raw = data["content"][0]["text"].strip()
+        client = anthropic.AsyncAnthropic(
+            api_key=api_key,
+            max_retries=3,       # built-in retry: 429, 500, 502, 503, 504, 529
+            timeout=timeout,
+        )
+        message = await client.messages.create(
+            model=MODEL,
+            max_tokens=3000,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        raw = message.content[0].text.strip()
         if raw.startswith("```"):
             raw = raw.split("```")[1]
             if raw.startswith("json"):
                 raw = raw[4:]
             raw = raw.strip()
         result = json.loads(raw)
-        logger.info(f"AI analysis OK: '{name}', lang={lang}")
+        logger.info(f"AI analysis OK: '{name}', lang={lang}, tokens={message.usage.output_tokens}")
         return result
     except json.JSONDecodeError as e:
         logger.error(f"AI JSON parse error: {e}")
+        return None
+    except anthropic.APIError as e:
+        logger.error(f"Anthropic API error {e.status_code}: {e.message}")
         return None
     except Exception as e:
         logger.error(f"AI analysis error: {e}")

@@ -110,10 +110,14 @@ export default function App() {
 
   // ── Навигация ────────────────────────────────────────────────────────────
   const navigate = useCallback((path) => {
-    if (path === '/test' && !localStorage.getItem('cc_onboarding_done')) {
-      setRoute('/test')
-      setScreen(SCREEN.ONBOARDING)
-      return
+    if (path === '/test') {
+      // Сбрасываем старый прогресс чтобы не начинать с прерванного места
+      localStorage.removeItem('cc_progress')
+      if (!localStorage.getItem('cc_onboarding_done')) {
+        setRoute('/test')
+        setScreen(SCREEN.ONBOARDING)
+        return
+      }
     }
     const base = '/' + path.replace(/^\//, '').split('/')[0]
     const target = ROUTE_MAP[path] || ROUTE_MAP[base] || SCREEN.COMING_SOON

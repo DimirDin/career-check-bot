@@ -1,6 +1,5 @@
 import { useEffect } from 'react'
 import { useTelegram } from '../hooks/useTelegram'
-import { MagneticBtn } from '../components/MagneticBtn'
 import { track } from '../hooks/useAnalytics'
 
 const FEATURES = [
@@ -88,9 +87,9 @@ export function PremiumPromoPage({ onBack, onBuy }) {
 
       {/* CTA */}
       <div className="pp-cta">
-        <MagneticBtn className="btn-premium pp-buy-btn card-holo" onClick={() => { haptic.medium?.(); onBuy?.() }}>
+        <button className="btn-premium pp-buy-btn card-holo" onClick={() => { haptic.medium?.(); onBuy?.() }}>
           {ru ? '🌟 Получить за 99 Stars' : '🌟 Get for 99 Stars ⭐'}
-        </MagneticBtn>
+        </button>
         <p className="pp-cta-note">
           {ru ? 'Генерируется персонально для тебя · ~30 секунд'
                : 'Generated personally for you · ~30 seconds'}

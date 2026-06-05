@@ -382,11 +382,11 @@ export function ResultsPage({ results, onBack }) {
             Premium PDF — 6 страниц с персональным AI‑анализом:<br />
             психологический портрет, карьерное видение, роадмап
           </div>
-          <MagneticBtn className="btn-premium" onClick={handlePremium} disabled={premiumLoading}>
+          <button className="btn-premium" onClick={handlePremium} disabled={premiumLoading}>
             {premiumLoading
               ? (isRuLang(tg) ? '⏳ Загрузка…' : '⏳ Loading…')
               : `🌟 ${isRuLang(tg) ? 'Получить Premium PDF' : 'Get Premium PDF'}`}
-          </MagneticBtn>
+          </button>
           {premiumMsg && (
             <p style={{ marginTop: 8, fontSize: 13, color: 'rgba(255,255,255,0.7)', textAlign: 'center' }}>
               {premiumMsg}

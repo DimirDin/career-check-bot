@@ -107,6 +107,84 @@ async def health():
     return {"status": "ok"}
 
 
+@app.get("/api/user/state")
+async def get_user_state(init_data: str, request: Request):
+    """Возвращает полное состояние пользователя для MenuPage."""
+    user = validate_init_data(init_data)
+    if not user:
+        raise HTTPException(status_code=403, detail="Invalid init data")
+
+    pool        = request.app.state.pool
+    telegram_id = user["id"]
+    tg_lang     = (user.get("language_code") or "en")[:2]
+
+    db_user = await get_user(pool, telegram_id)
+    if not db_user:
+        return {
+            "hasResults":      False,
+            "hasPremium":      False,
+            "testInProgress":  False,
+            "currentQuestion": 0,
+            "lastResultDate":  None,
+            "lastResultId":    None,
+            "historyCount":    0,
+            "language":        tg_lang,
+            "topProfession":   None,
+        }
+
+    # Последний результат
+    result = await get_last_result(pool, db_user["id"])
+
+    # Прогресс незавершённого теста
+    from db.database import get_progress
+    progress = await get_progress(pool, db_user["id"])
+
+    # Количество прохождений
+    async with pool.acquire() as conn:
+        history_count = await conn.fetchval(
+            "SELECT COUNT(*) FROM test_results WHERE user_id = $1", db_user["id"]
+        ) or 0
+
+    top_profession  = None
+    last_result_date = None
+    last_result_id   = None
+
+    if result:
+        top_raw = result["top_professions"]
+        top = json.loads(top_raw) if isinstance(top_raw, str) else top_raw
+        if top:
+            t1 = top[0]
+            top_profession = {
+                "name":  t1.get("title", ""),
+                "match": t1.get("match", 0),
+                "id":    t1.get("title", "").replace(" ", "_").lower(),
+            }
+        last_result_date = result["completed_at"].isoformat() if result["completed_at"] else None
+        last_result_id   = str(db_user["id"])
+
+    test_in_progress  = False
+    current_question  = 0
+    if progress:
+        cq = progress.get("current_question", 0)
+        if 0 < cq < 60:
+            test_in_progress = True
+            current_question = cq
+
+    lang = (db_user.get("lang") or tg_lang or "en")[:2]
+
+    return {
+        "hasResults":      bool(result),
+        "hasPremium":      False,
+        "testInProgress":  test_in_progress,
+        "currentQuestion": current_question,
+        "lastResultDate":  last_result_date,
+        "lastResultId":    last_result_id,
+        "historyCount":    int(history_count),
+        "language":        lang,
+        "topProfession":   top_profession,
+    }
+
+
 @app.get("/api/questions")
 async def get_questions_endpoint(lang: str = "ru", request: Request = None):
     """Возвращает все активные вопросы для Mini App."""

@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useTelegram } from '../hooks/useTelegram'
 import { MilestoneCard } from '../components/MilestoneCard'
+import { PentagonProgress } from '../components/PentagonProgress'
+import { track } from '../hooks/useAnalytics'
 
 const SCORE_LABELS = ['Совсем нет', 'Скорее нет', 'Нейтрально', 'Скорее да', 'Полностью да']
 const SCORE_COLORS = ['#ef4444', '#f97316', '#eab308', '#84cc16', '#22c55e']
@@ -63,6 +65,15 @@ export function QuizPage({ questions, onFinish }) {
     else hideBackButton()
   }, [current])
 
+  // M1: test_start on mount
+  useEffect(() => { track('test_start') }, [])
+
+  // M1: milestone events
+  useEffect(() => {
+    if (current === 10)  track('q10_answered')
+    if (current === 30)  track('q30_answered')
+  }, [current])
+
   // F5: prefetch /results при вопросе 55 — результаты будут готовы мгновенно
   useEffect(() => {
     if (current >= 55 && !prefetchedRef.current && tg?.initData) {
@@ -106,6 +117,7 @@ export function QuizPage({ questions, onFinish }) {
     if (nextIdx >= questions.length) {
       clearProgress()
       haptic.success()
+      track('q60_answered')
       onFinish(newAnswers)
       return
     }
@@ -148,15 +160,9 @@ export function QuizPage({ questions, onFinish }) {
 
   return (
     <div className="quiz-page">
-      {/* Progress bar */}
-      <div className="progress-bar-wrap">
-        <div className="progress-bar-fill" style={{ width: `${progress * 100}%` }} />
-      </div>
-
-      {/* Counter */}
-      <div className="quiz-counter">
-        <span className="quiz-num">{current + 1}</span>
-        <span className="quiz-total"> / {questions.length}</span>
+      {/* Pentagon progress + trait badge */}
+      <div className="quiz-header">
+        <PentagonProgress answered={current} total={questions.length} size={76} />
         <span className="quiz-trait-badge" data-trait={q.trait}>{q.trait}</span>
       </div>
 
@@ -181,13 +187,6 @@ export function QuizPage({ questions, onFinish }) {
         ))}
       </div>
 
-      {/* Mini progress dots */}
-      <div className="progress-dots">
-        {Array.from({ length: Math.min(current + 1, 5) }, (_, i) => (
-          <div key={i} className="progress-dot done" />
-        ))}
-        <div className="progress-dot current" />
-      </div>
 
       {/* Milestone overlay */}
       {milestone && (

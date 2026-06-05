@@ -27,14 +27,24 @@ export function MenuPage() {
   const [toast, setToast] = useState(null)
   const toastTimerRef = useRef(null)
 
-  // D1: Aurora blobs — следуют за пальцем
-  const [blobPos, setBlobPos] = useState({ x: 100, y: 200 })
-  const rafRef = useRef(null)
+  // D1: Aurora blobs — через ref + direct DOM, без re-render
+  const blobPurpleRef = useRef(null)
+  const blobCyanRef   = useRef(null)
+  const rafRef        = useRef(null)
   const handlePointerMove = useCallback((e) => {
     const clientX = e.touches ? e.touches[0].clientX : e.clientX
     const clientY = e.touches ? e.touches[0].clientY : e.clientY
     if (rafRef.current) cancelAnimationFrame(rafRef.current)
-    rafRef.current = requestAnimationFrame(() => setBlobPos({ x: clientX, y: clientY }))
+    rafRef.current = requestAnimationFrame(() => {
+      if (blobPurpleRef.current) {
+        blobPurpleRef.current.style.left = (clientX - 80) + 'px'
+        blobPurpleRef.current.style.top  = (clientY - 80) + 'px'
+      }
+      if (blobCyanRef.current) {
+        blobCyanRef.current.style.left = (clientX + 40) + 'px'
+        blobCyanRef.current.style.top  = (clientY + 20) + 'px'
+      }
+    })
   }, [])
 
   const showToast = useCallback((msg) => {
@@ -127,8 +137,8 @@ export function MenuPage() {
       style={{ position: 'relative' }}
     >
       <NeuralNet />
-      <div className="aurora-blob aurora-blob-purple" style={{ left: blobPos.x - 80, top: blobPos.y - 80 }} />
-      <div className="aurora-blob aurora-blob-cyan"   style={{ left: blobPos.x + 40, top: blobPos.y + 20 }} />
+      <div ref={blobPurpleRef} className="aurora-blob aurora-blob-purple" style={{ left: -80, top: -80 }} />
+      <div ref={blobCyanRef}   className="aurora-blob aurora-blob-cyan"   style={{ left: 40,  top: 20  }} />
       <div className={styles.safeAreaTop} />
 
       <HeroBanner

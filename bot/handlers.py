@@ -167,17 +167,23 @@ async def cmd_start(message: Message, state: FSMContext, pool: asyncpg.Pool):
 
     # ── Стандартное приветствие ───────────────────────────────────────────────
     builder = InlineKeyboardBuilder()
-    builder.button(text=t("btn_start_test"),  callback_data='start_test_fresh')
-    builder.button(text=t("btn_about_test"),  callback_data='about_test')
     if user and user.get('test_completed'):
+        # Тест уже пройден — предлагаем пройти заново или посмотреть результат
+        builder.button(text=t("btn_retake"),    callback_data='start_test_fresh')
         builder.button(text=t("btn_my_result"), callback_data='my_result')
+    else:
+        builder.button(text=t("btn_start_test"), callback_data='start_test_fresh')
+    builder.button(text=t("btn_about_test"), callback_data='about_test')
     builder.adjust(1)
 
     img_path = _welcome_image_path(lang)
     try:
-        await message.answer_photo(photo=types.FSInputFile(img_path))
+        if os.path.exists(img_path):
+            await message.answer_photo(photo=types.FSInputFile(img_path))
+        else:
+            logger.warning(f"Welcome image not found: {img_path}")
     except Exception as e:
-        logger.warning(f"Welcome image not found or failed ({img_path}): {e}")
+        logger.warning(f"Welcome image send failed ({img_path}): {e}")
 
     welcome_text = (
         t("welcome_title")
@@ -283,16 +289,19 @@ async def about_test(callback: CallbackQuery, pool: asyncpg.Pool):
 # ── Назад к старту ────────────────────────────────────────────────────────────
 
 @router.callback_query(F.data == 'back_to_start')
-async def back_to_start(callback: CallbackQuery, pool: asyncpg.Pool):
+async def back_to_start(callback: CallbackQuery, state: FSMContext, pool: asyncpg.Pool):
+    await state.clear()
     user = await get_user(pool, callback.from_user.id)
     lang = user['lang'] if user and user.get('lang') else resolve_lang(callback.from_user.language_code)
     t    = lambda key, **kw: get_text(key, lang, **kw)
 
     builder = InlineKeyboardBuilder()
-    builder.button(text=t("btn_start_test"), callback_data='start_test_fresh')
-    builder.button(text=t("btn_about_test"), callback_data='about_test')
     if user and user.get('test_completed'):
+        builder.button(text=t("btn_retake"),    callback_data='start_test_fresh')
         builder.button(text=t("btn_my_result"), callback_data='my_result')
+    else:
+        builder.button(text=t("btn_start_test"), callback_data='start_test_fresh')
+    builder.button(text=t("btn_about_test"), callback_data='about_test')
     builder.adjust(1)
     await callback.answer()
 

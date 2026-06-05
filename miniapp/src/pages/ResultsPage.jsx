@@ -35,18 +35,18 @@ export function ResultsPage({ results, onBack }) {
   const { haptic, tg, user, initData } = useTelegram()
   const navigate = useNavigate()
   const [expanded,        setExpanded]        = useState(null)
-  const [visible,         setVisible]         = useState(0)
   const [confetti,        setConfetti]        = useState(false)
   const [compareLink,     setCompareLink]     = useState(null)
   const [premiumLoading,  setPremiumLoading]  = useState(false)
   const [premiumMsg,      setPremiumMsg]      = useState(null)
   const [referralProgress, setReferralProgress] = useState(null)
   const premiumRef = useRef(null)
-  const badges = useMemo(() => getBadges(norm), [norm])
 
-  const norm  = results?.normalized_scores  || {}
-  const riasec = results?.riasec_profile   || {}
-  const profs  = results?.top_professions  || []
+  const norm   = results?.normalized_scores || {}
+  const riasec = results?.riasec_profile    || {}
+  const profs  = results?.top_professions   || []
+
+  const badges = useMemo(() => getBadges(norm), [norm])
 
   const { domRiasec, domLabel, topTrait } = useMemo(() => {
     const entries = Object.entries(riasec)
@@ -87,18 +87,13 @@ export function ResultsPage({ results, onBack }) {
       .catch(() => {})
   }, [initData])
 
-  // Последовательный reveal + confetti если топ-матч ≥ 80%
+  // Confetti если топ-матч ≥ 80%
   useEffect(() => {
     haptic.success?.()
-    const timers = [0, 200, 400, 600, 800].map((ms, i) =>
-      setTimeout(() => setVisible(v => Math.max(v, i + 1)), ms)
-    )
-    // V6: confetti при высоком match
     if (profs?.[0]?.match >= 80) {
-      const t = setTimeout(() => setConfetti(true), 400)
-      timers.push(t)
+      const t = setTimeout(() => setConfetti(true), 600)
+      return () => clearTimeout(t)
     }
-    return () => timers.forEach(clearTimeout)
   }, []) // eslint-disable-line
 
   // V4: IntersectionObserver — premium shimmer при появлении
@@ -258,7 +253,7 @@ export function ResultsPage({ results, onBack }) {
       <Confetti active={confetti} />
 
       {/* ── Hero ─────────────────────────────────────────────────────────── */}
-      <div className={`results-hero ${visible >= 1 ? 'visible' : ''}`}>
+      <div className="results-hero visible">
         <div className="hero-bg" />
         <div className="results-type-label">Твой профессиональный тип</div>
         <div className="results-type-name">
@@ -272,7 +267,7 @@ export function ResultsPage({ results, onBack }) {
       <div className="tab-content">
 
         {/* ── Big Five ───────────────────────────────────────────────────── */}
-        <div className={`section-card ${visible >= 2 ? 'visible' : ''}`}>
+        <div className="section-card visible">
           <h3 className="section-title">Big Five личности</h3>
           <div className="trait-list">
             {TRAIT_KEYS.map((key, i) => (
@@ -292,7 +287,7 @@ export function ResultsPage({ results, onBack }) {
 
         {/* ── Badges / Ачивки ───────────────────────────────────────────── */}
         {badges.length > 0 && (
-          <div className={`section-card ${visible >= 2 ? 'visible' : ''}`}>
+          <div className="section-card visible">
             <h3 className="section-title">Твои ачивки</h3>
             <div className="badges-list stagger-list">
               {badges.map(b => (
@@ -309,7 +304,7 @@ export function ResultsPage({ results, onBack }) {
         )}
 
         {/* ── Radar Charts ───────────────────────────────────────────────── */}
-        <div className={`section-card radars-card ${visible >= 3 ? 'visible' : ''}`}>
+        <div className="section-card radars-card visible">
           <h3 className="section-title">Радары</h3>
           <div className="radars-row">
             <div className="radar-block">
@@ -324,7 +319,7 @@ export function ResultsPage({ results, onBack }) {
         </div>
 
         {/* ── RIASEC ─────────────────────────────────────────────────────── */}
-        <div className={`section-card ${visible >= 4 ? 'visible' : ''}`}>
+        <div className="section-card visible">
           <h3 className="section-title">RIASEC-профиль</h3>
           <div className="riasec-list">
             {[...RIASEC_KEYS].sort((a, b) => riasec[b] - riasec[a]).map(key => (
@@ -341,7 +336,7 @@ export function ResultsPage({ results, onBack }) {
         </div>
 
         {/* ── Профессии ──────────────────────────────────────────────────── */}
-        <div className={`section-card ${visible >= 5 ? 'visible' : ''}`}>
+        <div className="section-card visible">
           <h3 className="section-title">Топ профессий</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {profs.map((prof, i) => (

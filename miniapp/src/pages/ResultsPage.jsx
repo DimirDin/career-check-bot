@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { RadarChart }  from '../components/RadarChart'
+import { ShareCard }   from '../components/ShareCard'
 import { useTelegram } from '../hooks/useTelegram'
 import { useNavigate } from '../context/NavigationContext'
 
@@ -28,10 +29,15 @@ export function ResultsPage({ results, onBack }) {
 
   const { normalized_scores: norm, riasec_profile: riasec, top_professions: profs } = results
 
-  const domRiasec  = Object.entries(riasec).sort((a, b) => b[1] - a[1])[0][0]
-  const domLabel   = RIASEC_LABELS[domRiasec]
-  const topScore   = Math.max(...TRAIT_KEYS.map(k => norm[k]))
-  const topTrait   = TRAIT_KEYS.find(k => norm[k] === topScore)
+  const { domRiasec, domLabel, topTrait } = useMemo(() => {
+    const dom = Object.entries(riasec).sort((a, b) => b[1] - a[1])[0][0]
+    const topScore = Math.max(...TRAIT_KEYS.map(k => norm[k]))
+    return {
+      domRiasec: dom,
+      domLabel:  RIASEC_LABELS[dom],
+      topTrait:  TRAIT_KEYS.find(k => norm[k] === topScore),
+    }
+  }, [norm, riasec])
 
   // ── Назад ──────────────────────────────────────────────────────────────────
   const handleBack = () => {
@@ -198,13 +204,8 @@ export function ResultsPage({ results, onBack }) {
           </button>
         </div>
 
-        {/* ── Share ──────────────────────────────────────────────────────── */}
-        <button className="btn-share" onClick={handleShare}>
-          Поделиться результатом
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <path d="M12 2l2 2-2 2M14 4H5a3 3 0 000 6h1" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-        </button>
+        {/* ── Share Card (U4) ────────────────────────────────────────────── */}
+        <ShareCard results={results} />
 
         {/* ── Кнопка Назад ───────────────────────────────────────────────── */}
         <button className="btn-back-results" onClick={handleBack}>

@@ -767,3 +767,172 @@ html, body {
   transition: opacity 0.15s;
 }
 .milestone-btn:active { opacity: 0.85; }
+
+/* ── Skeleton loaders ──────────────────────────────────────────── */
+.skeleton-line {
+  background: linear-gradient(90deg, var(--bg3) 25%, rgba(255,255,255,0.06) 50%, var(--bg3) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+}
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.saving-screen {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  position: relative;
+}
+.saving-label {
+  position: absolute;
+  bottom: calc(32px + var(--safe-bottom));
+  left: 0; right: 0;
+  text-align: center;
+  color: var(--gray);
+  font-size: 14px;
+  animation: pulse-opacity 1.5s ease infinite;
+}
+@keyframes pulse-opacity {
+  0%, 100% { opacity: 0.5; }
+  50%       { opacity: 1; }
+}
+
+/* ── History page ──────────────────────────────────────────────── */
+.history-page {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding-top: var(--safe-top);
+  padding-bottom: calc(16px + var(--safe-bottom));
+  gap: 0;
+}
+
+.history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 20px 16px;
+}
+.history-title { font-size: 22px; font-weight: 800; color: var(--white); }
+.history-count { font-size: 13px; color: var(--gray); }
+
+.history-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  gap: 16px;
+  text-align: center;
+}
+.history-empty-icon { opacity: 0.8; }
+.history-empty-title { font-size: 20px; font-weight: 700; color: var(--white); }
+.history-empty-desc  { font-size: 14px; color: var(--gray); max-width: 280px; line-height: 1.65; }
+
+.history-cta-btn {
+  background: var(--purple);
+  border: none;
+  color: white;
+  border-radius: var(--radius-sm);
+  padding: 14px 28px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  margin-top: 4px;
+}
+.history-cta-btn:active { opacity: 0.85; }
+
+.history-result-card {
+  background: var(--bg2);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: var(--radius);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.history-result-label { font-size: 11px; font-weight: 600; color: var(--gray); text-transform: uppercase; letter-spacing: 0.06em; }
+.history-result-date  { font-size: 15px; font-weight: 600; color: var(--white); }
+.history-top-trait    { font-size: 13px; color: var(--gray); }
+.history-top-trait strong { color: var(--cyan); }
+
+.history-retake-card {
+  background: linear-gradient(135deg, rgba(124,58,237,0.15), rgba(6,182,212,0.08));
+  border: 1px solid rgba(124,58,237,0.3);
+  border-radius: var(--radius);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.history-retake-title { font-size: 15px; font-weight: 700; color: var(--white); }
+.history-retake-desc  { font-size: 13px; color: var(--gray); line-height: 1.6; }
+
+/* ── Share card ────────────────────────────────────────────────── */
+.share-card-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.share-card-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  flex: 1;
+  background: rgba(124,58,237,0.15);
+  border: 1px solid rgba(124,58,237,0.35);
+  color: var(--purple-l);
+  border-radius: var(--radius-sm);
+  padding: 13px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.share-card-btn:active { background: rgba(124,58,237,0.28); }
+.share-card-btn--share {
+  background: var(--purple);
+  border-color: var(--purple);
+  color: white;
+}
+.share-card-btn--share:active { opacity: 0.85; }
+
+.share-card-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.8);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0 16px calc(24px + var(--safe-bottom));
+  z-index: 200;
+  animation: ms-fade-in 0.2s ease;
+}
+
+.share-card-modal-inner {
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  animation: ms-slide-up 0.3s cubic-bezier(0.22,1,0.36,1);
+}
+
+.share-card-hint {
+  text-align: center;
+  font-size: 13px;
+  color: var(--gray);
+}
+
+.share-card-image {
+  width: 100%;
+  border-radius: var(--radius);
+  display: block;
+}

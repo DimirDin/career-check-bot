@@ -6,6 +6,8 @@ import { QuizPage }          from './pages/QuizPage'
 import { ResultsPage }       from './pages/ResultsPage'
 import { MenuPage }          from './pages/MenuPage'
 import { Onboarding }        from './components/Onboarding'
+import { HistoryPage }       from './pages/HistoryPage'
+import { QuizLoadingSkeleton, ResultsLoadingSkeleton } from './components/Skeleton'
 import './styles.css'
 
 const SCREEN = {
@@ -16,6 +18,7 @@ const SCREEN = {
   QUIZ:         'quiz',
   SAVING:       'saving',
   RESULTS:      'results',
+  HISTORY:      'history',
   COMING_SOON:  'coming_soon',
   ERROR:        'error',
 }
@@ -46,7 +49,7 @@ const ROUTE_MAP = {
   '/welcome':     SCREEN.WELCOME,
   '/premium':     SCREEN.COMING_SOON,
   '/professions': SCREEN.COMING_SOON,
-  '/history':     SCREEN.COMING_SOON,
+  '/history':     SCREEN.HISTORY,
   '/settings':    SCREEN.COMING_SOON,
   '/support':     SCREEN.COMING_SOON,
 }
@@ -132,9 +135,9 @@ export default function App() {
   const renderScreen = () => {
     switch (screen) {
       case SCREEN.LOADING:
-        return <LoadingScreen text="Загрузка..." />
+        return <QuizLoadingSkeleton />
       case SCREEN.SAVING:
-        return <LoadingScreen text="Считаем результаты..." />
+        return <SavingScreen />
       case SCREEN.ERROR:
         return <ErrorScreen message={error} onRetry={initApp} />
       case SCREEN.MENU:
@@ -162,6 +165,15 @@ export default function App() {
             onBack={() => navigate('/menu')}
           />
         )
+      case SCREEN.HISTORY:
+        return (
+          <HistoryPage
+            lastResult={results}
+            historyCount={results ? 1 : 0}
+            onBack={() => navigate('/menu')}
+            onStartTest={() => navigate('/test')}
+          />
+        )
       case SCREEN.COMING_SOON:
         return <ComingSoonScreen route={route} onBack={() => navigate('/menu')} tg={tg} />
       default:
@@ -178,20 +190,27 @@ export default function App() {
 
 // ── Вспомогательные компоненты ────────────────────────────────────────────
 
-function LoadingScreen({ text }) {
+function SavingScreen() {
   return (
-    <div className="loading-screen">
-      <div className="loading-spinner" />
-      <p className="loading-text">{text}</p>
+    <div className="saving-screen">
+      <ResultsLoadingSkeleton />
+      <p className="saving-label">Считаем результаты…</p>
     </div>
   )
 }
 
 function ErrorScreen({ message, onRetry }) {
+  const isNetwork = !message || /fetch|Failed|network|соединени/i.test(message)
+  const icon  = isNetwork ? '📡' : '⚠️'
+  const title = isNetwork ? 'Нет соединения' : 'Что-то пошло не так'
+  const desc  = isNetwork
+    ? 'Проверь интернет и попробуй снова'
+    : message
   return (
     <div className="error-screen">
-      <div className="error-icon">⚠️</div>
-      <p className="error-text">{message || 'Что-то пошло не так'}</p>
+      <div className="error-icon">{icon}</div>
+      <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>{title}</h3>
+      <p className="error-text">{desc}</p>
       <button className="btn-retry" onClick={onRetry}>Попробовать снова</button>
     </div>
   )

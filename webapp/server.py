@@ -14,8 +14,10 @@ import hmac
 import hashlib
 import logging
 import os
+import time
 from pathlib import Path
 
+import redis.asyncio as aioredis
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -26,7 +28,7 @@ import asyncpg
 # Подключаем существующие модули бота
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from config.settings import BOT_TOKEN, DB_CONFIG
+from config.settings import BOT_TOKEN, DB_CONFIG, REDIS_CONFIG
 from db.database import get_last_result, save_result, create_user, get_user
 from services.calculator import calculate_scores, calculate_riasec, match_professions
 from db.database import get_professions
@@ -51,11 +53,14 @@ app.add_middleware(
 @app.on_event("startup")
 async def startup():
     app.state.pool = await asyncpg.create_pool(**DB_CONFIG, min_size=2, max_size=10)
-    logger.info("Mini App: DB pool created")
+    redis_url = f"redis://{REDIS_CONFIG['host']}:{REDIS_CONFIG['port']}"
+    app.state.redis = aioredis.from_url(redis_url, decode_responses=True)
+    logger.info("Mini App: DB pool + Redis created")
 
 @app.on_event("shutdown")
 async def shutdown():
     await app.state.pool.close()
+    await app.state.redis.aclose()
 
 
 # ── Telegram Init Data Validation ─────────────────────────────────────────────
@@ -110,6 +115,18 @@ class SaveResultRequest(BaseModel):
 @app.get("/api/health")
 async def health():
     return {"status": "ok"}
+
+
+@app.get("/api/health/bot")
+async def health_bot(request: Request):
+    """Проверяет heartbeat бота — пишется в Redis каждые 30 сек."""
+    try:
+        ts = await request.app.state.redis.get("bot:heartbeat")
+        if ts and (time.time() - float(ts)) < 90:
+            return {"status": "ok", "last_seen_ago": round(time.time() - float(ts))}
+        return JSONResponse({"status": "dead", "last_seen": ts}, status_code=503)
+    except Exception as e:
+        return JSONResponse({"status": "unknown", "error": str(e)}, status_code=503)
 
 
 @app.get("/api/user/state")
@@ -192,10 +209,26 @@ async def get_user_state(init_data: str, request: Request):
 
 @app.get("/api/questions")
 async def get_questions_endpoint(lang: str = "ru", request: Request = None):
-    """Возвращает все активные вопросы для Mini App."""
+    """Возвращает активные вопросы. B6: кэширует в Redis на 24 часа."""
     from db.database import get_questions
+    cache_key = f"questions:{lang}"
+    redis = request.app.state.redis
+
+    try:
+        cached = await redis.get(cache_key)
+        if cached:
+            return {"questions": json.loads(cached), "cached": True}
+    except Exception as e:
+        logger.warning(f"Redis questions cache read error: {e}")
+
     pool = request.app.state.pool
     questions = await get_questions(pool, lang=lang)
+
+    try:
+        await redis.setex(cache_key, 86400, json.dumps(questions))
+    except Exception as e:
+        logger.warning(f"Redis questions cache write error: {e}")
+
     return {"questions": questions}
 
 

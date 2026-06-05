@@ -13,7 +13,7 @@ import redis.asyncio as aioredis
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
-from aiogram.fsm.storage.redis import RedisStorage
+from aiogram.fsm.storage.redis import RedisStorage, DefaultKeyBuilder
 
 from config.settings import BOT_TOKEN, DB_CONFIG, REDIS_CONFIG
 from bot.handlers import router
@@ -103,7 +103,7 @@ async def main() -> None:
     )
     fsm_storage = RedisStorage.from_url(
         f"redis://{REDIS_CONFIG['host']}:{REDIS_CONFIG['port']}",
-        key_prefix="fsm:",
+        key_builder=DefaultKeyBuilder(prefix="fsm"),
     )
     dp = Dispatcher(storage=fsm_storage)
 

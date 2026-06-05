@@ -6,11 +6,14 @@ import { QuizPage }          from './pages/QuizPage'
 import { ResultsPage }       from './pages/ResultsPage'
 import { MenuPage }          from './pages/MenuPage'
 import { Onboarding }        from './components/Onboarding'
+import { SplashScreen }      from './components/SplashScreen'
 import { HistoryPage }       from './pages/HistoryPage'
 import { QuizLoadingSkeleton, ResultsLoadingSkeleton } from './components/Skeleton'
+import { track }             from './hooks/useAnalytics'
 import './styles.css'
 
 const SCREEN = {
+  SPLASH:       'splash',
   LOADING:      'loading',
   MENU:         'menu',
   WELCOME:      'welcome',
@@ -56,7 +59,7 @@ const ROUTE_MAP = {
 
 export default function App() {
   const { user, initData, haptic, tg } = useTelegram()
-  const [screen,    setScreen]    = useState(SCREEN.LOADING)
+  const [screen,    setScreen]    = useState(SCREEN.SPLASH)
   const [route,     setRoute]     = useState('/menu')
   const [questions, setQuestions] = useState([])
   const [results,   setResults]   = useState(null)
@@ -109,6 +112,7 @@ export default function App() {
     }
   }, [user, initData, lang])
 
+  useEffect(() => { track('app_open') }, [])
   useEffect(() => { initApp() }, [initApp])
 
   // ── Сохранение результатов теста ─────────────────────────────────────────
@@ -134,6 +138,8 @@ export default function App() {
   // ── Рендер ───────────────────────────────────────────────────────────────
   const renderScreen = () => {
     switch (screen) {
+      case SCREEN.SPLASH:
+        return <SplashScreen onDone={() => setScreen(SCREEN.LOADING)} />
       case SCREEN.LOADING:
         return <QuizLoadingSkeleton />
       case SCREEN.SAVING:
@@ -181,9 +187,15 @@ export default function App() {
     }
   }
 
+  // V3: экраны без transition-анимации (у них своя)
+  const NO_TRANSITION = [SCREEN.SPLASH, SCREEN.QUIZ]
+  const transitionKey = NO_TRANSITION.includes(screen) ? undefined : screen
+
   return (
     <NavigationContext.Provider value={{ navigate, current: route }}>
-      {renderScreen()}
+      <div key={transitionKey} className={transitionKey ? 'screen-enter' : undefined} style={{ display: 'contents' }}>
+        {renderScreen()}
+      </div>
     </NavigationContext.Provider>
   )
 }

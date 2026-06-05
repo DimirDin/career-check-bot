@@ -24,3 +24,15 @@ ADMIN_IDS = [756303]  # замени на свои ID
 
 ANTHROPIC_API_KEY   = os.getenv("ANTHROPIC_API_KEY", "")
 PREMIUM_PRICE_STARS = int(os.getenv("PREMIUM_PRICE_STARS", "99"))
+
+# M2: A/B тест цены Premium
+# Группа A: 49 Stars, B: 99 Stars, C: 149 Stars
+PREMIUM_PRICES_AB = [
+    int(os.getenv("PREMIUM_PRICE_A", "49")),
+    int(os.getenv("PREMIUM_PRICE_B", "99")),
+    int(os.getenv("PREMIUM_PRICE_C", "149")),
+]
+
+def get_ab_price(telegram_id: int) -> int:
+    """Детерминированно выбирает цену по user_id % 3."""
+    return PREMIUM_PRICES_AB[int(telegram_id) % 3]

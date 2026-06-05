@@ -28,7 +28,7 @@ import asyncpg
 # Подключаем существующие модули бота
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from config.settings import BOT_TOKEN, DB_CONFIG, REDIS_CONFIG
+from config.settings import BOT_TOKEN, DB_CONFIG, REDIS_CONFIG, get_ab_price
 from db.database import get_last_result, save_result, create_user, get_user
 from services.calculator import calculate_scores, calculate_riasec, match_professions
 from db.database import get_professions
@@ -111,10 +111,47 @@ class SaveResultRequest(BaseModel):
     answers: list
     lang: str = "ru"
 
+class EventRequest(BaseModel):
+    event: str
+    user_id: int
+    metadata: dict = {}
+
 
 @app.get("/api/health")
 async def health():
     return {"status": "ok"}
+
+
+@app.post("/api/event")
+async def track_event(body: EventRequest, request: Request):
+    """M1: Воронка конверсии — сохраняем событие в Redis stream."""
+    try:
+        redis = request.app.state.redis
+        entry = json.dumps({
+            "event":   body.event,
+            "user_id": body.user_id,
+            "ts":      time.time(),
+            **body.metadata,
+        })
+        await redis.lpush(f"events:{body.event}", entry)
+        await redis.expire(f"events:{body.event}", 86400 * 90)  # 90 дней
+        await redis.incr(f"ev_count:{body.event}")
+    except Exception as e:
+        logger.debug(f"Event track error: {e}")
+    return {"ok": True}
+
+
+@app.get("/api/events/summary")
+async def events_summary(request: Request):
+    """M1: Агрегированная статистика событий для дашборда."""
+    events = ["app_open","test_start","q10_answered","q30_answered",
+              "q60_answered","view_results","view_premium","share_click"]
+    redis = request.app.state.redis
+    result = {}
+    for ev in events:
+        count = await redis.get(f"ev_count:{ev}")
+        result[ev] = int(count or 0)
+    return result
 
 
 @app.get("/api/health/bot")
@@ -204,6 +241,7 @@ async def get_user_state(init_data: str, request: Request):
         "historyCount":    int(history_count),
         "language":        lang,
         "topProfession":   top_profession,
+        "premiumPrice":    get_ab_price(telegram_id),  # M2: A/B test
     }
 
 

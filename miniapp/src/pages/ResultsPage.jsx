@@ -1,8 +1,10 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useRef } from 'react'
 import { RadarChart }  from '../components/RadarChart'
 import { ShareCard }   from '../components/ShareCard'
+import { Confetti }    from '../components/Confetti'
 import { useTelegram } from '../hooks/useTelegram'
 import { useNavigate } from '../context/NavigationContext'
+import { track }       from '../hooks/useAnalytics'
 
 const TRAIT_LABELS = ['Открытость', 'Сознательность', 'Экстраверсия', 'Доброжелат.', 'Стабильность']
 const TRAIT_KEYS   = ['O', 'C', 'E', 'A', 'S']
@@ -24,8 +26,10 @@ const TRAIT_DESCRIPTIONS = {
 export function ResultsPage({ results, onBack }) {
   const { haptic, tg }   = useTelegram()
   const navigate          = useNavigate()
-  const [expanded, setExpanded] = useState(null)
-  const [visible,  setVisible]  = useState(0)
+  const [expanded,   setExpanded]   = useState(null)
+  const [visible,    setVisible]    = useState(0)
+  const [confetti,   setConfetti]   = useState(false)
+  const premiumRef   = useRef(null)
 
   const { normalized_scores: norm, riasec_profile: riasec, top_professions: profs } = results
 
@@ -54,14 +58,37 @@ export function ResultsPage({ results, onBack }) {
     return () => { tg.BackButton.offClick(handleBack); tg.BackButton.hide() }
   }, [tg]) // eslint-disable-line
 
-  // Последовательный reveal секций
+  // M1: view_results event
+  useEffect(() => { track('view_results') }, [])
+
+  // Последовательный reveal + confetti если топ-матч ≥ 80%
   useEffect(() => {
     haptic.success?.()
     const timers = [0, 200, 400, 600, 800].map((ms, i) =>
       setTimeout(() => setVisible(v => Math.max(v, i + 1)), ms)
     )
+    // V6: confetti при высоком match
+    if (profs?.[0]?.match >= 80) {
+      const t = setTimeout(() => setConfetti(true), 400)
+      timers.push(t)
+    }
     return () => timers.forEach(clearTimeout)
   }, []) // eslint-disable-line
+
+  // V4: IntersectionObserver — premium shimmer при появлении
+  useEffect(() => {
+    const el = premiumRef.current
+    if (!el) return
+    const obs = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) {
+        el.classList.add('premium-shimmer-active')
+        track('view_premium')
+        obs.disconnect()
+      }
+    }, { threshold: 0.5 })
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [])
 
   // ── Шаринг ────────────────────────────────────────────────────────────────
   const handleShare = () => {
@@ -89,6 +116,7 @@ export function ResultsPage({ results, onBack }) {
 
   return (
     <div className="results-page">
+      <Confetti active={confetti} />
 
       {/* ── Hero ─────────────────────────────────────────────────────────── */}
       <div className={`results-hero ${visible >= 1 ? 'visible' : ''}`}>
@@ -126,11 +154,11 @@ export function ResultsPage({ results, onBack }) {
           <h3 className="section-title">Радары</h3>
           <div className="radars-row">
             <div className="radar-block">
-              <RadarChart values={TRAIT_KEYS.map(k => norm[k])} labels={['O','C','E','A','S']} color="#2ed1f2" size={145} />
+              <RadarChart values={TRAIT_KEYS.map(k => norm[k])} labels={['O','C','E','A','S']} color="#2ed1f2" size={145} interactive />
               <p className="radar-label">Big Five</p>
             </div>
             <div className="radar-block">
-              <RadarChart values={RIASEC_KEYS.map(k => riasec[k])} labels={RIASEC_KEYS} color="#7347e6" size={145} />
+              <RadarChart values={RIASEC_KEYS.map(k => riasec[k])} labels={RIASEC_KEYS} color="#7347e6" size={145} interactive />
               <p className="radar-label">RIASEC</p>
             </div>
           </div>
@@ -192,8 +220,8 @@ export function ResultsPage({ results, onBack }) {
           </div>
         </div>
 
-        {/* ── Premium ────────────────────────────────────────────────────── */}
-        <div className="premium-block">
+        {/* ── Premium (V4: shimmer on first view) ────────────────────────── */}
+        <div ref={premiumRef} className="premium-block">
           <div className="premium-title">🌟 Хотите детальный отчёт?</div>
           <div className="premium-desc">
             Premium PDF — 6 страниц с персональным AI‑анализом:<br />

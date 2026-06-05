@@ -20,7 +20,7 @@ from aiogram.types import (
 from db.database import get_last_result, get_profession_details_by_title_lang, get_user
 from services.premium_pdf_generator import generate_premium_pdf
 from locales import get_text
-from config.settings import ANTHROPIC_API_KEY, PREMIUM_PRICE_STARS
+from config.settings import ANTHROPIC_API_KEY, PREMIUM_PRICE_STARS, get_ab_price
 import json
 
 logger = logging.getLogger(__name__)
@@ -35,7 +35,8 @@ PAYLOAD = "premium_pdf_v1"
 @premium_router.callback_query(F.data == "buy_premium_pdf")
 async def cb_buy_premium(call: CallbackQuery, pool):
     """Показывает инвойс Telegram Stars. Сначала проверяет наличие результатов теста."""
-    lang = await _get_lang(pool, call.from_user.id)
+    lang  = await _get_lang(pool, call.from_user.id)
+    price = get_ab_price(call.from_user.id)   # M2: A/B test
 
     # Проверяем что тест пройден — иначе инвойс бессмысленен
     db_user = await get_user(pool, call.from_user.id)
@@ -82,10 +83,10 @@ async def cb_buy_premium(call: CallbackQuery, pool):
         title       = title,
         description = desc,
         payload     = PAYLOAD,
-        currency    = "XTR",           # Telegram Stars
-        prices      = [LabeledPrice(label="Premium PDF", amount=PREMIUM_PRICE_STARS)],
-        # provider_token не нужен для Stars
+        currency    = "XTR",
+        prices      = [LabeledPrice(label="Premium PDF", amount=price)],
     )
+    logger.info(f"Invoice sent: user={call.from_user.id}, price={price} Stars (A/B group {call.from_user.id % 3})")
     await call.answer()
 
 

@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useCallback } from 'react'
 import { useTelegram } from '../hooks/useTelegram'
 
 const RIASEC_LABELS_RU = { R:'Реалистичный', I:'Исследовательский', A:'Артистичный', S:'Социальный', E:'Предприимчивый', C:'Конвенциональный' }
@@ -13,11 +13,13 @@ export function ProfessionsPage({ userResults, onBack, onSelectProfession }) {
   const isRu  = lang !== 'en'
   const rl    = isRu ? RIASEC_LABELS_RU : RIASEC_LABELS_EN
 
+  const PAGE_SIZE = 20
+
   const [professions, setProfessions] = useState([])
   const [loading,     setLoading]     = useState(true)
   const [search,      setSearch]      = useState('')
-  const [filterR,     setFilterR]     = useState(null)  // RIASEC filter
-  const [expanded,    setExpanded]    = useState(null)
+  const [filterR,     setFilterR]     = useState(null)
+  const [visibleCount,setVisibleCount]= useState(PAGE_SIZE)
 
   useEffect(() => {
     if (!tg) return
@@ -36,12 +38,14 @@ export function ProfessionsPage({ userResults, onBack, onSelectProfession }) {
   }, [initData, lang])
 
   const filtered = useMemo(() => {
+    setVisibleCount(PAGE_SIZE)  // сбрасываем пагинацию при новом поиске/фильтре
     let list = professions
     if (filterR) list = list.filter(p => p.riasec_type === filterR)
     if (search)  list = list.filter(p => p.title?.toLowerCase().includes(search.toLowerCase()))
-    // Sort: with match first
     return [...list].sort((a, b) => (b.match || 0) - (a.match || 0))
   }, [professions, filterR, search])
+
+  const visible = filtered.slice(0, visibleCount)
 
   // Top-3 from user results
   const topTitles = useMemo(() => {
@@ -55,10 +59,11 @@ export function ProfessionsPage({ userResults, onBack, onSelectProfession }) {
     match:    isRu ? 'совпадение'       : 'match',
     growth:   isRu ? 'Перспективность:' : 'Growth:',
     top3:     isRu ? 'Ваш топ'          : 'Your top',
-    detail:   isRu ? 'Подробнее →'      : 'Details →',
-    back:     isRu ? '← Назад'          : '← Back',
-    empty:    isRu ? 'Ничего не найдено'  : 'Nothing found',
-    noMatch:  isRu ? 'Пройдите тест для совпадения' : 'Take the test to see match',
+    detail:    isRu ? 'Подробнее'        : 'Details',
+    back:      isRu ? '← Назад'          : '← Back',
+    empty:     isRu ? 'Ничего не найдено'  : 'Nothing found',
+    noMatch:   isRu ? 'Пройдите тест для совпадения' : 'Take the test to see match',
+    showMore:  (n) => isRu ? `Показать ещё (${n})` : `Show more (${n})`,
   }
 
   return (
@@ -103,28 +108,24 @@ export function ProfessionsPage({ userResults, onBack, onSelectProfession }) {
           <div style={{ textAlign: 'center', padding: '40px 24px', color: 'rgba(255,255,255,0.4)' }}>{T.empty}</div>
         )}
 
-        {filtered.map((prof, i) => {
-          const isTop    = topTitles.includes(prof.title)
-          const topIdx   = topTitles.indexOf(prof.title)
-          const isExpand = expanded === i
+        {visible.map((prof, i) => {
+          const isTop  = topTitles.includes(prof.title)
+          const topIdx = topTitles.indexOf(prof.title)
 
           return (
-            <div
-              key={i}
-              className={`profs-card ${isExpand ? 'profs-card-expanded' : ''}`}
-              onClick={() => { haptic.light(); setExpanded(isExpand ? null : i) }}
-            >
+            <div key={i} className="profs-card">
+              {/* Header row */}
               <div className="profs-card-header">
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
                     {isTop && (
-                      <span style={{ fontSize: 14, color: MEDAL_COLORS[topIdx] || '#fbbf24' }}>
+                      <span style={{ fontSize: 14, color: MEDAL_COLORS[topIdx] || '#fbbf24', flexShrink: 0 }}>
                         {['🥇','🥈','🥉'][topIdx] || '★'}
                       </span>
                     )}
                     <span className="profs-card-title">{prof.title}</span>
                   </div>
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                     <span className="profs-card-riasec">{rl[prof.riasec_type] || prof.riasec_type}</span>
                     {prof.growth_potential && (
                       <span style={{ fontSize: 11, color: GROWTH_COLOR[prof.growth_potential] || '#94a3b8' }}>
@@ -133,47 +134,44 @@ export function ProfessionsPage({ userResults, onBack, onSelectProfession }) {
                     )}
                   </div>
                 </div>
-                {prof.match != null ? (
-                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                {prof.match != null && (
+                  <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 8 }}>
                     <div style={{ fontSize: 20, fontWeight: 800, color: prof.match >= 75 ? '#3fd98f' : prof.match >= 50 ? '#fbbf24' : '#94a3b8' }}>
                       {prof.match}%
                     </div>
                     <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>{T.match}</div>
                   </div>
-                ) : (
-                  <span style={{ fontSize: 18, color: 'rgba(255,255,255,0.2)' }}>›</span>
                 )}
               </div>
 
               {/* Match bar */}
               {prof.match != null && (
-                <div style={{ height: 3, background: 'rgba(255,255,255,0.07)', borderRadius: 2, marginTop: 8, overflow: 'hidden' }}>
+                <div style={{ height: 3, background: 'rgba(255,255,255,0.07)', borderRadius: 2, marginTop: 8, marginBottom: 10, overflow: 'hidden' }}>
                   <div style={{ width: `${prof.match}%`, height: '100%', background: prof.match >= 75 ? '#3fd98f' : '#7347e6', borderRadius: 2 }} />
                 </div>
               )}
 
-              {/* Expanded */}
-              {isExpand && (
-                <div className="profs-card-expand">
-                  {prof.description && (
-                    <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', lineHeight: 1.65, margin: '12px 0 8px' }}>
-                      {prof.description}
-                    </p>
-                  )}
-                  {!prof.match && (
-                    <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)', marginBottom: 8 }}>{T.noMatch}</p>
-                  )}
-                  <button
-                    className="profs-detail-btn"
-                    onClick={e => { e.stopPropagation(); haptic.medium(); onSelectProfession(prof.title) }}
-                  >
-                    {T.detail}
-                  </button>
-                </div>
-              )}
+              {/* Кнопка Подробнее — всегда видна */}
+              <button
+                className="profs-detail-btn"
+                onClick={() => { haptic.medium(); onSelectProfession(prof.title) }}
+              >
+                {T.detail} →
+              </button>
             </div>
           )
         })}
+
+        {/* Показать ещё */}
+        {visibleCount < filtered.length && (
+          <button
+            className="profs-detail-btn"
+            style={{ background: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.6)', marginTop: 4 }}
+            onClick={() => { haptic.select(); setVisibleCount(v => v + PAGE_SIZE) }}
+          >
+            {T.showMore(filtered.length - visibleCount)}
+          </button>
+        )}
       </div>
 
       <div style={{ padding: '0 16px 16px' }}>

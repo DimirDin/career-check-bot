@@ -203,6 +203,16 @@ export default function App() {
           />
         )
       case SCREEN.RESULTS:
+        if (!results?.normalized_scores) {
+          // Результаты ещё не загружены — грузим из API
+          if (user && initData) {
+            fetch(`/api/results/${user.id}?init_data=${encodeURIComponent(initData)}`)
+              .then(r => r.ok ? r.json() : null)
+              .then(d => d && setResults(d))
+              .catch(() => {})
+          }
+          return <ResultsLoadingSkeleton />
+        }
         return (
           <ResultsPage
             results={results}

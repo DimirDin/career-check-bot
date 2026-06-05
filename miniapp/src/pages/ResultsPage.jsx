@@ -44,15 +44,19 @@ export function ResultsPage({ results, onBack }) {
   const premiumRef = useRef(null)
   const badges = useMemo(() => getBadges(norm), [norm])
 
-  const { normalized_scores: norm, riasec_profile: riasec, top_professions: profs } = results
+  const norm  = results?.normalized_scores  || {}
+  const riasec = results?.riasec_profile   || {}
+  const profs  = results?.top_professions  || []
 
   const { domRiasec, domLabel, topTrait } = useMemo(() => {
-    const dom = Object.entries(riasec).sort((a, b) => b[1] - a[1])[0][0]
-    const topScore = Math.max(...TRAIT_KEYS.map(k => norm[k]))
+    const entries = Object.entries(riasec)
+    const dom = entries.length ? entries.sort((a, b) => b[1] - a[1])[0][0] : 'I'
+    const scores = TRAIT_KEYS.map(k => norm[k] || 0)
+    const topScore = Math.max(...scores, 0)
     return {
       domRiasec: dom,
-      domLabel:  RIASEC_LABELS[dom],
-      topTrait:  TRAIT_KEYS.find(k => norm[k] === topScore),
+      domLabel:  RIASEC_LABELS[dom] || dom,
+      topTrait:  TRAIT_KEYS.find(k => norm[k] === topScore) || 'O',
     }
   }, [norm, riasec])
 

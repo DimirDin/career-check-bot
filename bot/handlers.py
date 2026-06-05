@@ -195,35 +195,42 @@ async def cmd_start(message: Message, state: FSMContext, pool: asyncpg.Pool):
             )
             return
 
-    # ── Стандартное приветствие ───────────────────────────────────────────────
-    builder = InlineKeyboardBuilder()
-    if user and user.get('test_completed'):
-        # Тест уже пройден — предлагаем пройти заново или посмотреть результат
-        builder.button(text=t("btn_retake"),    callback_data='start_test_fresh')
-        builder.button(text=t("btn_my_result"), callback_data='my_result')
+    # ── Приветствие с кнопкой Mini App ───────────────────────────────────────
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo as WAppInfo
+    from config.settings import BOT_USERNAME
+    import os as _os
+
+    domain = _os.getenv("DOMAIN", "careercheck.app")
+    miniapp_url = f"https://{domain}"
+
+    if lang == 'ru':
+        has_results = user and user.get('test_completed')
+        text = (
+            "👋 <b>Привет! Добро пожаловать в CareerCheck</b>\n\n"
+            "Карьерный тест Big Five — 60 вопросов, 10 минут.\n"
+            "Узнай свой профиль личности, лучшие профессии и RIASEC-тип.\n\n"
+            + ("✅ У тебя уже есть результаты — открой приложение чтобы посмотреть.\n\n"
+               if has_results else "")
+            + "Нажми кнопку ниже 👇"
+        )
+        btn_text = "🚀 Открыть CareerCheck"
     else:
-        builder.button(text=t("btn_start_test"), callback_data='start_test_fresh')
-    builder.button(text=t("btn_about_test"), callback_data='about_test')
-    builder.adjust(1)
+        has_results = user and user.get('test_completed')
+        text = (
+            "👋 <b>Welcome to CareerCheck!</b>\n\n"
+            "Big Five career test — 60 questions, 10 minutes.\n"
+            "Discover your personality profile, top careers and RIASEC type.\n\n"
+            + ("✅ You already have results — open the app to view them.\n\n"
+               if has_results else "")
+            + "Tap below 👇"
+        )
+        btn_text = "🚀 Open CareerCheck"
 
-    img_path = _welcome_image_path(lang)
-    try:
-        if os.path.exists(img_path):
-            await message.answer_photo(photo=types.FSInputFile(img_path))
-        else:
-            logger.warning(f"Welcome image not found: {img_path}")
-    except Exception as e:
-        logger.warning(f"Welcome image send failed ({img_path}): {e}")
+    kb = InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(text=btn_text, web_app=WAppInfo(url=miniapp_url))
+    ]])
 
-    welcome_text = (
-        t("welcome_title")
-        + "\n"
-        + t("welcome_subtitle")
-        + "\n\n"
-        + t("welcome_body")
-        + t("welcome_footer")
-    )
-    await message.answer(welcome_text, reply_markup=builder.as_markup())
+    await message.answer(text, reply_markup=kb)
 
 
 # ── Возобновление теста ───────────────────────────────────────────────────────

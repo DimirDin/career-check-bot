@@ -10,7 +10,7 @@ const isRuLang = (tg) => tg?.initDataUnsafe?.user?.language_code?.startsWith('ru
 
 const BOT_USERNAME = 'CareerCheck_Bot'
 
-const TRAIT_LABELS = ['Открытость', 'Сознательность', 'Экстраверсия', 'Доброжелат.', 'Стабильность']
+const TRAIT_LABELS = ['Открытость', 'Сознательность', 'Экстраверсия', 'Доброжелательность', 'Стабильность']
 const TRAIT_KEYS   = ['O', 'C', 'E', 'A', 'S']
 const RIASEC_KEYS  = ['R', 'I', 'A', 'S', 'E', 'C']
 const RIASEC_LABELS = {
@@ -30,11 +30,13 @@ const TRAIT_DESCRIPTIONS = {
 export function ResultsPage({ results, onBack }) {
   const { haptic, tg, user, initData } = useTelegram()
   const navigate = useNavigate()
-  const [expanded,     setExpanded]     = useState(null)
-  const [visible,      setVisible]      = useState(0)
-  const [confetti,     setConfetti]     = useState(false)
-  const [compareLink,  setCompareLink]  = useState(null)
-  const premiumRef     = useRef(null)
+  const [expanded,        setExpanded]        = useState(null)
+  const [visible,         setVisible]         = useState(0)
+  const [confetti,        setConfetti]        = useState(false)
+  const [compareLink,     setCompareLink]     = useState(null)
+  const [premiumLoading,  setPremiumLoading]  = useState(false)
+  const [premiumMsg,      setPremiumMsg]      = useState(null)
+  const premiumRef = useRef(null)
 
   const { normalized_scores: norm, riasec_profile: riasec, top_professions: profs } = results
 
@@ -162,11 +164,74 @@ export function ResultsPage({ results, onBack }) {
     openLink(shareUrl)
   }
 
-  // ── Premium ────────────────────────────────────────────────────────────────
-  const handlePremium = () => {
+  // ── Premium — openInvoice в Mini App (issue 7) ────────────────────────────
+  const handlePremium = async () => {
     haptic.medium?.()
     track('view_premium_click')
-    openLink('https://t.me/CareerCheck_Bot?start=premium')
+
+    // Если нет tg.openInvoice — открываем бота как fallback
+    if (!tg?.openInvoice) {
+      openLink('https://t.me/CareerCheck_Bot?start=premium')
+      return
+    }
+
+    setPremiumLoading(true)
+    setPremiumMsg(null)
+    try {
+      const res  = await fetch('/api/premium/invoice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ init_data: initData }),
+      })
+      if (!res.ok) throw new Error('invoice_failed')
+      const { invoice_link } = await res.json()
+
+      tg.openInvoice(invoice_link, async (status) => {
+        if (status === 'paid') {
+          haptic.success?.()
+          setPremiumMsg(isRuLang(tg) ? '⏳ Генерируем PDF…' : '⏳ Generating PDF…')
+          // Полируем статус, пока бот не обработает платёж
+          let ready = false
+          for (let i = 0; i < 20; i++) {
+            await new Promise(r => setTimeout(r, 2000))
+            try {
+              const s = await fetch(`/api/premium/status?init_data=${encodeURIComponent(initData)}`)
+              const d = await s.json()
+              if (d.status === 'ready') { ready = true; break }
+            } catch {}
+          }
+          if (ready) {
+            // Скачиваем PDF
+            const dlRes = await fetch('/api/premium/download', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ init_data: initData }),
+            })
+            const blob = await dlRes.blob()
+            const url  = URL.createObjectURL(blob)
+            const a    = document.createElement('a')
+            a.href     = url
+            a.download = 'CareerCheck_Premium.pdf'
+            a.click()
+            URL.revokeObjectURL(url)
+            setPremiumMsg(isRuLang(tg) ? '✅ PDF скачан!' : '✅ PDF downloaded!')
+          } else {
+            setPremiumMsg(isRuLang(tg)
+              ? '✅ Оплата получена! PDF придёт в бот @CareerCheck_Bot'
+              : '✅ Payment received! PDF will arrive in @CareerCheck_Bot')
+          }
+        } else if (status === 'cancelled') {
+          setPremiumMsg(null)
+        } else {
+          setPremiumMsg(isRuLang(tg) ? '❌ Ошибка оплаты. Попробуй снова.' : '❌ Payment failed.')
+        }
+      })
+    } catch (e) {
+      console.error('Premium invoice error:', e)
+      // Fallback — открываем бота
+      openLink('https://t.me/CareerCheck_Bot?start=premium')
+    }
+    setPremiumLoading(false)
   }
 
   return (
@@ -196,7 +261,7 @@ export function ResultsPage({ results, onBack }) {
                   <span className="trait-score">{norm[key]}%</span>
                 </div>
                 <div className="trait-bar-bg">
-                  <div className="trait-bar-fill" style={{ width: `${norm[key]}%`, '--delay': `${i * 70}ms` }} />
+                  <div className="trait-bar-fill" style={{ '--target-w': `${norm[key]}%`, '--delay': `${i * 70}ms` }} />
                 </div>
                 <p className="trait-desc">{TRAIT_DESCRIPTIONS[key]}</p>
               </div>
@@ -282,43 +347,40 @@ export function ResultsPage({ results, onBack }) {
             Premium PDF — 6 страниц с персональным AI‑анализом:<br />
             психологический портрет, карьерное видение, роадмап
           </div>
-          <button className="btn-premium" onClick={handlePremium}>
-            🌟 Получить Premium PDF — 99 Stars
+          <button className="btn-premium" onClick={handlePremium} disabled={premiumLoading}>
+            {premiumLoading
+              ? (isRuLang(tg) ? '⏳ Загрузка…' : '⏳ Loading…')
+              : `🌟 ${isRuLang(tg) ? 'Получить Premium PDF' : 'Get Premium PDF'}`}
           </button>
+          {premiumMsg && (
+            <p style={{ marginTop: 8, fontSize: 13, color: 'rgba(255,255,255,0.7)', textAlign: 'center' }}>
+              {premiumMsg}
+            </p>
+          )}
         </div>
 
         {/* ── Share Card (U4) ────────────────────────────────────────────── */}
         <ShareCard results={results} />
 
-        {/* ── AI Chat (N4) ───────────────────────────────────────────────── */}
-        <button
-          className="ai-chat-btn"
-          onClick={() => { haptic.medium?.(); track('ai_chat_open_from_results'); navigate('/ai-chat') }}
-        >
-          <span className="ai-chat-btn-icon">🤖</span>
-          <div>
-            <div className="ai-chat-btn-title">{isRuLang(tg) ? 'AI-консультант' : 'AI Career Coach'}</div>
-            <div className="ai-chat-btn-sub">{isRuLang(tg) ? '3 бесплатных вопроса о твоей карьере' : '3 free questions about your career'}</div>
-          </div>
-          <span style={{ marginLeft: 'auto', color: 'rgba(255,255,255,0.4)' }}>→</span>
-        </button>
+        {/* AI Chat — временно скрыт (N4, будет добавлен позже) */}
+        {null}
 
-        {/* ── Compare + Refer (N2, M3) ───────────────────────────────────── */}
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button className="share-card-btn" style={{ flex: 1 }} onClick={handleCompare}>
-            👥 {isRuLang(tg) ? 'Сравнить' : 'Compare'}
-          </button>
-          <button className="share-card-btn" style={{ flex: 1 }} onClick={handleRefer}>
-            🔗 {isRuLang(tg) ? 'Пригласить' : 'Invite'}
-          </button>
-        </div>
+        {/* ── Поделиться с другом (Compare + Refer объединены — issue 1) ─── */}
+        <button className="btn-share-friend" onClick={handleRefer}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+          </svg>
+          {isRuLang(tg) ? 'Поделиться с другом' : 'Share with a friend'}
+        </button>
 
         {/* ── Кнопка Назад ───────────────────────────────────────────────── */}
         <button className="btn-back-results" onClick={handleBack}>
-          ← Назад в меню
+          ← {isRuLang(tg) ? 'Назад в меню' : 'Back to menu'}
         </button>
 
-        <p className="results-footer">@Dimirdin · CareerCheck</p>
+        <p className="results-footer">CareerCheck · @CareerCheckSupport</p>
 
       </div>
     </div>

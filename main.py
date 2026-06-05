@@ -121,8 +121,9 @@ async def main() -> None:
     dp.include_router(router)
     dp.include_router(premium_router)
 
-    # Пул доступен во всех хендлерах через аргумент pool=
-    dp["pool"] = pool
+    # Пул + Redis доступны во всех хендлерах
+    dp["pool"]  = pool
+    dp["redis"] = redis_client
 
     # ── Heartbeat ────────────────────────────────────────────────
     heartbeat_task = asyncio.create_task(heartbeat_loop(redis_client))

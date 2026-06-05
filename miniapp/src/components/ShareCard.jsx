@@ -182,7 +182,7 @@ function drawLinkedInCard(canvas, { norm, riasec, profs, lang }) {
 
   // Big Five bars
   const traits = ['O','C','E','A','S']
-  const SHORT_RU = {O:'Открытость',C:'Сознательность',E:'Экстраверсия',A:'Доброжелат.',S:'Стабильность'}
+  const SHORT_RU = {O:'Открытость',C:'Сознательность',E:'Экстраверсия',A:'Доброжелательность',S:'Стабильность'}
   const SHORT_EN = {O:'Openness',C:'Conscientiousness',E:'Extraversion',A:'Agreeableness',S:'Stability'}
   const short = isRu ? SHORT_RU : SHORT_EN
 
@@ -318,26 +318,19 @@ export function ShareCard({ results }) {
 
   function handleLinkedIn() {
     haptic.success()
-    if (!liImgUrl) {
-      // Canvas ещё не готов или ошибка — генерируем заново
+    // Issue 4: показываем в модале вместо download (download блокируется в Telegram WebApp)
+    let url = liImgUrl
+    if (!url) {
       try {
         const li = liCanvasRef.current
         if (!li) return
         const data = { norm: results.normalized_scores, riasec: results.riasec_profile, profs: results.top_professions, lang }
         drawLinkedInCard(li, data)
-        const url = li.toDataURL('image/png')
+        url = li.toDataURL('image/png')
         setLiImgUrl(url)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = 'CareerCheck_LinkedIn.png'
-        a.click()
-      } catch (e) { console.error('LinkedIn retry error:', e) }
-      return
+      } catch (e) { console.error('LinkedIn retry error:', e); return }
     }
-    const a = document.createElement('a')
-    a.href = liImgUrl
-    a.download = 'CareerCheck_LinkedIn.png'
-    a.click()
+    setShowLi(true)
   }
 
   return (
@@ -345,33 +338,22 @@ export function ShareCard({ results }) {
       <canvas ref={canvasRef}   width={400}  height={520} style={{ display: 'none' }} />
       <canvas ref={liCanvasRef} width={1200} height={627} style={{ display: 'none' }} />
 
-      {/* Share card buttons */}
+      {/* Share card buttons — issue 2: Карточка = стиль Premium (фиолетовый) */}
       <div className="share-card-actions">
-        <button className="share-card-btn share-card-btn--preview" onClick={handleShow}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-            <rect x="3" y="3" width="18" height="18" rx="3"/>
-            <circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/>
-          </svg>
-          {isRu ? 'Карточка' : 'Card'}
-        </button>
-        <button className="share-card-btn share-card-btn--share" onClick={handleShare}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-            <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
-            <polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/>
-          </svg>
-          {isRu ? 'Поделиться' : 'Share'}
+        <button className="btn-premium" style={{ flex: 1 }} onClick={handleShow}>
+          {isRu ? '🖼 Карточка результата' : '🖼 Result card'}
         </button>
         <button className="share-card-btn share-card-btn--linkedin" onClick={handleLinkedIn} title="LinkedIn 1200×627">
           in
         </button>
       </div>
 
-      {/* Image preview modal */}
+      {/* Regular card modal */}
       {showImg && imgUrl && (
         <div className="share-card-modal" onClick={() => setShowImg(false)}>
           <div className="share-card-modal-inner" onClick={e => e.stopPropagation()}>
             <p className="share-card-hint">
-              {isRu ? '📸 Сохрани скриншотом или скачай' : '📸 Screenshot or download'}
+              {isRu ? '📸 Сохрани скриншотом или нажми Скачать' : '📸 Screenshot or tap Download'}
             </p>
             <img src={imgUrl} alt="Result card" className="share-card-image" />
             <div style={{ display: 'flex', gap: 8 }}>
@@ -382,6 +364,21 @@ export function ShareCard({ results }) {
                 {isRu ? 'Закрыть' : 'Close'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* LinkedIn card modal — issue 4: показываем изображение, не download */}
+      {showLi && liImgUrl && (
+        <div className="share-card-modal" onClick={() => setShowLi(false)}>
+          <div className="share-card-modal-inner" onClick={e => e.stopPropagation()}>
+            <p className="share-card-hint">
+              {isRu ? '💼 LinkedIn 1200×627 — сохрани скриншотом' : '💼 LinkedIn 1200×627 — save as screenshot'}
+            </p>
+            <img src={liImgUrl} alt="LinkedIn card" className="share-card-image" />
+            <button className="share-card-btn" style={{ background: 'rgba(255,255,255,0.07)' }} onClick={() => setShowLi(false)}>
+              {isRu ? 'Закрыть' : 'Close'}
+            </button>
           </div>
         </div>
       )}

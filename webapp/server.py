@@ -29,6 +29,8 @@ import asyncpg
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from config.settings import BOT_TOKEN, DB_CONFIG, REDIS_CONFIG, get_ab_price, ANTHROPIC_API_KEY
+import httpx
+import base64
 from services.ai_chat import ask_career_ai
 from services.circuit_breaker import anthropic_breaker
 from db.database import get_last_result, save_result, create_user, get_user
@@ -344,6 +346,60 @@ async def save_results_from_miniapp(body: SaveResultRequest, request: Request):
         "riasec_profile":    riasec,
         "top_professions":   top,
     }
+
+
+# ── Premium in Mini App (issue 7) ────────────────────────────────────────────
+
+@app.post("/api/premium/invoice")
+async def create_premium_invoice(body: CompareCreateRequest, request: Request):
+    """Создаёт invoice link через Telegram Bot API для tg.openInvoice()."""
+    user = validate_init_data(body.init_data)
+    if not user:
+        raise HTTPException(status_code=403, detail="Invalid init data")
+
+    price = get_ab_price(user["id"])
+    async with httpx.AsyncClient(timeout=10) as client:
+        resp = await client.post(
+            f"https://api.telegram.org/bot{BOT_TOKEN}/createInvoiceLink",
+            json={
+                "title":       "Premium Career Report",
+                "description": "6 страниц персонального AI-анализа карьеры",
+                "payload":     "premium_pdf_v1",
+                "currency":    "XTR",
+                "prices":      [{"label": "Premium PDF", "amount": price}],
+            },
+        )
+    data = resp.json()
+    if not data.get("ok"):
+        raise HTTPException(status_code=502, detail=f"Telegram API error: {data}")
+    return {"invoice_link": data["result"], "price": price}
+
+
+@app.get("/api/premium/status")
+async def premium_status(init_data: str, request: Request):
+    """Проверяет готов ли PDF (бот пишет в Redis после successful_payment)."""
+    user = validate_init_data(init_data)
+    if not user:
+        raise HTTPException(status_code=403)
+    key = await request.app.state.redis.get(f"premium_pdf:{user['id']}")
+    return {"status": "ready" if key else "pending"}
+
+
+@app.post("/api/premium/download")
+async def download_premium_pdf(body: CompareCreateRequest, request: Request):
+    """Отдаёт сгенерированный PDF (base64 → bytes). Ключ в Redis ставится ботом."""
+    user = validate_init_data(body.init_data)
+    if not user:
+        raise HTTPException(status_code=403)
+    redis = request.app.state.redis
+    b64   = await redis.get(f"premium_pdf:{user['id']}")
+    if not b64:
+        raise HTTPException(status_code=404, detail="PDF not ready")
+    pdf_bytes = base64.b64decode(b64)
+    await redis.delete(f"premium_pdf:{user['id']}")
+    from fastapi.responses import Response
+    return Response(content=pdf_bytes, media_type="application/pdf",
+                    headers={"Content-Disposition": "attachment; filename=CareerCheck_Premium.pdf"})
 
 
 # ── AI Chat (N4) ──────────────────────────────────────────────────────────────

@@ -27,8 +27,8 @@ export function PentagonProgress({ answered, total = 60, size = 88 }) {
             <line
               key={`bg-${i}`}
               x1={p[0]} y1={p[1]} x2={next[0]} y2={next[1]}
-              stroke="rgba(255,255,255,0.1)"
-              strokeWidth="2"
+              stroke="rgba(255,255,255,0.13)"
+              strokeWidth="3"
               strokeLinecap="round"
             />
           )
@@ -48,31 +48,32 @@ export function PentagonProgress({ answered, total = 60, size = 88 }) {
               key={`fill-${i}`}
               x1={p[0]} y1={p[1]} x2={fx2} y2={fy2}
               stroke="url(#penGrad)"
-              strokeWidth="2.5"
+              strokeWidth="3.5"
               strokeLinecap="round"
+              style={{ filter: 'drop-shadow(0 0 3px rgba(115,71,230,0.8))' }}
             />
           )
         })}
 
-        {/* Center text */}
+        {/* Center text — bigger & cleaner */}
         <text
-          x="50" y="50"
+          x="50" y="44"
           textAnchor="middle"
           dominantBaseline="central"
-          fontSize="14"
-          fontWeight="700"
+          fontSize="18"
+          fontWeight="800"
           fontFamily="-apple-system, Arial, sans-serif"
           fill="white"
         >
           {answered}
         </text>
         <text
-          x="50" y="62"
+          x="50" y="60"
           textAnchor="middle"
           dominantBaseline="central"
-          fontSize="8"
+          fontSize="10"
           fontFamily="-apple-system, Arial, sans-serif"
-          fill="rgba(255,255,255,0.45)"
+          fill="rgba(255,255,255,0.5)"
         >
           /{total}
         </text>

@@ -77,7 +77,7 @@ export function WelcomePage({ onStart }) {
           </svg>
         </button>
 
-        <p className="footer-credit">by @Dimirdin</p>
+        <p className="footer-credit">@CareerCheckSupport</p>
       </div>
     </div>
   )

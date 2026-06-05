@@ -125,6 +125,18 @@ async def main() -> None:
     dp["pool"]  = pool
     dp["redis"] = redis_client
 
+    # ── Скрываем бота (команды и описание) ──────────────────────
+    # Убираем список команд чтобы бот не отображался как обычный бот
+    # (нужен только для обработки платежей, всё остальное — Mini App)
+    try:
+        await bot.delete_my_commands()
+        await bot.set_my_short_description(
+            "Карьерный тест Big Five. Открой Mini App: https://careercheck.app"
+        )
+        logger.info("Bot commands cleared, description updated")
+    except Exception as e:
+        logger.warning(f"Bot setup error: {e}")
+
     # ── Heartbeat ────────────────────────────────────────────────
     heartbeat_task = asyncio.create_task(heartbeat_loop(redis_client))
     logger.info("Heartbeat task started")

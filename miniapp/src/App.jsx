@@ -286,7 +286,7 @@ function ErrorScreen({ message, onRetry }) {
 }
 
 const COMING_LABELS = {
-  '/premium':     { emoji: '⭐', title: 'Premium PDF', sub: 'Купить Premium PDF за 99 Stars можно в боте @CareerCheck_Bot' },
+  '/premium':     { emoji: '⭐', title: 'Premium PDF', sub: 'Сначала пройдите тест — Premium PDF строится на ваших результатах' },
   '/professions': { emoji: '📚', title: 'Каталог профессий', sub: 'Скоро — 30+ профессий с детальным описанием' },
   '/history':     { emoji: '🔄', title: 'История тестов', sub: 'Скоро — все ваши прохождения в одном месте' },
   '/settings':    { emoji: '⚙️', title: 'Настройки', sub: 'Скоро — язык, уведомления, профиль' },

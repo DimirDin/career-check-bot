@@ -597,6 +597,22 @@ html, body {
   padding: 8px;
 }
 
+/* Поддержка — крупная жирная ссылка в footer */
+.footer-support-link {
+  width: 100%;
+  background: none;
+  border: none;
+  color: #7347e6;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 10px 0 4px;
+  text-align: center;
+  letter-spacing: 0.01em;
+  transition: opacity 0.15s;
+}
+.footer-support-link:active { opacity: 0.7; }
+
 /* Кнопка Поделиться с другом (объединяет Compare + Refer) */
 .btn-share-friend {
   display: flex;

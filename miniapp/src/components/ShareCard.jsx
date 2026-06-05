@@ -375,15 +375,17 @@ export function ShareCard({ results }) {
       <canvas ref={canvasRef}   width={400}  height={700} style={{ display: 'none' }} />
       <canvas ref={liCanvasRef} width={1200} height={627} style={{ display: 'none' }} />
 
-      {/* Share card buttons — issue 2: Карточка = стиль Premium (фиолетовый) */}
-      <div className="share-card-actions">
-        <button className="btn-premium" style={{ flex: 1 }} onClick={handleShow}>
-          {isRu ? '🖼 Карточка результата' : '🖼 Result card'}
-        </button>
+      {/* Карточка — полная ширина */}
+      <button className="btn-premium" style={{ width: '100%' }} onClick={handleShow}>
+        {isRu ? '🖼 Карточка результата' : '🖼 Result card'}
+      </button>
+
+      {/* LinkedIn кнопка — временно скрыта, код сохранён */}
+      {false && (
         <button className="share-card-btn share-card-btn--linkedin" onClick={handleLinkedIn} title="LinkedIn 1200×627">
           in
         </button>
-      </div>
+      )}
 
       {/* Regular card modal */}
       {showImg && imgUrl && (

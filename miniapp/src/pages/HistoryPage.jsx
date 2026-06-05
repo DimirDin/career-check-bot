@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
-import { useTelegram } from '../hooks/useTelegram'
+import { useTelegram }  from '../hooks/useTelegram'
+import { useUserState } from '../hooks/useUserState'
 
 const T = {
   ru: {
@@ -28,10 +29,14 @@ const T = {
   },
 }
 
-export function HistoryPage({ lastResult, historyCount = 0, onBack, onStartTest }) {
-  const { tg, haptic } = useTelegram()
-  const lang = tg?.initDataUnsafe?.user?.language_code?.slice(0, 2) || 'ru'
-  const t = T[lang] || T.en
+export function HistoryPage({ lastResult, onBack, onStartTest }) {
+  const { tg, haptic, initData } = useTelegram()
+  const { state, loading }        = useUserState(initData)
+  const lang        = tg?.initDataUnsafe?.user?.language_code?.slice(0, 2) || 'ru'
+  const t           = T[lang] || T.en
+  const historyCount = state?.historyCount ?? (lastResult ? 1 : 0)
+  // Используем lastResult из props или из state
+  const result = lastResult || (state?.hasResults ? { completed_at: state.lastResultDate, normalized_scores: {} } : null)
 
   useEffect(() => {
     if (!tg) return
@@ -45,8 +50,17 @@ export function HistoryPage({ lastResult, historyCount = 0, onBack, onStartTest 
     onStartTest()
   }
 
+  if (loading) {
+    return (
+      <div className="history-page">
+        <div className="history-header"><h2 className="history-title">{t.title}</h2></div>
+        <div className="loading-screen"><div className="loading-spinner" /><p className="loading-text">...</p></div>
+      </div>
+    )
+  }
+
   // Empty state
-  if (!lastResult || historyCount === 0) {
+  if (!result || historyCount === 0) {
     return (
       <div className="history-page">
         <div className="history-header">
@@ -70,8 +84,10 @@ export function HistoryPage({ lastResult, historyCount = 0, onBack, onStartTest 
   }
 
   // Has results — show last result + retake CTA
-  const norm = lastResult.normalized_scores || {}
-  const topTrait = Object.entries(norm).sort((a, b) => b[1] - a[1])[0]
+  const norm     = result?.normalized_scores || {}
+  const normEntries = Object.entries(norm).filter(([,v]) => v > 0)
+  const topTrait = normEntries.length ? normEntries.sort((a, b) => b[1] - a[1])[0] : null
+  const dateStr  = result?.completed_at || state?.lastResultDate
 
   return (
     <div className="history-page">
@@ -84,9 +100,9 @@ export function HistoryPage({ lastResult, historyCount = 0, onBack, onStartTest 
         {/* Last result card */}
         <div className="history-result-card">
           <div className="history-result-label">{t.last}</div>
-          {lastResult.completed_at && (
+          {dateStr && (
             <div className="history-result-date">
-              {new Date(lastResult.completed_at).toLocaleDateString(lang === 'ru' ? 'ru-RU' : 'en-US', {
+              {new Date(dateStr).toLocaleDateString(lang === 'ru' ? 'ru-RU' : 'en-US', {
                 day: 'numeric', month: 'long', year: 'numeric'
               })}
             </div>

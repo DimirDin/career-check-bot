@@ -33,7 +33,7 @@ def calculate_riasec(normalized: dict) -> dict:
     return riasec
 
 
-def match_professions(normalized: dict, riasec: dict, professions: list) -> list:
+def match_professions(normalized: dict, riasec: dict, professions: list, top_n: int = 5) -> list:
     """
     Взвешенное поэлементное сравнение с RIASEC-бонусом.
     Добавлен floor=20 — минимальный match по черте, чтобы избежать полных 0%.
@@ -99,4 +99,4 @@ def match_professions(normalized: dict, riasec: dict, professions: list) -> list
         })
     
     matches.sort(key=lambda x: x['match'], reverse=True)
-    return matches[:5]
+    return matches if top_n is None else matches[:top_n]

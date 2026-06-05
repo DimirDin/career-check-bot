@@ -654,7 +654,8 @@ async def get_all_professions(lang: str = "ru", init_data: str = "", request: Re
                     user_riasec = p(result["riasec_profile"])
 
     if user_norm:
-        top = match_professions(user_norm, user_riasec, professions)
+        # top_n=None — возвращаем ВСЕ профессии с процентом совпадения
+        top = match_professions(user_norm, user_riasec, professions, top_n=None)
         match_map = {item["title"]: item["match"] for item in top}
         for prof in professions:
             prof["match"] = match_map.get(prof["title"], 0)

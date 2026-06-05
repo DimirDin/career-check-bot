@@ -59,23 +59,36 @@ def validate_init_data(init_data: str) -> dict | None:
     """
     Проверяет подпись initData от Telegram WebApp.
     Возвращает dict с данными пользователя или None если подпись невалидна.
+
+    Два фикса относительно наивной реализации:
+    1. URL-decode значений перед построением check_string
+    2. Исключаем 'signature' (Ed25519, новый Telegram) так же как 'hash'
     """
+    from urllib.parse import unquote
     try:
-        params = dict(p.split("=", 1) for p in init_data.split("&") if "=" in p)
+        # Декодируем URL-encoded значения
+        params = {
+            k: unquote(v)
+            for k, v in (p.split("=", 1) for p in init_data.split("&") if "=" in p)
+        }
+
+        # Исключаем hash и signature из строки проверки
+        EXCLUDE = {"hash", "signature"}
         check_string = "\n".join(
-            f"{k}={params[k]}" for k in sorted(params) if k != "hash"
+            f"{k}={params[k]}" for k in sorted(params) if k not in EXCLUDE
         )
+
         secret_key = hmac.new(b"WebAppData", BOT_TOKEN.encode(), hashlib.sha256).digest()
-        expected = hmac.new(secret_key, check_string.encode(), hashlib.sha256).hexdigest()
+        expected   = hmac.new(secret_key, check_string.encode(), hashlib.sha256).hexdigest()
 
         if not hmac.compare_digest(expected, params.get("hash", "")):
+            logger.warning(f"initData HMAC mismatch. keys={list(params.keys())}")
             return None
 
-        user_json = params.get("user", "{}")
-        from urllib.parse import unquote
-        return json.loads(unquote(user_json))
+        return json.loads(params.get("user", "{}"))
     except Exception as e:
         logger.warning(f"initData validation error: {e}")
+        return None
         return None
 
 

@@ -311,7 +311,7 @@ export default function App() {
     <NavigationContext.Provider value={{ navigate, current: route }}>
       <StarField count={55} />
       <AuroraStreak active={liquidActive} />
-      <div key={transitionKey} className={transitionKey ? 'screen-enter' : undefined} style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: '100dvh', position: 'relative', zIndex: 1 }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: '100dvh', position: 'relative', zIndex: 1 }}>
         {renderScreen()}
       </div>
     </NavigationContext.Provider>

@@ -596,3 +596,21 @@ html, body {
   font-size: 12px;
   padding: 8px;
 }
+
+/* Кнопка Назад в результатах */
+.btn-back-results {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: var(--gray);
+  border-radius: var(--radius-sm);
+  padding: 14px;
+  font-size: 15px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.btn-back-results:active { background: rgba(255,255,255,0.12); color: var(--white); }

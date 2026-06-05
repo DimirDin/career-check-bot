@@ -664,21 +664,41 @@ async def cb_share_result(callback: CallbackQuery, pool: asyncpg.Pool):
         riasec     = json.loads(row['riasec_profile'])    if isinstance(row['riasec_profile'], str)    else dict(row['riasec_profile'])
         top        = json.loads(row['top_professions'])   if isinstance(row['top_professions'], str)    else list(row['top_professions'])
 
-        await callback.message.answer(t("generating_card"))
-
         loop      = asyncio.get_event_loop()
         card_bytes = await loop.run_in_executor(
             None,
             lambda: generate_share_card(normalized, riasec, top, lang=lang)
         )
 
-        await callback.message.answer_photo(
-            photo=types.BufferedInputFile(card_bytes, filename='careercheck.png'),
-            caption=t("share_caption"),
+        dom = max(riasec, key=riasec.get)
+        dom_label = _riasec_label(dom, lang)
+
+        if lang == "ru":
+            caption  = f"🎯 Мой тип личности: <b>{dom_label}</b>\n\nПрошёл карьерный тест CareerCheck. Узнай свой тип → @CareerCheck_Bot"
+            hint     = "👆 <b>Перешли это фото друзьям</b> или нажми кнопку ниже"
+        else:
+            caption  = f"🎯 My personality type: <b>{dom_label}</b>\n\nI took the CareerCheck test. Find yours → @CareerCheck_Bot"
+            hint     = "👆 <b>Forward this photo to friends</b> or tap the button below"
+
+        # Кнопка "Поделиться" — открывает диалог выбора чата в Telegram
+        share_text = f"Узнай свой карьерный тип! @CareerCheck_Bot" if lang == "ru" else "Find your career type! @CareerCheck_Bot"
+        from urllib.parse import quote
+        share_url  = f"https://t.me/share/url?url=https://t.me/CareerCheck_Bot&text={quote(share_text)}"
+
+        share_kb = InlineKeyboardBuilder()
+        share_kb.button(
+            text="📤 Поделиться с друзьями" if lang == "ru" else "📤 Share with friends",
+            url=share_url
         )
 
+        await callback.message.answer_photo(
+            photo=types.BufferedInputFile(card_bytes, filename='careercheck.png'),
+            caption=caption,
+        )
+        await callback.message.answer(hint, reply_markup=share_kb.as_markup())
+
     except Exception as e:
-        logger.error(f"Share card error: {e}")
+        logger.error(f"Share card error: {e}", exc_info=True)
         await callback.message.answer(t("err_generic"))
 
 
@@ -744,6 +764,24 @@ async def _show_myresult(message: Message, telegram_id: int, pool: asyncpg.Pool)
         builder.adjust(1)
 
         await message.answer(text, reply_markup=builder.as_markup())
+
+        # Premium PDF offer
+        from bot.premium_handlers import premium_keyboard
+        await message.answer(
+            "🌟 <b>Хотите детальный AI-отчёт?</b>\n\n"
+            "Premium PDF — 6 страниц:\n"
+            "• Психологический портрет\n"
+            "• Карьерное видение на 5 и 10 лет\n"
+            "• Роадмап и конкретные шаги\n\n"
+            "Всего <b>99 Stars</b> (~$1)" if lang == "ru" else
+            "🌟 <b>Want a detailed AI report?</b>\n\n"
+            "Premium PDF — 6 pages:\n"
+            "• Psychological portrait\n"
+            "• Career vision for 5 and 10 years\n"
+            "• Roadmap and concrete steps\n\n"
+            "Only <b>99 Stars</b> (~$1)",
+            reply_markup=premium_keyboard(lang),
+        )
 
     except Exception as e:
         logger.error(f"myresult error: {e}")

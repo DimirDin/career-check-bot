@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 import signal
 import sys
 import time
@@ -125,15 +126,35 @@ async def main() -> None:
     dp["pool"]  = pool
     dp["redis"] = redis_client
 
-    # ── Скрываем бота (команды и описание) ──────────────────────
-    # Убираем список команд чтобы бот не отображался как обычный бот
-    # (нужен только для обработки платежей, всё остальное — Mini App)
+    # ── Настраиваем бота как Mini App launcher ───────────────────
+    domain = os.getenv("DOMAIN", "careercheck.app")
+    miniapp_url = f"https://{domain}"
     try:
+        from aiogram.types import MenuButtonWebApp, WebAppInfo
+
+        # Убираем команды — бот не должен выглядеть как обычный чат-бот
         await bot.delete_my_commands()
-        await bot.set_my_short_description(
-            "Карьерный тест Big Five. Открой Mini App: https://careercheck.app"
+
+        # Кнопка снизу чата открывает Mini App
+        await bot.set_chat_menu_button(
+            menu_button=MenuButtonWebApp(
+                text="Открыть CareerCheck",
+                web_app=WebAppInfo(url=miniapp_url),
+            )
         )
-        logger.info("Bot commands cleared, description updated")
+
+        # Очищаем описание (убираем "Dimirdin" и прочее)
+        await bot.set_my_description(
+            description=(
+                "CareerCheck — карьерный тест Big Five.\n\n"
+                "60 вопросов → твой профиль личности, топ профессий и RIASEC-тип.\n\n"
+                "Нажми кнопку ниже чтобы открыть приложение 👇"
+            )
+        )
+        await bot.set_my_short_description(
+            short_description="Карьерный тест Big Five — узнай свой профиль за 10 минут"
+        )
+        logger.info("Bot configured as Mini App launcher")
     except Exception as e:
         logger.warning(f"Bot setup error: {e}")
 

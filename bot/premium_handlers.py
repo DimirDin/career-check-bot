@@ -6,9 +6,11 @@ premium_handlers.py — хендлеры оплаты Telegram Stars и выда
     dp.include_router(premium_router)
 """
 
+import base64
 import logging
 from datetime import datetime
 
+import redis.asyncio as aioredis
 from aiogram import Router, F
 from aiogram import types
 from aiogram.types import (
@@ -105,7 +107,7 @@ async def pre_checkout(query: PreCheckoutQuery):
 # ── Успешная оплата ───────────────────────────────────────────────────────────
 
 @premium_router.message(F.successful_payment)
-async def payment_success(message: Message, pool):
+async def payment_success(message: Message, pool, redis: aioredis.Redis = None):
     """Оплата прошла — генерируем Premium PDF."""
     # Игнорируем платежи не от нашего инвойса
     if message.successful_payment.invoice_payload != PAYLOAD:
@@ -161,6 +163,17 @@ async def payment_success(message: Message, pool):
             if lang == "ru" else
             f"🌟 Your Premium Career Report is ready!\n\nQuestions? Contact: {SUPPORT_BOT}"
         )
+
+        # Сохраняем PDF в Redis для Mini App (TTL 10 минут)
+        if redis:
+            try:
+                await redis.setex(
+                    f"premium_pdf:{message.from_user.id}",
+                    600,
+                    base64.b64encode(pdf_bytes).decode(),
+                )
+            except Exception as re:
+                logger.warning(f"Redis PDF store error: {re}")
 
         await message.answer_document(
             document = types.BufferedInputFile(pdf_bytes, filename="CareerCheck_Premium.pdf"),

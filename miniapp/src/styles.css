@@ -433,7 +433,7 @@ html, body {
   width: 0;
   animation: bar-in 0.6s var(--delay, 0ms) ease forwards;
 }
-@keyframes bar-in { to { width: var(--w, 100%); } }
+@keyframes bar-in { to { width: var(--target-w, 0%); } }
 .trait-desc { font-size: 12px; color: var(--gray); }
 
 /* Radars */
@@ -497,7 +497,7 @@ html, body {
 }
 .prof-medal { font-size: 22px; flex-shrink: 0; }
 .prof-info  { flex: 1; min-width: 0; }
-.prof-title  { font-size: 15px; font-weight: 600; color: var(--white); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.prof-title  { font-size: 15px; font-weight: 600; color: var(--white); line-height: 1.3; }
 .prof-riasec { font-size: 12px; color: var(--gray); margin-top: 2px; }
 .prof-match {
   font-size: 20px;
@@ -596,6 +596,25 @@ html, body {
   font-size: 12px;
   padding: 8px;
 }
+
+/* Кнопка Поделиться с другом (объединяет Compare + Refer) */
+.btn-share-friend {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  background: rgba(124,58,237,0.12);
+  border: 1px solid rgba(124,58,237,0.35);
+  color: var(--purple-l);
+  border-radius: var(--radius-sm);
+  padding: 14px;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn-share-friend:active { background: rgba(124,58,237,0.25); }
 
 /* Кнопка Назад в результатах */
 .btn-back-results {

@@ -9,7 +9,7 @@ import { track }       from '../hooks/useAnalytics'
 
 const TRAIT_KEYS = ['O', 'C', 'E', 'A', 'S']
 const TRAIT_NAME = {
-  ru: { O:'Открытость', C:'Сознательность', E:'Экстраверсия', A:'Доброжелат.', S:'Стабильность' },
+  ru: { O:'Открытость', C:'Сознательность', E:'Экстраверсия', A:'Доброжелательность', S:'Стабильность' },
   en: { O:'Openness', C:'Conscientiousness', E:'Extraversion', A:'Agreeableness', S:'Stability' },
 }
 

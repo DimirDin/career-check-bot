@@ -97,7 +97,7 @@ export function QuickTestPage({ onFinish, onBack }) {
       {/* Header */}
       <div className="quick-header">
         <div className="quick-badge">{isRu ? '⚡ Быстрый тест' : '⚡ Quick test'}</div>
-        <PentagonProgress answered={current} total={questions.length} size={68} />
+        <PentagonProgress answered={current} total={questions.length} size={48} />
       </div>
       <div className="quick-header-spacer" />
 

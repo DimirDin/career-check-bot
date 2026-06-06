@@ -1,110 +1,115 @@
-import { useEffect } from 'react'
-
-const PTS = [
-  [50,   5  ],
-  [89.9, 34.1],
-  [74.9, 81.1],
-  [25.1, 81.1],
-  [10.1, 34.1],
-]
-const SIDE_LEN = 50
+import { useEffect, useRef } from 'react';
 
 export function SplashScreen({ onDone }) {
+  const logoRef   = useRef(null);
+  const typedRef  = useRef(null);
+  const cursorRef = useRef(null);
+  const subRef    = useRef(null);
+  const rafRef    = useRef(null);
+  const tidsRef   = useRef([]);
+
   useEffect(() => {
-    const t = setTimeout(onDone, 1800)
-    return () => clearTimeout(t)
-  }, [onDone])
+    const WORD       = 'CareerCheck';
+    const LOGO_DUR   = 3200;
+    const TYPE_START = 300;
+    const TYPE_SPEED = 110;
+    const TYPE_END   = TYPE_START + WORD.length * TYPE_SPEED; // 1510ms
+    const SUB_DELAY  = TYPE_END + 350;                        // 1860ms
+    const COMPLETE   = 3800;
+
+    function T(fn, ms) {
+      const id = setTimeout(fn, ms);
+      tidsRef.current.push(id);
+      return id;
+    }
+
+    function lerp(a, b, t) { return a + (b - a) * t; }
+
+    function easeInOutSine(t) {
+      return -(Math.cos(Math.PI * t) - 1) / 2;
+    }
+
+    function getBR(p) {
+      const e  = easeInOutSine(Math.min(p, 1));
+      const k0 = [30, 70, 70, 30, 30, 30, 70, 70];
+      const k1 = [70, 30, 30, 70, 70, 70, 30, 30];
+      const k2 = [50, 50, 30, 70, 50, 70, 30, 50];
+      const k3 = [52, 48, 30, 70, 52, 70, 30, 48];
+
+      let r;
+      if (e <= 0.33) {
+        const t = easeInOutSine(e / 0.33);
+        r = k0.map((v, i) => lerp(v, k1[i], t));
+      } else if (e <= 0.66) {
+        const t = easeInOutSine((e - 0.33) / 0.33);
+        r = k1.map((v, i) => lerp(v, k2[i], t));
+      } else {
+        const t = easeInOutSine((e - 0.66) / 0.34);
+        r = k2.map((v, i) => lerp(v, k3[i], t));
+      }
+
+      const h = r.slice(0, 4).map(v => v.toFixed(1) + '%').join(' ');
+      const v = r.slice(4).map(v => v.toFixed(1) + '%').join(' ');
+      return `${h} / ${v}`;
+    }
+
+    // Морфинг логотипа
+    let logoStart = null;
+    function animLogo(ts) {
+      if (!logoStart) logoStart = ts;
+      const p = Math.min((ts - logoStart) / LOGO_DUR, 1);
+      if (logoRef.current) {
+        logoRef.current.style.borderRadius = getBR(p);
+      }
+      if (p < 1) {
+        rafRef.current = requestAnimationFrame(animLogo);
+      }
+    }
+    rafRef.current = requestAnimationFrame(animLogo);
+
+    // Typewriter
+    WORD.split('').forEach((ch, i) => {
+      T(() => {
+        if (!typedRef.current) return;
+        const span = document.createElement('span');
+        span.textContent = ch;
+        span.style.color = i >= 6 ? '#a855f7' : '#ffffff';
+        typedRef.current.appendChild(span);
+      }, TYPE_START + i * TYPE_SPEED);
+    });
+
+    // Курсор исчезает
+    T(() => {
+      if (cursorRef.current) cursorRef.current.classList.add('splash-cursor-hide');
+    }, TYPE_END + 300);
+
+    // Подпись
+    T(() => {
+      if (subRef.current) subRef.current.classList.add('splash-sub-visible');
+    }, SUB_DELAY);
+
+    // Завершение
+    T(() => { onDone?.(); }, COMPLETE);
+
+    return () => {
+      tidsRef.current.forEach(clearTimeout);
+      cancelAnimationFrame(rafRef.current);
+    };
+  }, [onDone]);
 
   return (
-    <div className="splash">
-      <div className="splash-logo">
-        <svg viewBox="0 0 100 92" width="88" height="80">
-          <defs>
-            <linearGradient id="splashGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#6C5CE7" />
-              <stop offset="100%" stopColor="#0984E3" />
-            </linearGradient>
-            <linearGradient id="splashGrad2" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#00CEC9" />
-              <stop offset="100%" stopColor="#6C5CE7" />
-            </linearGradient>
-            <filter id="mercuryBlur">
-              <feGaussianBlur stdDeviation="0">
-                <animate attributeName="stdDeviation" from="14" to="0"
-                  dur="1.1s" begin="0.1s" fill="freeze" calcMode="spline"
-                  keySplines="0.4 0 0.2 1" />
-              </feGaussianBlur>
-            </filter>
-            <filter id="splashGlow">
-              <feGaussianBlur stdDeviation="2.5" result="blur" />
-              <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
-            </filter>
-          </defs>
-
-          {/* Фоновые линии */}
-          {PTS.map((p, i) => {
-            const next = PTS[(i + 1) % 5]
-            return (
-              <line key={`bg-${i}`}
-                x1={p[0]} y1={p[1]} x2={next[0]} y2={next[1]}
-                stroke="rgba(255,255,255,0.06)" strokeWidth="2" strokeLinecap="round"
-              />
-            )
-          })}
-
-          {/* Радарные линии центр→вершина */}
-          {PTS.map((p, i) => (
-            <line key={`r-${i}`}
-              x1="50" y1="46" x2={p[0]} y2={p[1]}
-              stroke="rgba(108,92,231,0.25)" strokeWidth="1" strokeLinecap="round"
-            />
-          ))}
-
-          {/* Mercury — пятно кристаллизуется в пятиугольник */}
-          <g filter="url(#mercuryBlur)">
-            {PTS.map((p, i) => {
-              const next = PTS[(i + 1) % 5]
-              return (
-                <line key={`fg-${i}`}
-                  className="splash-side"
-                  x1={p[0]} y1={p[1]} x2={next[0]} y2={next[1]}
-                  stroke="url(#splashGrad)"
-                  strokeWidth="4.5"
-                  strokeLinecap="round"
-                  strokeDasharray={SIDE_LEN}
-                  strokeDashoffset={SIDE_LEN}
-                  style={{ animationDelay: `${i * 80}ms`, filter: 'url(#splashGlow)' }}
-                />
-              )
-            })}
-          </g>
-
-          {/* Вершины — точки */}
-          {PTS.map((p, i) => (
-            <circle key={`dot-${i}`}
-              cx={p[0]} cy={p[1]} r="2.5"
-              fill="#6C5CE7" opacity="0"
-              style={{ animation: `splashDotIn 0.3s ${0.5 + i * 0.08}s ease forwards` }}
-            />
-          ))}
-
-          {/* Центральная точка */}
-          <circle cx="50" cy="46" r="3.5" fill="url(#splashGrad2)"
-            style={{ animation: 'splashDotIn 0.4s 0.9s ease forwards', opacity: 0 }}
-          />
-        </svg>
-      </div>
-
-      <div className="splash-title">
-        <span className="splash-career">Career</span>
-        <span className="splash-check">Check</span>
-      </div>
-
-      <div className="splash-pulse">
-        <span />
-        <span />
-        <span />
+    <div className="splash-root">
+      <div className="splash-glow" />
+      <div className="splash-logo" ref={logoRef} />
+      <div className="splash-title-wrap">
+        <div className="splash-typerow">
+          <span className="splash-typed" ref={typedRef} />
+          <span className="splash-cursor" ref={cursorRef} />
+        </div>
+        <div className="splash-sub" ref={subRef}>
+          карьерный анализ личности
+        </div>
       </div>
     </div>
-  )
+  );
 }

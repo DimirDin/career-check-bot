@@ -10,13 +10,6 @@ import { MenuFooter }          from '../components/MenuFooter'
 import { NeuralNet }           from '../components/NeuralNet'
 import styles from '../styles/MenuPage.module.css'
 
-const MAIN_BTN_TEXTS = {
-  ru: { noTest: 'Начать тест', hasTest: 'Пройти снова', inProgress: 'Продолжить тест' },
-  en: { noTest: 'Start Test',  hasTest: 'Retake Test',  inProgress: 'Continue Test' },
-  hi: { noTest: 'परीक्षण शुरू करें', hasTest: 'दोबारा लें', inProgress: 'जारी रखें' },
-  es: { noTest: 'Iniciar test', hasTest: 'Repetir test', inProgress: 'Continuar test' },
-  pt: { noTest: 'Iniciar teste', hasTest: 'Refazer teste', inProgress: 'Continuar teste' },
-}
 
 export function MenuPage() {
   const navigate = useNavigate()
@@ -86,27 +79,12 @@ export function MenuPage() {
     }
   }, [refresh, haptic])
 
-  // Telegram Back / Main Buttons
+  // Telegram Back Button — скрыть на главной
   useEffect(() => {
     if (!tg) return
     tg.BackButton.hide()
-
-    if (!state) { tg.MainButton.hide(); return }
-
-    const lang  = state.language || 'ru'
-    const texts = MAIN_BTN_TEXTS[lang] || MAIN_BTN_TEXTS.ru
-    const text  = state.testInProgress ? texts.inProgress : state.hasResults ? texts.hasTest : texts.noTest
-
-    tg.MainButton.setParams({ text, color: '#7347e6', text_color: '#ffffff', is_active: true, is_visible: true })
-
-    const handler = () => { haptic.medium?.(); navigate('/test') }
-    tg.MainButton.onClick(handler)
-
-    return () => {
-      tg.MainButton.offClick(handler)
-      tg.MainButton.hide()
-    }
-  }, [state, tg, navigate, haptic])
+    tg.MainButton.hide()
+  }, [tg])
 
   // Error toast
   useEffect(() => {

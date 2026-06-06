@@ -13,19 +13,47 @@ export function useTelegram() {
   useEffect(() => {
     if (!tg) return
     tg.ready()
-    // Telegram 10.1+: полноэкранный режим; fallback — expand()
+
+    // Полноэкранный режим (Telegram 10.1+)
     if (tg.requestFullscreen) {
       tg.requestFullscreen()
     } else {
       tg.expand()
     }
+
     // Отключить свайп вниз для закрытия
     if (tg.disableVerticalSwipes) {
       tg.disableVerticalSwipes()
     }
+
+    // Цвета шапки и фона под тёмную тему
+    try { tg.setHeaderColor('#0B0E1A') }     catch {}
+    try { tg.setBackgroundColor('#0B0E1A') } catch {}
+
+    // Обновляем CSS-переменную --safe-top = notch + Telegram header
+    // contentSafeAreaInsets.top — высота шапки Telegram (Back/Close)
+    // safeAreaInsets.top        — device notch
+    const updateSafeArea = () => {
+      const deviceTop  = tg.safeAreaInsets?.top        ?? 0
+      const contentTop = tg.contentSafeAreaInsets?.top ?? 0
+      const total = deviceTop + contentTop
+      if (total > 0) {
+        document.documentElement.style.setProperty('--safe-top', `${total}px`)
+      }
+    }
+
+    updateSafeArea()
+    tg.onEvent('safeAreaChanged',        updateSafeArea)
+    tg.onEvent('contentSafeAreaChanged', updateSafeArea)
+
     const handler = () => setThemeParams({ ...tg.themeParams })
     tg.onEvent('themeChanged', handler)
-    return () => tg.offEvent('themeChanged', handler)
+
+    return () => {
+      tg.offEvent('themeChanged',             handler)
+      tg.offEvent('safeAreaChanged',          updateSafeArea)
+      tg.offEvent('contentSafeAreaChanged',   updateSafeArea)
+    }
   }, [])
 
   return {

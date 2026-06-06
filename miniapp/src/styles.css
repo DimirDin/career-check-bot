@@ -927,8 +927,7 @@ html, body {
   min-height: calc(var(--header-h) + env(safe-area-inset-top, 0px));
   box-sizing: border-box;
 }
-.history-title { font-size: 18px; font-weight: 800; color: var(--white); line-height: 1.2; }
-.history-count { font-size: 11px; color: var(--gray); margin-top: 2px; }
+.history-title { font-size: 18px; font-weight: 800; color: var(--white); line-height: 1; margin: 0; }
 
 .history-header-spacer {
   height: calc(var(--header-h) + env(safe-area-inset-top, 0px));

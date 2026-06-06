@@ -260,7 +260,7 @@ export default function App() {
           />
         )
       case SCREEN.AI_CHAT:
-        return <AIChatPage onBack={() => navigate('/results')} />
+        return <AIChatPage onBack={() => navigate('/menu')} />
       case SCREEN.SETTINGS:
         return <SettingsPage onBack={() => navigate('/menu')} />
       case SCREEN.PROFESSIONS:
@@ -327,7 +327,7 @@ export default function App() {
         position: 'relative',
         zIndex: 1,
         paddingBottom: showBottomNav ? 'var(--bottom-nav-total)' : 0,
-        background: '#0B0E1A',
+        background: 'linear-gradient(160deg, #05050b 0%, #0c0c1e 60%, #08081a 100%)',
       }}>
         {renderScreen()}
       </div>

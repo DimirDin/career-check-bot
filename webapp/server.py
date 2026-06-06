@@ -803,6 +803,10 @@ DIST = Path(__file__).parent / "dist"
 
 if DIST.exists():
     app.mount("/assets", StaticFiles(directory=DIST / "assets"), name="assets")
+    if (DIST / "webh").exists():
+        app.mount("/webh", StaticFiles(directory=DIST / "webh"), name="webh")
+    if (DIST / "icons").exists():
+        app.mount("/icons", StaticFiles(directory=DIST / "icons"), name="icons")
 
     @app.get("/{full_path:path}")
     async def spa_fallback(full_path: str):

@@ -165,7 +165,7 @@ export function QuizPage({ questions, onFinish }) {
       {/* Pentagon progress + trait badge */}
       <div className="quiz-header">
         <div className="quiz-header-side" />
-        <PentagonProgress answered={current} total={questions.length} size={108} />
+        <PentagonProgress answered={current} total={questions.length} size={48} />
         <div className="quiz-header-side quiz-header-right">
           <span className="quiz-trait-badge" data-trait={q.trait}>{q.trait}</span>
         </div>

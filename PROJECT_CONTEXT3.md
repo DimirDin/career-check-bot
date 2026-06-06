@@ -1,7 +1,7 @@
 # CareerCheck — Полный технический контекст проекта
-> **Версия:** 6.0 · **Дата обновления:** 2026-06-06
+> **Версия:** 7.0 · **Дата обновления:** 2026-06-06
 > Единый источник правды для AI-ассистентов и разработчиков.
-> **Секреты не указаны** — токены, пароли, API-ключи хранятся в `.env` на сервере.
+> **Секреты не указаны** — токены, пароли, API-ключи хранятся в `.env` на сервере и в GitHub Secrets.
 > Предыдущие версии: `PROJECT_CONTEXT.md` (скомпрометирован — содержал токен, удалён), `PROJECT_CONTEXT2.md`. Оба в `.gitignore`.
 
 ---
@@ -55,8 +55,6 @@
 | React | ^18.3.1 | UI фреймворк |
 | Vite | ^5.4.1 | Сборщик (output: `webapp/dist/`) |
 | Telegram WebApp JS API | — | Интеграция с Telegram (initData, openInvoice, haptic, BackButton, MainButton) |
-| CSS Modules | — | Стили MenuPage (`MenuPage.module.css`) |
-| Обычный CSS | — | Стили всех остальных страниц (`styles.css`) |
 | Canvas 2D API | — | Карточка результата (ShareCard), LinkedIn-карточка 1200×627 |
 
 > **Критически важно**: в проекте НЕТ react-router-dom, styled-components, Tailwind, Framer Motion, Chart.js.
@@ -67,285 +65,326 @@
 ## 3. РЕПОЗИТОРИЙ И ДЕПЛОЙ
 
 - **GitHub**: `https://github.com/DimirDin/career-check-bot`
-- **Ветка**: `main`
-- **Деплой**: push в main → на сервере `git pull` + `docker compose build --no-cache` + `docker compose up -d`
+- **Ветка разработки**: `main` (прямой деплой)
+- **Деплой**: **автоматический** — push/merge в `main` → GitHub Actions → SSH на VPS → docker compose build --no-cache + up
 - **Домен**: `careercheck.app`
 - **Mini App URL**: `https://careercheck.app`
-- **Сервер**: `31.76.18.54`, root, пароль в `.env`
+- **Сервер**: `31.76.18.54` (Ubuntu 22.04.5 LTS), пользователь: root
 
-### Деплой пошагово
+### GitHub Actions CI/CD (настроен, работает)
+
+Файл: `.github/workflows/deploy.yml`
+
+```yaml
+name: Deploy to VPS
+on:
+  push:
+    branches: [main]
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          password: ${{ secrets.VPS_PASSWORD }}
+          command_timeout: 10m
+          script: |
+            set -e
+            cd /opt/careercheck
+            git pull origin main
+            docker compose build --no-cache webapp bot
+            docker compose up -d webapp bot
+            curl -sf https://careercheck.app/api/health && echo "Health check OK"
+```
+
+**GitHub Secrets** (Settings → Secrets → Actions):
+- `VPS_HOST` — IP-адрес сервера
+- `VPS_USER` — пользователь (root)
+- `VPS_PASSWORD` — пароль
+
+### Деплой вручную (если нужно без GitHub Actions)
 ```bash
-# Локально (если менялся фронтенд):
-cd miniapp && npm run build && cd ..
-git add -A && git commit -m "..." && git push origin main
-
-# На сервере:
+ssh root@<VPS_IP>
 cd /opt/careercheck
 git pull origin main
-docker compose build --no-cache webapp   # или bot, или оба
+docker compose build --no-cache webapp bot
 docker compose up -d webapp bot
 
-# Проверить:
+# Проверка:
 curl -s https://careercheck.app/api/health
 docker compose ps
 ```
 
-> **Важно**: просто `git pull` недостаточно — `webapp/dist/` встроен в Docker-образ на этапе сборки. Без `build --no-cache` изменения фронтенда не применяются.
+> **Важно**: просто `git pull` недостаточно — `webapp/dist/` встроен в Docker-образ на этапе сборки.
+> Без `build --no-cache` изменения фронтенда НЕ применяются.
 
 ---
 
-## 4. ПОЛНАЯ ФАЙЛОВАЯ СТРУКТУРА
+## 4. КАК РАБОТАТЬ (WORKFLOW)
+
+### С MacBook (стандартная схема)
+```bash
+# 1. Клонировать репо (один раз)
+git clone https://github.com/DimirDin/career-check-bot.git
+cd career-check-bot
+
+# 2. Работать с кодом локально
+# Если правишь фронтенд — можно проверить:
+cd miniapp && npm install && npm run dev  # localhost:5173
+cd ..
+
+# 3. Коммитить и пушить
+git add -A
+git commit -m "feat: описание изменений"
+git push origin main
+
+# 4. GitHub Actions автоматически задеплоит на VPS (~2-3 минуты)
+# Следить за деплоем: github.com/DimirDin/career-check-bot/actions
+```
+
+### С телефона / без MacBook (через Claude Code на claude.ai/code)
+```
+1. Открыть claude.ai/code или использовать GitHub → Claude agent
+2. Описать задачу — Claude сам редактирует файлы, коммитит, пушит
+3. После пуша в main → GitHub Actions автоматически деплоит
+```
+
+### С любого устройства — прямое SSH (для экстренных правок)
+```bash
+ssh root@<VPS_IP>
+cd /opt/careercheck
+
+# Посмотреть логи:
+docker logs -f careercheck-bot-1
+docker logs careercheck-webapp-1 --tail=100
+
+# Проверить статус:
+docker compose ps
+curl -s https://careercheck.app/api/health
+```
+
+---
+
+## 5. ПОЛНАЯ ФАЙЛОВАЯ СТРУКТУРА
 
 ```
 career-check-bot/
 │
+├── .github/workflows/deploy.yml   # GitHub Actions CI/CD (автодеплой при пуше в main)
+│
 ├── main.py                        # Точка входа бота.
 │                                  # Создаёт DB pool, Redis, запускает heartbeat,
 │                                  # challenge_scheduler, RateLimitMiddleware, polling.
-│                                  # При старте: set_my_commands (4 команды),
-│                                  # set_chat_menu_button (MenuButtonWebApp "CareerCheck"),
-│                                  # set_my_description, set_my_short_description.
 │
 ├── bot/
-│   ├── handlers.py                # Все хендлеры бота (~950 строк):
-│   │                              # /start → при каждом вызове set_chat_menu_button per-chat
-│   │                              #   + новый текст: новым — Big Five pitch,
-│   │                              #                  returning — топ профессия + match%
-│   │                              # /refer → реферальная ссылка
-│   │                              # /challenges → подписка на ежедневные задания
-│   │                              # /stop_challenges → отписка
-│   │                              # /help → справка
-│   │                              # /stats (ADMIN_IDS) → статистика
-│   │                              # inline_query → карточка Big Five профиля
-│   │                              # update_menu_button_for_user() — динамическая кнопка
-│   │                              #   по статусу: "▶️ Продолжить" / "📊 Результаты" / "🚀 Начать"
-│   └── premium_handlers.py        # Оплата Stars + вызов update_menu_button_for_user после оплаты
+│   ├── handlers.py                # Все хендлеры бота (~950 строк)
+│   └── premium_handlers.py        # Оплата Stars + update_menu_button_for_user
 │
 ├── miniapp/
-│   ├── index.html                 # viewport-fit=cover, apple-mobile-web-app-capable,
-│   │                              # apple-mobile-web-app-status-bar-style: black-translucent
-│   │                              # manifest.json link, favicon, apple-touch-icon
+│   ├── index.html                 # viewport-fit=cover, fullscreen meta
 │   ├── public/
 │   │   ├── manifest.json          # display: fullscreen, theme #6C5CE7
-│   │   └── icons/
-│   │       ├── logo.svg           # SVG пятиугольник-радар, градиент #6C5CE7 → #0984E3
-│   │       ├── icon-64.png        # Сгенерирован через Pillow
-│   │       └── icon-512.png       # Сгенерирован через Pillow
+│   │   ├── icons/
+│   │   │   ├── logo.svg           # SVG пятиугольник-радар
+│   │   │   ├── icon-64.png
+│   │   │   └── icon-512.png
+│   │   └── webh/                  # Aurora V2 иконки (WebP с прозрачностью)
+│   │       ├── hero_logo.webp     # Фиолетовая сфера с мозгом (hero)
+│   │       ├── ic_ai_chat.webp    # ИИ-Эксперт
+│   │       ├── ic_catalog.webp    # Каталог профессий
+│   │       ├── ic_challenges.webp # Челленджи
+│   │       └── ic_compat.webp     # Сравнение профилей
 │   └── src/
-│       ├── App.jsx                # Корневой компонент. SCREEN enum + renderScreen().
-│       │                          # Корневой div: paddingBottom: --bottom-nav-total
-│       │                          # (без paddingTop — каждый page-header сам отступает через --app-top)
-│       │                          # BottomNav показывается на всех экранах кроме:
-│       │                          #   SPLASH, LOADING, QUIZ, QUICK_TEST, ONBOARDING
-│       ├── styles.css             # Глобальные стили. Ключевые переменные в :root:
-│       │                          #   --safe-top: env(safe-area-inset-top, 44px)  ← fallback 44px!
-│       │                          #   --tg-header-h: 0px  (обновляется из JS)
-│       │                          #   --app-top: calc(--tg-header-h + --safe-top)
-│       │                          #   --bottom-nav-height: 64px
-│       │                          #   --bottom-nav-total: calc(64px + safe-bottom)
-│       │                          # html/body/#root background: #0B0E1A !important
-│       │                          # Page headers: padding-top: calc(var(--app-top, 0px) + Npx)
-│       │                          #   .profs-header  → +16px
-│       │                          #   .history-header → +20px
-│       │                          #   .settings-header → +20px
-│       │                          #   .results-hero   → +32px
-│       │                          #   .quiz-header    → +12px
-│       │                          #   .quick-header   → +10px
-│       │
+│       ├── App.jsx                # Корневой компонент. SCREEN enum + renderScreen()
+│       ├── styles.css             # Глобальные стили, CSS переменные safe area
 │       ├── hooks/
-│       │   └── useTelegram.js     # При монтировании:
-│       │                          #   tg.ready() + requestFullscreen() (fallback: expand())
-│       │                          #   disableVerticalSwipes()
-│       │                          #   setHeaderColor('#0B0E1A') + setBackgroundColor('#0B0E1A')
-│       │                          #   applyInsets(): Math.max(contentSafeAreaInsets.top,
-│       │                          #     safeAreaInsets.top) → --tg-header-h (только если > 0)
-│       │                          #   Слушает: safeAreaChanged, contentSafeAreaChanged, themeChanged
-│       │
+│       │   └── useTelegram.js     # requestFullscreen, safeArea, insets
+│       ├── context/
+│       │   └── NavigationContext.jsx  # Кастомный роутер (navigate, useLocation)
 │       ├── components/
 │       │   ├── BottomNav/         # 4 таба: Главная / Тест / История / Профиль
-│       │   │   ├── BottomNav.jsx  # SVG иконки, active state #6C5CE7, glassmorphism фон
-│       │   │   └── BottomNav.css  # fixed bottom, backdrop-blur(20px), --bottom-nav-total height
-│       │   ├── Logo/
-│       │   │   └── Logo.jsx       # SVG пятиугольник, variant='icon'|'full'
-│       │   ├── SplashScreen.jsx   # 1.8s, Mercury анимация, пульсирующие точки (фиол/синий/бирюз)
-│       │   └── [остальные без изменений]
-│       │
-│       ├── pages/
-│       │   └── ProfessionsPage.jsx # fetch с async/await:
-│       │                           #   403 → setProfessions([]), return
-│       │                           #   finally: setLoading(false) гарантировано
-│       │                           #   дедупликация по id через Set
-│       │
-│       └── styles/
-│           ├── MenuPage.module.css  # .safeAreaTop { height: var(--app-top, 12px) }
-│           └── cards.css            # .card, .card-glass, .card-accent, .btn-primary, .btn-secondary
+│       │   ├── Logo/Logo.jsx      # SVG логотип
+│       │   └── SplashScreen.jsx   # 1.8s анимация
+│       └── pages/
+│           ├── MenuPage.jsx       # ← AURORA V2 (см. раздел 6)
+│           └── ProfessionsPage.jsx
 │
-├── scripts/
-│   └── generate_icons.py          # cairosvg → Pillow fallback для генерации PNG иконок
+├── webapp/
+│   └── server.py                  # FastAPI: REST API + статика для Mini App
+│                                  # Монтирует: /assets, /webh, /icons → StaticFiles
+│                                  # SPA fallback для всех остальных роутов
 │
-└── [остальная структура без изменений — см. PROJECT_CONTEXT2.md]
+├── config/settings.py             # os.getenv() для всех секретов
+├── Dockerfile                     # Stage 1: node:20 build; Stage 2: python:3.12
+├── docker-compose.yml             # Сервисы: webapp, bot, db, redis
+├── requirements.txt
+└── .env.example                   # Шаблон (без реальных значений)
 ```
 
 ---
 
-## 5. DEEP NAVY DESIGN SYSTEM (добавлен в Sprint 7)
+## 6. AURORA V2 — MENUPAGE (Sprint 8)
+
+`miniapp/src/pages/MenuPage.jsx` полностью переписан в стиле **Aurora V2**.
+
+### Дизайн-токены
+```js
+const T = {
+  void: '#05050b',        // фон
+  glass: 'rgba(13,13,26,0.65)',
+  violet: '#7c3aed',
+  cyan: '#06b6d4',
+  rose: '#f43f5e',
+  green: '#22d3a5',
+  textPrimary: '#f0eeff',
+  textSecondary: '#9b97c0',
+}
+```
+
+### Компоненты
+| Компонент | Описание |
+|-----------|---------|
+| `HeaderProfile` | Фиксированная шапка: аватар с инициалами, стрик "7 ДНЕЙ", "LVL 4" |
+| `HeroCard` | Карточка hero: RadarChart (если тест пройден) или кнопка "Начать тест" + logo |
+| `RadarChart` | Чистый SVG, 5 осей Big Five (OCEAN), gradientFill |
+| `QuickActionsGrid` | Сетка 2×2: Каталог, ИИ-Эксперт, Челленджи, Сравнение |
+| `SectionHeader` | Подзаголовок секции с action-ссылкой |
+
+### Маршруты карточек
+```
+catalog      → /professions
+ai           → /ai-chat
+challenges   → /challenges
+compat       → /comparison
+```
+
+### Иконки
+Все иконки — `.webp` с прозрачным фоном в `/webh/`:
+```jsx
+<img src="/webh/hero_logo.webp" className="aurora-icon-asset hero" />
+<img src="/webh/ic_catalog.webp" className="aurora-icon-asset catalog" />
+<img src="/webh/ic_ai_chat.webp" className="aurora-icon-asset ai-chat" />
+<img src="/webh/ic_challenges.webp" className="aurora-icon-asset challenges" />
+<img src="/webh/ic_compat.webp" className="aurora-icon-asset compat" />
+```
+
+CSS-класс `aurora-icon-asset` даёт нужный `drop-shadow` на тёмном фоне.
+
+### Анимации (CSS keyframes, инжектируются один раз)
+- `heartbeat` — пульс кнопки "Начать тест"
+- `breathe` — плавное свечение hero logo
+- `aurora-fadeInUp` — появление карточек
+- `aurora-ctaGlow` — пульсирующая подсветка CTA
+- `aurora-streakFlicker` — мерцание стрика
+
+---
+
+## 7. СТАТИЧЕСКИЕ ФАЙЛЫ — FASTAPI (важно)
+
+`webapp/server.py` монтирует папки из `webapp/dist/` (Vite build output):
+
+```python
+if DIST.exists():
+    app.mount("/assets", StaticFiles(directory=DIST / "assets"), name="assets")
+    if (DIST / "webh").exists():
+        app.mount("/webh", StaticFiles(directory=DIST / "webh"), name="webh")
+    if (DIST / "icons").exists():
+        app.mount("/icons", StaticFiles(directory=DIST / "icons"), name="icons")
+
+    @app.get("/{full_path:path}")
+    async def spa_fallback(full_path: str):
+        return FileResponse(DIST / "index.html")
+```
+
+> **Критически важно**: если не смонтировать `/webh` явно — все запросы к `/webh/*.webp`
+> попадут в SPA-fallback и вернут `index.html` → чёрные квадраты вместо иконок.
+
+### Путь от файла до браузера
+```
+miniapp/public/webh/     →  npm run build  →  webapp/dist/webh/
+                                              ↓
+                                        docker build (COPY --from=frontend)
+                                              ↓
+                                    FastAPI mount /webh → StaticFiles
+                                              ↓
+                                    браузер: GET /webh/ic_catalog.webp ✅
+```
+
+---
+
+## 8. DEEP NAVY DESIGN SYSTEM (Sprint 7)
 
 ### CSS переменные (в `styles.css :root`)
 ```css
-/* Deep Navy палитра */
---bg-primary:   #0B0E1A;   /* основной фон */
---bg-secondary: #131728;   /* карточки */
---bg-tertiary:  #1C2138;   /* приподнятые элементы */
-
-/* Акценты */
---accent-primary:   #6C5CE7;   /* основной фиолетовый */
---accent-secondary: #0984E3;   /* синий */
---accent-success:   #00CEC9;   /* бирюзовый */
---accent-warning:   #FDCB6E;
---accent-danger:    #E17055;
-
-/* Градиенты */
+--bg-primary:   #0B0E1A;
+--bg-secondary: #131728;
+--accent-primary:   #6C5CE7;
+--accent-secondary: #0984E3;
+--accent-success:   #00CEC9;
 --gradient-accent:  linear-gradient(135deg, #6C5CE7 0%, #0984E3 100%);
---gradient-success: linear-gradient(135deg, #00CEC9 0%, #0984E3 100%);
-
-/* Safe area */
---safe-top:    env(safe-area-inset-top, 44px);   /* fallback 44px для iPhone fullscreen */
---safe-bottom: env(safe-area-inset-bottom, 0px);
---tg-header-h: 0px;                              /* JS обновляет если > 0 */
+--safe-top:    env(safe-area-inset-top, 44px);
+--tg-header-h: 0px;
 --app-top:     calc(var(--tg-header-h) + var(--safe-top));
-
-/* Bottom nav */
 --bottom-nav-height: 64px;
 --bottom-nav-total:  calc(64px + var(--safe-area-bottom));
 ```
 
-### Принципы
-- Фон везде `#0B0E1A` — задан через `html/body/#root { background: #0B0E1A !important }`
-- Кнопки — градиентные pill (border-radius: 50px)
-- Карточки — `background: rgba(19,23,40,0.8)`, `backdrop-filter: blur(20px)`, `border: 1px solid rgba(255,255,255,0.08)`
-- Анимации только на `transform` и `opacity` (GPU-accelerated)
-- Bottom Navigation заменяет `tg.MainButton` на главной
-
 ---
 
-## 6. BOTTOM NAVIGATION (новое в Sprint 7)
+## 9. SAFE AREA — РЕШЕНИЕ
 
-```
-components/BottomNav/BottomNav.jsx
-components/BottomNav/BottomNav.css
-```
-
-**4 таба:**
-| Таб | Иконка | Маршрут |
-|-----|--------|---------|
-| Главная | 🏠 SVG дом | `/menu` |
-| Тест | ⬠ SVG пятиугольник | `/quick-test` |
-| История | 🕐 SVG часы | `/history` |
-| Профиль | 👤 SVG человек | `/settings` |
-
-**Логика:** активный таб определяется по `current` из `NavigationContext`. Скрыт на SPLASH, LOADING, QUIZ, QUICK_TEST, ONBOARDING.
-
-**`tg.MainButton` убран с главной страницы** — дублировал UI-кнопки.
-
----
-
-## 7. INLINE MODE (новое в Sprint 7)
-
-Хендлер в `bot/handlers.py`:
-- Пользователь пишет `@CareerCheck_Bot` в любом чате
-- Если есть результаты — показывает Big Five карточку с топ-3 профессиями
-- Если нет — предлагает пройти тест
-- Кнопка "Пройти тест" → deep link в бота
-
-**Активация**: BotFather → `/setinline` → `@CareerCheck_Bot` → placeholder "Поделиться результатом..."
-
----
-
-## 8. ДИНАМИЧЕСКАЯ КНОПКА МЕНЮ (новое в Sprint 7)
-
-Функция `update_menu_button_for_user(bot, user_id, pool)` в `handlers.py`:
-
-| Состояние | Текст кнопки |
-|-----------|-------------|
-| Нет теста | `🚀 Начать тест` |
-| Тест в процессе | `▶️ Продолжить тест` |
-| Тест пройден | `📊 Мои результаты` |
-
-Вызывается при: `/start`, `successful_payment`.
-
----
-
-## 9. SAFE AREA — ПОЛНОЕ ОПИСАНИЕ РЕШЕНИЯ
-
-### Проблема
-Telegram Mini App в fullscreen режиме: контент уходит под "Back"/"Close" шапку.
-
-### Решение (три уровня)
-
-**Уровень 1 — CSS fallback:**
-```css
---safe-top: env(safe-area-inset-top, 44px);  /* 44px если env() недоступен */
---tg-header-h: 0px;
---app-top: calc(var(--tg-header-h) + var(--safe-top));
-```
-
-**Уровень 2 — JS обновление (useTelegram.js):**
-```javascript
+```js
+// useTelegram.js
 const applyInsets = () => {
   const top = Math.max(
     tg.contentSafeAreaInsets?.top ?? 0,
     tg.safeAreaInsets?.top ?? 0
   )
-  if (top > 0) {  // ← не перезаписываем нулём!
+  if (top > 0) {
     document.documentElement.style.setProperty('--tg-header-h', top + 'px')
   }
 }
-applyInsets()
-tg.onEvent('safeAreaChanged', applyInsets)
-tg.onEvent('contentSafeAreaChanged', applyInsets)
 ```
 
-**Уровень 3 — Отступы на каждом page header:**
-```css
-.profs-header   { padding-top: calc(var(--app-top, 0px) + 16px); }
-.history-header { padding-top: calc(var(--app-top, 0px) + 20px); }
-.settings-header { padding-top: calc(var(--app-top, 0px) + 20px); }
-.results-hero   { padding-top: calc(var(--app-top, 0px) + 32px); }
-.quiz-header    { padding-top: calc(var(--app-top, 0px) + 12px); }
-.quick-header   { padding-top: calc(var(--app-top, 0px) + 10px); }
-```
-
-**MenuPage** использует `<div className={styles.safeAreaTop} />` с `height: var(--app-top, 12px)`.
-
-### Известные особенности
-- `env(safe-area-inset-top)` в fullscreen mode может возвращать 0
-- `contentSafeAreaInsets` доступен только в Telegram 7.8+
-- При `top = 0` — fallback 44px из CSS гарантирует минимальный отступ
+Page headers используют: `padding-top: calc(var(--app-top, 0px) + Npx)`
 
 ---
 
-## 10. ИЗВЕСТНЫЕ ОСОБЕННОСТИ И РЕШЕНИЯ (обновлено)
+## 10. ИЗВЕСТНЫЕ ОСОБЕННОСТИ И РЕШЕНИЯ
 
 | Ситуация | Решение |
 |----------|---------|
-| Safe area в fullscreen | `--safe-top: env(safe-area-inset-top, 44px)` + JS обновление `--tg-header-h` через `contentSafeAreaInsets` |
-| `tg.MainButton` дублировал кнопки | Убран с `MenuPage`, заменён на `BottomNav` |
-| Дубли профессий в каталоге | Дедупликация по `p.id` через `Set` в `ProfessionsPage.jsx` |
-| 403 при открытии профессий вне Telegram | `if (res.status === 403) { setProfessions([]); return }` + `finally { setLoading(false) }` |
-| Кнопка OPEN в списке чатов | Недоступна — это Telegram Attachment Menu, только для партнёров. `set_chat_menu_button` создаёт кнопку ВНУТРИ чата |
-| `display:contents` + CSS-анимации | Никогда не использовать — `opacity:0` зависнет навсегда (чёрный экран) |
-| `tg.openInvoice()` порядок | Вызывать ПОСЛЕ `setPremiumLoading(false)` + 80ms задержки |
-| `useMemo` порядок хуков | Должен идти ПОСЛЕ объявления всех переменных (TDZ) |
-| Docker и git pull | После `git pull` обязателен `docker compose build --no-cache` |
+| Иконки не видны (чёрные квадраты) | FastAPI должен монтировать `/webh` явно как StaticFiles. Без этого SPA-fallback отдаёт index.html |
+| Белый фон на JPEG иконках | Конвертировать в WebP с удалением фона через Pillow (`Image.convert("RGBA")`, маска по яркости) |
+| git pull не применяет фронт | `webapp/dist/` в Docker-образе → нужен `docker compose build --no-cache` |
+| display:contents + анимации | Никогда не использовать — opacity:0 зависнет (чёрный экран) |
+| tg.openInvoice() порядок | Вызывать ПОСЛЕ setPremiumLoading(false) + 80ms задержки |
+| Safe area в fullscreen | Три уровня: CSS fallback 44px + JS обновление --tg-header-h + отступы на каждом header |
+| `tg.MainButton` дублировал кнопки | Убран с MenuPage, заменён на BottomNav |
+| 403 при открытии профессий вне Telegram | if (res.status === 403) { setProfessions([]); return } + finally { setLoading(false) } |
 | HMAC Mini App (Telegram 2024+) | `signature` включается в check_string; исключается только `hash` |
-| assets/ в .gitignore | `*.png` файлы приветствия нужно копировать через `scp` вручную |
-| PROJECT_CONTEXT.md | Удалён (содержал токен). `PROJECT_CONTEXT2.md` и `PROJECT_CONTEXT3.md` в `.gitignore` |
+| PROJECT_CONTEXT.md | Удалён (содержал токен). PROJECT_CONTEXT2.md в .gitignore |
 
 ---
 
-## 11. API ЭНДПОИНТЫ (без изменений, см. PROJECT_CONTEXT2.md раздел 9)
+## 11. API ЭНДПОИНТЫ
 
-Добавленные в Sprint 7: нет новых эндпоинтов. Все существующие сохранены.
+| Метод | Путь | Описание |
+|-------|------|---------|
+| GET | `/api/health` | Статус сервера |
+| GET | `/api/health/bot` | Статус бота |
+| POST | `/api/validate` | Валидация Telegram initData |
+| GET | `/api/test/questions` | 60 вопросов теста |
+| POST | `/api/test/submit` | Отправить ответы, получить результаты |
+| GET | `/api/user/state` | Состояние пользователя (тест, premium) |
+| GET | `/api/professions` | Каталог 160 профессий |
+| GET | `/api/history` | История прохождений |
+| POST | `/api/premium/generate` | Генерация Premium PDF (Claude) |
+| GET | `/api/premium/download/{id}` | Скачать PDF |
 
 ---
 
@@ -353,66 +392,49 @@ tg.onEvent('contentSafeAreaChanged', applyInsets)
 
 | Фаза | Что сделано |
 |------|-------------|
-| **Спринты 1–6** | См. `PROJECT_CONTEXT2.md` раздел 19 |
-| **Sprint 7 — Фаза 1** | manifest.json (display:fullscreen), SVG логотип, PNG иконки 64/512, index.html мета, `set_my_commands` (4 команды), обновлены описания бота |
-| **Sprint 7 — Фаза 2** | `requestFullscreen()` + `disableVerticalSwipes()`, safe area CSS переменные, `BottomNav` компонент (4 таба, SVG иконки, glassmorphism), интеграция в App.jsx |
-| **Sprint 7 — Фаза 3** | Deep Navy дизайн-система (#0B0E1A, #6C5CE7), `cards.css`, редизайн MenuPage (pill кнопки, тёмные карточки), SplashScreen 1.8s + pulse dots, `Logo.jsx` компонент |
-| **Sprint 7 — Фаза 4** | Inline mode хендлер, `update_menu_button_for_user()`, новый текст `/start` (разный для new/returning) |
-| **Sprint 7 — Фиксы** | Safe area многоуровневый фикс, убран `tg.MainButton` с главной, дедупликация профессий, 403 guard в ProfessionsPage, `setHeaderColor/setBackgroundColor('#0B0E1A')` |
+| Спринты 1–6 | Big Five тест, PostgreSQL, Premium PDF, Telegram Stars, ShareCard, каталог профессий |
+| Sprint 7 — Фаза 1 | manifest.json (fullscreen), SVG логотип, PNG иконки, set_my_commands |
+| Sprint 7 — Фаза 2 | requestFullscreen, safe area CSS, BottomNav компонент |
+| Sprint 7 — Фаза 3 | Deep Navy дизайн-система, SplashScreen, Logo.jsx |
+| Sprint 7 — Фаза 4 | Inline mode, динамическая кнопка меню, новый /start |
+| Sprint 7 — Фиксы | Safe area multilayer fix, убран tg.MainButton, дедупликация профессий |
+| **Sprint 8** | **GitHub Actions CI/CD** (автодеплой push→VPS), **Aurora V2 MenuPage** (glassmorphism, анимации, RadarChart SVG), **WebP иконки** с прозрачным фоном, **fix FastAPI /webh/ StaticFiles mount** |
 
 ---
 
-## 13. ДЕПЛОЙ И ИНФРАСТРУКТУРА (без изменений)
+## 13. ИНФРАСТРУКТУРА
 
 ```
-IP:           31.76.18.54
-OS:           Ubuntu 22.04.5 LTS
+VPS:          31.76.18.54 (Ubuntu 22.04.5 LTS)
 Пользователь: root
+Директория:   /opt/careercheck
 ```
 
 ```bash
-# SSH
-ssh root@31.76.18.54
-
-# Полный деплой (фронт + бот)
-cd /opt/careercheck
-git pull origin main
-docker compose build --no-cache webapp bot
-docker compose up -d webapp bot
-
-# Только фронт
-docker compose build --no-cache webapp && docker compose up -d webapp
-
-# Только бот
-docker compose build --no-cache bot && docker compose up -d bot
-
-# Логи
+# Полезные команды на сервере
+docker compose ps
 docker logs -f careercheck-bot-1
 docker logs careercheck-webapp-1 --tail=100
-
-# Проверка
 curl -s https://careercheck.app/api/health
-curl -s https://careercheck.app/api/health/bot
-docker compose ps
 ```
 
 ---
 
 ## 14. TODO И ПЛАНЫ
 
-### Скрытые функции (код готов, UI скрыт)
-- [ ] **AI-чат консультант** — `AIChatPage.jsx` готов, на `ResultsPage.jsx` заменить `{null}` на кнопку
-- [ ] **LinkedIn карточка** — `drawLinkedInCard()` в `ShareCard.jsx`, заменить `{false && ...}` на `{true && ...}`
-
-### Технические долги
+### Технические
 - [ ] **Alembic stamp** на продакшн БД
 - [ ] **Webhook** вместо polling (при >1000 пользователей/день)
-- [ ] **GitHub Actions CI/CD**
+- [x] ~~GitHub Actions CI/CD~~ — **ГОТОВО**
 - [ ] `hasPremium` в `/api/user/state` — всегда `false`, не читает из `purchases`
-- [ ] `inline mode` — активировать через BotFather: `/setinline` → placeholder "Поделиться результатом..."
+- [ ] `inline mode` — активировать через BotFather: `/setinline`
+- [ ] Загрузить новые WebP иконки (user присылал новые версии — нужно добавить в `miniapp/public/webh/`)
+
+### Скрытые функции (код готов, UI скрыт)
+- [ ] **AI-чат консультант** — `AIChatPage.jsx` готов, на `ResultsPage.jsx` заменить `{null}` на кнопку
+- [ ] **LinkedIn карточка** — `drawLinkedInCard()` в `ShareCard.jsx`
 
 ### Продуктовые планы
-- [ ] **История с графиком** sparklines
-- [ ] **B2B командный профиль**
-- [ ] **Ежеквартальный micro-тест**
-- [ ] **Push-уведомления** через бот — напомнить о незавершённом тесте
+- [ ] История с графиком sparklines
+- [ ] B2B командный профиль
+- [ ] Push-уведомления через бот

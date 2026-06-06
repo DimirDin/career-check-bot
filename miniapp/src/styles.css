@@ -903,13 +903,15 @@ html, body {
 
 .history-header {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
+  text-align: center;
   padding: 20px 20px 16px;
   padding-top: calc(var(--app-top, 0px) + 20px);
 }
 .history-title { font-size: 22px; font-weight: 800; color: var(--white); }
-.history-count { font-size: 13px; color: var(--gray); }
+.history-count { font-size: 13px; color: var(--gray); margin-top: 2px; }
 
 .history-empty {
   flex: 1;

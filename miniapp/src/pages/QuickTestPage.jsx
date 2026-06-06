@@ -99,6 +99,7 @@ export function QuickTestPage({ onFinish, onBack }) {
         <div className="quick-badge">{isRu ? '⚡ Быстрый тест' : '⚡ Quick test'}</div>
         <PentagonProgress answered={current} total={questions.length} size={68} />
       </div>
+      <div className="quick-header-spacer" />
 
       {/* Trait label */}
       <div className="quick-trait">

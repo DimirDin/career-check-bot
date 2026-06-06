@@ -167,6 +167,7 @@ export function QuizPage({ questions, onFinish }) {
         <PentagonProgress answered={current} total={questions.length} size={108} />
         <span className="quiz-trait-badge" data-trait={q.trait}>{q.trait}</span>
       </div>
+      <div className="quiz-header-spacer" />
 
       {/* Question card */}
       <div className={`question-card ${animClass}`}>

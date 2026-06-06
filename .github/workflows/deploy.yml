@@ -8,6 +8,7 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
@@ -15,7 +16,13 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           password: ${{ secrets.VPS_PASSWORD }}
+          command_timeout: 10m
           script: |
+            set -e
             cd /opt/careercheck
             git pull origin main
-            ./deploy.sh deploy
+            docker compose build --no-cache webapp bot
+            docker compose up -d webapp bot
+            echo "=== Deploy complete ==="
+            docker compose ps
+            curl -sf https://careercheck.app/api/health && echo "Health check OK" || echo "Health check failed"

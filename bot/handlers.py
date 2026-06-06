@@ -3,8 +3,12 @@ import logging
 import os
 from datetime import datetime
 import asyncpg
-from aiogram import Router, F, types
-from aiogram.types import Message, CallbackQuery
+from aiogram import Router, F, types, Bot
+from aiogram.types import (
+    Message, CallbackQuery, InlineQuery,
+    InlineQueryResultArticle, InputTextMessageContent,
+    MenuButtonWebApp, WebAppInfo as BotWebAppInfo,
+)
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -27,6 +31,36 @@ from locales import get_text, resolve_lang
 
 router = Router()
 logger = logging.getLogger(__name__)
+
+
+# ── Динамическая кнопка меню ──────────────────────────────────────────────────
+
+async def update_menu_button_for_user(bot: Bot, user_id: int, pool: asyncpg.Pool) -> None:
+    """
+    Меняет текст кнопки чата под статус пользователя:
+    - Нет теста       → "🚀 Начать тест"
+    - Тест в процессе → "▶️ Продолжить тест"
+    - Тест пройден    → "📊 Мои результаты"
+    """
+    domain = os.getenv("DOMAIN", "careercheck.app")
+    url = f"https://{domain}"
+    try:
+        user     = await get_user(pool, user_id)
+        progress = await get_progress(pool, user["id"]) if user else None
+
+        if progress and 0 < progress.get("current_question", 0) < 60:
+            text = "▶️ Продолжить тест"
+        elif user and user.get("test_completed"):
+            text = "📊 Мои результаты"
+        else:
+            text = "🚀 Начать тест"
+
+        await bot.set_chat_menu_button(
+            chat_id=user_id,
+            menu_button=MenuButtonWebApp(text=text, web_app=BotWebAppInfo(url=url)),
+        )
+    except Exception as e:
+        logger.debug(f"update_menu_button_for_user({user_id}): {e}")
 
 
 class TestStates(StatesGroup):
@@ -197,40 +231,84 @@ async def cmd_start(message: Message, state: FSMContext, pool: asyncpg.Pool):
 
     # ── Приветствие с кнопкой Mini App ───────────────────────────────────────
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo as WAppInfo
-    from config.settings import BOT_USERNAME
-    import os as _os
 
-    domain = _os.getenv("DOMAIN", "careercheck.app")
+    domain      = os.getenv("DOMAIN", "careercheck.app")
     miniapp_url = f"https://{domain}"
+    first_name  = message.from_user.first_name or "друг"
+    has_results = user and user.get("test_completed")
 
-    if lang == 'ru':
-        has_results = user and user.get('test_completed')
-        text = (
-            "👋 <b>Привет! Добро пожаловать в CareerCheck</b>\n\n"
-            "Карьерный тест Big Five — 60 вопросов, 10 минут.\n"
-            "Узнай свой профиль личности, лучшие профессии и RIASEC-тип.\n\n"
-            + ("✅ У тебя уже есть результаты — открой приложение чтобы посмотреть.\n\n"
-               if has_results else "")
-            + "Нажми кнопку ниже 👇"
-        )
-        btn_text = "🚀 Открыть CareerCheck"
+    # Для returning-пользователей — пробуем получить топ профессию
+    top_prof_text = ""
+    if has_results:
+        try:
+            last = await get_last_result(pool, user["id"])
+            if last:
+                import json as _json
+                top_profs = last.get("top_professions")
+                if isinstance(top_profs, str):
+                    top_profs = _json.loads(top_profs)
+                if top_profs:
+                    tp = top_profs[0]
+                    top_prof_text = f"{tp.get('title', '')} — {tp.get('match', 0)}%"
+        except Exception:
+            pass
+
+    if lang == "ru":
+        if has_results and top_prof_text:
+            text = (
+                f"👋 <b>С возвращением, {first_name}!</b>\n\n"
+                f"Твой последний результат: <b>{top_prof_text}</b>\n\n"
+                f"Открой приложение чтобы посмотреть полный профиль."
+            )
+            btn_text = "📊 Смотреть результаты"
+        else:
+            text = (
+                f"🧠 <b>Привет, {first_name}!</b>\n\n"
+                f"Я помогу тебе найти профессию, которая тебе действительно подходит.\n\n"
+                f"<b>CareerCheck</b> использует научную модель <b>Big Five</b> — "
+                f"ту же, что применяют HR-специалисты и психологи.\n\n"
+                f"<b>Что ты получишь:</b>\n"
+                f"📊 Психологический профиль личности\n"
+                f"💼 Топ профессий с % совпадения\n"
+                f"📚 Каталог из 160+ профессий\n\n"
+                f"⚡️ <b>Быстрый тест</b> — 2 минуты, 10 вопросов\n"
+                f"🎯 <b>Полный тест</b> — 15 минут, 60 вопросов"
+            )
+            btn_text = "🚀 Открыть CareerCheck"
     else:
-        has_results = user and user.get('test_completed')
-        text = (
-            "👋 <b>Welcome to CareerCheck!</b>\n\n"
-            "Big Five career test — 60 questions, 10 minutes.\n"
-            "Discover your personality profile, top careers and RIASEC type.\n\n"
-            + ("✅ You already have results — open the app to view them.\n\n"
-               if has_results else "")
-            + "Tap below 👇"
-        )
-        btn_text = "🚀 Open CareerCheck"
+        if has_results and top_prof_text:
+            text = (
+                f"👋 <b>Welcome back, {first_name}!</b>\n\n"
+                f"Your last result: <b>{top_prof_text}</b>\n\n"
+                f"Open the app to see your full profile."
+            )
+            btn_text = "📊 View Results"
+        else:
+            text = (
+                f"🧠 <b>Hey, {first_name}!</b>\n\n"
+                f"I'll help you find a career that truly fits you.\n\n"
+                f"<b>CareerCheck</b> uses the scientific <b>Big Five</b> model — "
+                f"the same one used by HR professionals and psychologists.\n\n"
+                f"<b>What you'll get:</b>\n"
+                f"📊 Personality profile\n"
+                f"💼 Top careers with % match\n"
+                f"📚 Catalog of 160+ professions\n\n"
+                f"⚡️ <b>Quick test</b> — 2 minutes, 10 questions\n"
+                f"🎯 <b>Full test</b> — 15 minutes, 60 questions"
+            )
+            btn_text = "🚀 Open CareerCheck"
 
     kb = InlineKeyboardMarkup(inline_keyboard=[[
         InlineKeyboardButton(text=btn_text, web_app=WAppInfo(url=miniapp_url))
     ]])
 
     await message.answer(text, reply_markup=kb)
+
+    # Обновляем кнопку меню под статус пользователя
+    try:
+        await update_menu_button_for_user(message.bot, message.from_user.id, pool)
+    except Exception as e:
+        logger.debug(f"menu button update skipped: {e}")
 
 
 # ── Возобновление теста ───────────────────────────────────────────────────────
@@ -962,3 +1040,133 @@ async def cmd_stop_challenges(message: Message, pool: asyncpg.Pool):
     lang   = user['lang'] if user and user.get('lang') else 'ru'
     msg = "✅ Ты отписан от ежедневных челленджей." if lang == 'ru' else "✅ You've unsubscribed from daily challenges."
     await message.answer(msg)
+
+
+# ── Inline mode — поделиться результатом ─────────────────────────────────────
+
+@router.inline_query()
+async def inline_share_result(query: InlineQuery, pool: asyncpg.Pool):
+    """
+    Пользователь пишет @CareerCheck_Bot в любом чате →
+    показывает карточку результата → он отправляет её другу.
+    """
+    user_id = query.from_user.id
+    lang    = resolve_lang(query.from_user.language_code)
+
+    try:
+        user   = await get_user(pool, user_id)
+        result = await get_last_result(pool, user["id"]) if user else None
+    except Exception:
+        result = None
+
+    domain = os.getenv("DOMAIN", "careercheck.app")
+    bot_username = (await query.bot.me()).username
+
+    if not result:
+        # Нет результатов — предлагаем пройти тест
+        if lang == "ru":
+            title       = "🧠 CareerCheck — карьерный тест Big Five"
+            description = "Узнай свой профиль личности и топ профессий за 15 минут"
+            body        = (
+                "🧠 <b>CareerCheck</b>\n\n"
+                "Карьерное тестирование на основе научной модели Big Five.\n\n"
+                "✅ 160+ профессий с % совпадения\n"
+                "✅ Психологический профиль OCEAN\n"
+                "✅ RIASEC-тип карьеры\n\n"
+                f"👉 @{bot_username}"
+            )
+            cta_text = "🚀 Пройти тест"
+        else:
+            title       = "🧠 CareerCheck — Big Five Career Test"
+            description = "Discover your personality profile and top careers in 15 minutes"
+            body        = (
+                "🧠 <b>CareerCheck</b>\n\n"
+                "Career testing based on the scientific Big Five model.\n\n"
+                "✅ 160+ careers with % match\n"
+                "✅ Personality profile OCEAN\n"
+                "✅ RIASEC career type\n\n"
+                f"👉 @{bot_username}"
+            )
+            cta_text = "🚀 Take the test"
+
+        from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+        kb = InlineKeyboardMarkup(inline_keyboard=[[
+            InlineKeyboardButton(text=cta_text, url=f"https://t.me/{bot_username}")
+        ]])
+
+        results = [InlineQueryResultArticle(
+            id="no_results",
+            title=title,
+            description=description,
+            input_message_content=InputTextMessageContent(message_text=body, parse_mode="HTML"),
+            reply_markup=kb,
+        )]
+        await query.answer(results, cache_time=60, is_personal=True)
+        return
+
+    # Есть результаты — формируем красивую карточку
+    import json as _json
+
+    def _parse(v):
+        return _json.loads(v) if isinstance(v, str) else (v or {})
+
+    normalized  = _parse(result.get("normalized_scores", {}))
+    riasec      = _parse(result.get("riasec_profile", {}))
+    top_profs   = _parse(result.get("top_professions", []))
+    if isinstance(top_profs, str):
+        top_profs = _json.loads(top_profs)
+
+    # Big Five бары (текстовые)
+    traits = {"O": "Открытость", "C": "Добросовестность", "E": "Экстраверсия",
+              "A": "Доброжелательность", "S": "Стабильность"}
+    if lang != "ru":
+        traits = {"O": "Openness", "C": "Conscientiousness", "E": "Extraversion",
+                  "A": "Agreeableness", "S": "Stability"}
+
+    big5_lines = "\n".join(
+        f"{name}: {make_bar(normalized.get(k, 0))} {normalized.get(k, 0)}%"
+        for k, name in traits.items()
+    )
+
+    # Топ профессий
+    top3 = top_profs[:3]
+    if lang == "ru":
+        prof_lines = "\n".join(f"• {p.get('title','?')} — {p.get('match',0)}%" for p in top3)
+        riasec_dom = max(riasec, key=riasec.get) if riasec else "?"
+        title       = f"🎯 Мой карьерный профиль — {top3[0].get('title','?')} ({top3[0].get('match',0)}%)"
+        description = f"Big Five + {len(top3)} топ профессий · RIASEC: {riasec_dom}"
+        body = (
+            f"🧠 <b>Мой карьерный профиль (Big Five)</b>\n\n"
+            f"{big5_lines}\n\n"
+            f"<b>Топ профессий:</b>\n{prof_lines}\n\n"
+            f"<b>RIASEC:</b> {riasec_dom}\n\n"
+            f"📊 Проверь свой профиль → @{bot_username}"
+        )
+        cta_text = "🚀 Пройти тест"
+    else:
+        prof_lines  = "\n".join(f"• {p.get('title','?')} — {p.get('match',0)}%" for p in top3)
+        riasec_dom  = max(riasec, key=riasec.get) if riasec else "?"
+        title       = f"🎯 My Career Profile — {top3[0].get('title','?')} ({top3[0].get('match',0)}%)"
+        description = f"Big Five + {len(top3)} top careers · RIASEC: {riasec_dom}"
+        body = (
+            f"🧠 <b>My Career Profile (Big Five)</b>\n\n"
+            f"{big5_lines}\n\n"
+            f"<b>Top careers:</b>\n{prof_lines}\n\n"
+            f"<b>RIASEC:</b> {riasec_dom}\n\n"
+            f"📊 Check your profile → @{bot_username}"
+        )
+        cta_text = "🚀 Take the test"
+
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+    kb = InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(text=cta_text, url=f"https://t.me/{bot_username}")
+    ]])
+
+    results = [InlineQueryResultArticle(
+        id="my_result",
+        title=title,
+        description=description,
+        input_message_content=InputTextMessageContent(message_text=body, parse_mode="HTML"),
+        reply_markup=kb,
+    )]
+    await query.answer(results, cache_time=0, is_personal=True)

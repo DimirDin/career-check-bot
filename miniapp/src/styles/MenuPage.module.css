@@ -3,22 +3,22 @@
    ============================================= */
 
 .menuContainer {
-  --bg-primary:    #0d0f1a;
+  --bg-primary:    #0B0E1A;
   --bg-secondary:  rgba(255,255,255,0.05);
-  --accent-purple: #7347e6;
-  --accent-cyan:   #2ed1f2;
-  --accent-gold:   #ffd94d;
-  --accent-green:  #3fd98f;
-  --accent-orange: #ff9933;
+  --accent-purple: #6C5CE7;
+  --accent-cyan:   #00CEC9;
+  --accent-gold:   #FDCB6E;
+  --accent-green:  #00CEC9;
+  --accent-orange: #E17055;
   --text-primary:   #ffffff;
-  --text-secondary: rgba(255,255,255,0.6);
+  --text-secondary: rgba(255,255,255,0.7);
   --text-muted:     rgba(255,255,255,0.4);
-  --border-glow:    rgba(45,209,242,0.3);
+  --border-glow:    rgba(108,92,231,0.4);
 
   min-height: 100dvh;
   background: var(--bg-primary);
   color: var(--text-primary);
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
   padding: 0 16px;
   padding-bottom: 90px;
   display: flex;
@@ -54,21 +54,22 @@
 
 /* ── Glass base ─────────────────────────────────── */
 .glass {
-  background: var(--bg-secondary);
+  background: rgba(19, 23, 40, 0.8);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border-radius: 16px;
-  border: 1px solid rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.08);
   padding: 20px;
   transition: transform 0.18s ease, box-shadow 0.18s ease;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.35);
 }
 .glass:active { transform: scale(0.98); }
 
 /* ── Hero Banner ────────────────────────────────── */
 .heroBanner {
   composes: glass;
-  background: linear-gradient(135deg, rgba(115,71,230,0.18) 0%, rgba(45,209,242,0.10) 100%);
-  border: 1px solid rgba(115,71,230,0.35) !important;
+  background: linear-gradient(135deg, rgba(108,92,231,0.18) 0%, rgba(9,132,227,0.10) 100%);
+  border: 1px solid rgba(108,92,231,0.35) !important;
   animation: fadeSlideDown 0.4s ease-out both;
 }
 @keyframes fadeSlideDown {
@@ -88,18 +89,19 @@
   margin: 0 0 14px;
 }
 .heroButton {
-  background: linear-gradient(135deg, var(--accent-purple), var(--accent-cyan));
+  background: linear-gradient(135deg, #6C5CE7, #0984E3);
   border: none;
-  border-radius: 12px;
-  padding: 11px 24px;
+  border-radius: 50px;
+  padding: 12px 24px;
   color: #fff;
   font-size: 15px;
   font-weight: 600;
   cursor: pointer;
-  transition: box-shadow 0.2s ease, opacity 0.15s;
+  box-shadow: 0 4px 20px rgba(108,92,231,0.35);
+  transition: box-shadow 0.2s ease, transform 0.15s ease;
   width: 100%;
 }
-.heroButton:active { opacity: 0.85; }
+.heroButton:active { transform: scale(0.97); box-shadow: none; }
 
 /* ── Progress Bar ───────────────────────────────── */
 .progressBarContainer {
@@ -162,17 +164,18 @@
 }
 .ctaButton {
   width: 100%;
-  background: var(--accent-purple);
+  background: linear-gradient(135deg, #6C5CE7, #0984E3);
   border: none;
-  border-radius: 12px;
-  padding: 13px;
+  border-radius: 50px;
+  padding: 14px;
   color: #fff;
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 600;
   cursor: pointer;
-  transition: opacity 0.15s, box-shadow 0.2s;
+  box-shadow: 0 4px 20px rgba(108,92,231,0.35);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
-.ctaButton:active { opacity: 0.85; }
+.ctaButton:active { transform: scale(0.97); box-shadow: none; }
 
 /* ── Quick Actions Grid ─────────────────────────── */
 .quickGrid {
@@ -192,7 +195,8 @@
   from { opacity:0; transform:translateY(12px) }
   to   { opacity:1; transform:translateY(0) }
 }
-.quickCard:hover { background: rgba(255,255,255,0.09); }
+.quickCard:hover { background: rgba(108,92,231,0.08); }
+.quickCard:active { background: rgba(108,92,231,0.12); }
 
 .quickIconWrap {
   width: 44px;
@@ -256,16 +260,17 @@
 }
 .smartRecButton {
   background: transparent;
-  border: 1px solid var(--accent-purple);
-  border-radius: 10px;
-  padding: 10px 18px;
+  border: 1px solid rgba(108,92,231,0.5);
+  border-radius: 50px;
+  padding: 11px 18px;
   color: var(--text-primary);
   font-size: 14px;
+  font-weight: 500;
   cursor: pointer;
-  transition: background 0.2s, color 0.2s;
+  transition: background 0.2s, border-color 0.2s, transform 0.15s;
   width: 100%;
 }
-.smartRecButton:active { background: var(--accent-purple); }
+.smartRecButton:active { background: rgba(108,92,231,0.2); transform: scale(0.98); }
 
 /* ── Footer ─────────────────────────────────────── */
 .footer {

@@ -1984,3 +1984,108 @@ body::after {
   pointer-events: none;
   filter: blur(8px);
 }
+
+/* ══ SPLASH SCREEN ══════════════════════════════════════ */
+
+.splash-root {
+  position: fixed;
+  inset: 0;
+  background: #080810;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  z-index: 9999;
+}
+
+.splash-glow {
+  position: absolute;
+  width: 260px;
+  height: 260px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(124,58,237,0.08), transparent 70%);
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -58%);
+  pointer-events: none;
+}
+
+.splash-logo {
+  width: 90px;
+  height: 90px;
+  background: linear-gradient(135deg, #7c3aed 0%, #6366f1 45%, #06b6d4 100%);
+  box-shadow:
+    0 0 28px rgba(124, 58, 237, 0.45),
+    0 0 55px rgba(6, 182, 212, 0.12);
+  border-radius: 30% 70% 70% 30% / 30% 30% 70% 70%;
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
+}
+
+.splash-title-wrap {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  width: 220px;
+}
+
+.splash-typerow {
+  width: 220px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  overflow: visible;
+}
+
+.splash-typed {
+  font-size: 21px;
+  font-weight: 800;
+  font-family: 'Syne', -apple-system, sans-serif;
+  line-height: 1;
+  white-space: nowrap;
+  display: inline-block;
+  letter-spacing: -0.01em;
+}
+
+.splash-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 22px;
+  background: #a855f7;
+  border-radius: 1px;
+  margin-left: 2px;
+  vertical-align: middle;
+  flex-shrink: 0;
+  box-shadow: 0 0 8px rgba(168, 85, 247, 1);
+  animation: splashCursorBlink 0.6s step-end infinite;
+}
+
+.splash-cursor-hide {
+  display: none !important;
+}
+
+@keyframes splashCursorBlink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+
+.splash-sub {
+  font-size: 12px;
+  color: #94a3b8;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  font-weight: 400;
+  letter-spacing: 0.03em;
+  text-align: center;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+.splash-sub-visible {
+  opacity: 1;
+}

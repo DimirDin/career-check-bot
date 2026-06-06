@@ -78,6 +78,7 @@ export function HistoryPage({ lastResult, onBack, onStartTest }) {
     return (
       <div className="history-page">
         <div className="history-header"><h2 className="history-title">{T.title}</h2></div>
+        <div className="history-header-spacer" />
         <div className="loading-screen"><div className="loading-spinner" /></div>
       </div>
     )
@@ -87,6 +88,7 @@ export function HistoryPage({ lastResult, onBack, onStartTest }) {
     return (
       <div className="history-page">
         <div className="history-header"><h2 className="history-title">{T.title}</h2></div>
+        <div className="history-header-spacer" />
         <div className="history-empty">
           <div className="history-empty-icon">
             <svg width="72" height="72" viewBox="0 0 72 72" fill="none">
@@ -114,6 +116,7 @@ export function HistoryPage({ lastResult, onBack, onStartTest }) {
         <h2 className="history-title">{T.title}</h2>
         <span className="history-count">{T.count(results.length)}</span>
       </div>
+      <div className="history-header-spacer" />
 
       <div style={{ padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 14 }}>
 

@@ -185,6 +185,13 @@ async def payment_success(message: Message, pool, redis: aioredis.Redis = None):
             f"stars={message.successful_payment.total_amount}, lang={lang}"
         )
 
+        # Обновляем кнопку меню — теперь пользователь с Premium
+        try:
+            from bot.handlers import update_menu_button_for_user
+            await update_menu_button_for_user(message.bot, message.from_user.id, pool)
+        except Exception:
+            pass
+
     except Exception as e:
         logger.error(f"Premium PDF generation failed: {e}", exc_info=True)
         await message.answer(

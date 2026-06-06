@@ -204,7 +204,7 @@ function HeaderProfile({ user }) {
       padding: 'calc(10px + env(safe-area-inset-top, 0px)) 16px 12px',
     }}>
       {/* Имя по центру */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
         <div style={{
           width: 36, height: 36, borderRadius: 10, flexShrink: 0,
           background: 'linear-gradient(135deg, rgba(124,58,237,0.3), rgba(6,182,212,0.2))',
@@ -227,26 +227,6 @@ function HeaderProfile({ user }) {
           <div style={{ fontSize: 10, color: T.textMuted, letterSpacing: '0.05em', marginTop: 1 }}>
             ПРОФИЛЬ АКТИВЕН
           </div>
-        </div>
-      </div>
-      {/* Бейджи второй строкой по центру */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 5,
-          background: 'rgba(249,115,22,0.12)', border: '1px solid rgba(249,115,22,0.25)',
-          borderRadius: 8, padding: '4px 9px',
-          animation: 'aurora-streakFlicker 4s ease-in-out infinite',
-        }}>
-          <IconFire/>
-          <span style={{ fontSize: 11, fontWeight: 700, color: '#fb923c', letterSpacing: '0.06em' }}>7 ДНЕЙ</span>
-        </div>
-        <div style={{
-          background: 'linear-gradient(135deg, rgba(124,58,237,0.25), rgba(6,182,212,0.15))',
-          border: '1px solid rgba(124,58,237,0.35)',
-          borderRadius: 8, padding: '4px 10px',
-          fontSize: 11, fontWeight: 700, color: '#a78bfa', letterSpacing: '0.07em',
-        }}>
-          LVL 4
         </div>
       </div>
     </div>
@@ -476,7 +456,7 @@ export function MenuPage() {
   const testDone = !!localStorage.getItem('cc_test_done')
   const radarScores = { O: 82, C: 65, E: 71, A: 88, N: 45 }
 
-  const HEADER_H = 96
+  const HEADER_H = 68
 
   return (
     <div style={{

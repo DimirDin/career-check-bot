@@ -114,11 +114,15 @@ export function HistoryPage({ lastResult, onBack, onStartTest }) {
     <div className="history-page swipe-page" ref={swipeRef} {...swipeHandlers}>
       <div className="history-header">
         <h2 className="history-title">{T.title}</h2>
-        <span className="history-count">{T.count(results.length)}</span>
       </div>
       <div className="history-header-spacer" />
 
       <div style={{ padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+        {/* Счётчик */}
+        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', textAlign: 'center', marginTop: -6 }}>
+          {T.count(results.length)}
+        </div>
 
         {/* Динамика изменений (если 2+ теста) */}
         {multi && (

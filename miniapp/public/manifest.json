@@ -1,0 +1,13 @@
+{
+  "name": "CareerCheck",
+  "short_name": "CareerCheck",
+  "description": "Карьерное тестирование Big Five — узнай свои профессии",
+  "start_url": "/",
+  "display": "fullscreen",
+  "background_color": "#0B0E1A",
+  "theme_color": "#6C5CE7",
+  "icons": [
+    { "src": "/icons/icon-64.png", "sizes": "64x64", "type": "image/png" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

@@ -201,16 +201,16 @@ function HeaderProfile({ user }) {
       backdropFilter: 'blur(20px)',
       WebkitBackdropFilter: 'blur(20px)',
       borderBottom: '1px solid rgba(124,58,237,0.14)',
-      padding: 'calc(10px + env(safe-area-inset-top, 0px)) 16px 10px',
-      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      padding: 'calc(10px + env(safe-area-inset-top, 0px)) 16px 12px',
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+      {/* Имя по центру */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 10 }}>
         <div style={{
-          width: 40, height: 40, borderRadius: 12, flexShrink: 0,
+          width: 36, height: 36, borderRadius: 10, flexShrink: 0,
           background: 'linear-gradient(135deg, rgba(124,58,237,0.3), rgba(6,182,212,0.2))',
           border: '1px solid rgba(124,58,237,0.4)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 14, fontWeight: 700, color: '#a78bfa',
+          fontSize: 13, fontWeight: 700, color: '#a78bfa',
           boxShadow: '0 0 12px rgba(124,58,237,0.25)',
           letterSpacing: '0.03em',
         }}>
@@ -224,12 +224,13 @@ function HeaderProfile({ user }) {
           }}>
             {user.firstName || 'Пользователь'}
           </div>
-          <div style={{ fontSize: 11, color: T.textMuted, letterSpacing: '0.05em', marginTop: 1 }}>
+          <div style={{ fontSize: 10, color: T.textMuted, letterSpacing: '0.05em', marginTop: 1 }}>
             ПРОФИЛЬ АКТИВЕН
           </div>
         </div>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      {/* Бейджи второй строкой по центру */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
         <div style={{
           display: 'flex', alignItems: 'center', gap: 5,
           background: 'rgba(249,115,22,0.12)', border: '1px solid rgba(249,115,22,0.25)',
@@ -475,7 +476,7 @@ export function MenuPage() {
   const testDone = !!localStorage.getItem('cc_test_done')
   const radarScores = { O: 82, C: 65, E: 71, A: 88, N: 45 }
 
-  const HEADER_H = 64
+  const HEADER_H = 96
 
   return (
     <div style={{

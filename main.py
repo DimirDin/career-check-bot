@@ -135,10 +135,15 @@ async def main() -> None:
     domain = os.getenv("DOMAIN", "careercheck.app")
     miniapp_url = f"https://{domain}"
     try:
-        from aiogram.types import MenuButtonWebApp, WebAppInfo
+        from aiogram.types import MenuButtonWebApp, WebAppInfo, BotCommand
 
-        # Убираем команды — бот не должен выглядеть как обычный чат-бот
-        await bot.delete_my_commands()
+        # Команды меню
+        await bot.set_my_commands([
+            BotCommand(command="start",            description="🚀 Открыть CareerCheck"),
+            BotCommand(command="refer",            description="👥 Реферальная ссылка"),
+            BotCommand(command="challenges",       description="🎯 Ежедневные задания"),
+            BotCommand(command="help",             description="❓ Помощь"),
+        ])
 
         # Кнопка снизу чата открывает Mini App
         await bot.set_chat_menu_button(
@@ -148,16 +153,19 @@ async def main() -> None:
             )
         )
 
-        # Очищаем описание (убираем "Dimirdin" и прочее)
+        # Описание бота (показывается новым пользователям)
         await bot.set_my_description(
             description=(
-                "CareerCheck — карьерный тест Big Five.\n\n"
-                "60 вопросов → твой профиль личности, топ профессий и RIASEC-тип.\n\n"
-                "Нажми кнопку ниже чтобы открыть приложение 👇"
+                "🧠 CareerCheck — карьерное тестирование на основе научной модели Big Five.\n\n"
+                "Пройди тест из 60 вопросов и узнай:\n"
+                "• Твой психологический профиль\n"
+                "• Топ профессий с % совпадения\n"
+                "• Персональный AI-анализ (Premium)\n\n"
+                "Более 160 профессий в каталоге 🎯"
             )
         )
         await bot.set_my_short_description(
-            short_description="Карьерный тест Big Five — узнай свой профиль за 10 минут"
+            short_description="🧠 Карьерный тест Big Five — узнай свои профессии"
         )
         logger.info("Bot configured as Mini App launcher")
     except Exception as e:

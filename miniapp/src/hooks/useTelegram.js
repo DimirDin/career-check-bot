@@ -13,7 +13,16 @@ export function useTelegram() {
   useEffect(() => {
     if (!tg) return
     tg.ready()
-    tg.expand()
+    // Telegram 10.1+: полноэкранный режим; fallback — expand()
+    if (tg.requestFullscreen) {
+      tg.requestFullscreen()
+    } else {
+      tg.expand()
+    }
+    // Отключить свайп вниз для закрытия
+    if (tg.disableVerticalSwipes) {
+      tg.disableVerticalSwipes()
+    }
     const handler = () => setThemeParams({ ...tg.themeParams })
     tg.onEvent('themeChanged', handler)
     return () => tg.offEvent('themeChanged', handler)

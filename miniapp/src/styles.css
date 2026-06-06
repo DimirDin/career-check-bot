@@ -19,6 +19,16 @@
   --radius-sm: 10px;
   --safe-top:    env(safe-area-inset-top,    0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+
+  /* Telegram safe area (fullscreen mode) */
+  --tg-safe-top:    env(safe-area-inset-top,    0px);
+  --tg-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-top:    var(--tg-safe-area-inset-top,    var(--tg-safe-top,    0px));
+  --safe-area-bottom: var(--tg-safe-area-inset-bottom, var(--tg-safe-bottom, 0px));
+
+  /* Bottom navigation */
+  --bottom-nav-height: 64px;
+  --bottom-nav-total:  calc(var(--bottom-nav-height) + var(--safe-area-bottom));
 }
 
 /* ── Reset ─────────────────────────────────────────────────────── */

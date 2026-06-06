@@ -19,6 +19,7 @@ import { ProfessionDetailPage } from './pages/ProfessionDetailPage'
 import { PremiumPromoPage }     from './pages/PremiumPromoPage'
 import { StarField }            from './components/StarField'
 import { AuroraStreak }         from './components/AuroraStreak'
+import { BottomNav }            from './components/BottomNav/BottomNav'
 import { track }                from './hooks/useAnalytics'
 import './styles.css'
 
@@ -307,13 +308,28 @@ export default function App() {
   const NO_TRANSITION = [SCREEN.SPLASH, SCREEN.QUIZ, SCREEN.QUICK_TEST]
   const transitionKey = NO_TRANSITION.includes(screen) ? undefined : screen
 
+  // Экраны без BottomNav
+  const NO_BOTTOM_NAV = [
+    SCREEN.SPLASH, SCREEN.LOADING, SCREEN.QUIZ, SCREEN.QUICK_TEST, SCREEN.ONBOARDING,
+  ]
+  const showBottomNav = !NO_BOTTOM_NAV.includes(screen)
+
   return (
     <NavigationContext.Provider value={{ navigate, current: route }}>
       <StarField count={55} />
       <AuroraStreak active={liquidActive} />
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: '100dvh', position: 'relative', zIndex: 1 }}>
+      <div style={{
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        minHeight: '100dvh',
+        position: 'relative',
+        zIndex: 1,
+        paddingBottom: showBottomNav ? 'var(--bottom-nav-total)' : 0,
+      }}>
         {renderScreen()}
       </div>
+      {showBottomNav && <BottomNav />}
     </NavigationContext.Provider>
   )
 }

@@ -325,7 +325,6 @@ export default function App() {
         minHeight: '100dvh',
         position: 'relative',
         zIndex: 1,
-        paddingTop: 'var(--app-top)',
         paddingBottom: showBottomNav ? 'var(--bottom-nav-total)' : 0,
         background: '#0B0E1A',
       }}>

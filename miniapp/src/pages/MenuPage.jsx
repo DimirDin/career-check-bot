@@ -79,7 +79,6 @@ const GLOBAL_CSS = `
 
   .aurora-icon-asset {
     filter: drop-shadow(0 0 14px rgba(124,58,237,0.4)) drop-shadow(0 0 4px rgba(6,182,212,0.25));
-    mix-blend-mode: screen;
     max-height: 80px;
     width: auto;
     object-fit: contain;
@@ -87,20 +86,16 @@ const GLOBAL_CSS = `
     will-change: filter;
   }
   .aurora-icon-asset.catalog {
-    filter: drop-shadow(0 0 16px rgba(6,182,212,0.55)) drop-shadow(0 0 6px rgba(6,182,212,0.3)) brightness(1.25);
-    mix-blend-mode: screen;
+    filter: drop-shadow(0 0 16px rgba(6,182,212,0.55)) drop-shadow(0 0 6px rgba(6,182,212,0.3)) brightness(1.15);
   }
   .aurora-icon-asset.challenges {
     filter: drop-shadow(0 0 16px rgba(244,63,94,0.55)) drop-shadow(0 0 6px rgba(244,63,94,0.3));
-    mix-blend-mode: screen;
   }
   .aurora-icon-asset.compat {
     filter: drop-shadow(0 0 14px rgba(124,58,237,0.5)) drop-shadow(0 0 28px rgba(6,182,212,0.2));
-    mix-blend-mode: screen;
   }
   .aurora-icon-asset.ai-chat {
     filter: drop-shadow(0 0 18px rgba(244,63,94,0.45)) drop-shadow(0 0 8px rgba(124,58,237,0.4));
-    mix-blend-mode: screen;
   }
   .aurora-icon-asset.hero {
     animation: breathe 3s ease-in-out infinite;
@@ -330,10 +325,10 @@ function HeroCard({ testDone, radarScores, onStartTest, onOpenResults }) {
           </div>
           <div style={{
             flexShrink: 0, width: 120, height: 120,
-            background: '#000', borderRadius: 16, overflow: 'hidden',
+            borderRadius: 16,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <img src="/webh/hero_logo.jpeg" alt="CareerCheck AI"
+            <img src="/webh/hero_logo.webp" alt="CareerCheck AI"
               className="aurora-icon-asset hero" loading="eager"
               style={{ maxHeight: 110, width: '100%', objectFit: 'contain' }}
               onError={(e) => { e.target.style.display = 'none' }}
@@ -351,23 +346,23 @@ function HeroCard({ testDone, radarScores, onStartTest, onOpenResults }) {
 const CARDS = [
   {
     id: 'catalog', title: 'Каталог', sub: '160+ профессий',
-    img: '/webh/ic_catalog.jpeg', cls: 'catalog', route: '/professions',
+    img: '/webh/ic_catalog.webp', cls: 'catalog', route: '/professions',
     accentColor: 'rgba(6,182,212,0.15)', borderColor: 'rgba(6,182,212,0.22)', delay: '0.1s',
   },
   {
     id: 'ai', title: 'ИИ-Эксперт', sub: 'Чат активен',
-    img: '/webh/ic_ai_chat.jpeg', cls: 'ai-chat', route: '/ai-chat',
+    img: '/webh/ic_ai_chat.webp', cls: 'ai-chat', route: '/ai-chat',
     online: true,
     accentColor: 'rgba(244,63,94,0.1)', borderColor: 'rgba(244,63,94,0.2)', delay: '0.15s',
   },
   {
     id: 'challenges', title: 'Челленджи', sub: 'Задание дня',
-    img: '/webh/ic_challenges.jpeg', cls: 'challenges', route: '/challenges',
+    img: '/webh/ic_challenges.webp', cls: 'challenges', route: '/challenges',
     accentColor: 'rgba(244,63,94,0.1)', borderColor: 'rgba(244,63,94,0.18)', delay: '0.2s',
   },
   {
     id: 'compat', title: 'Сравнение', sub: 'Профиль друга',
-    img: '/webh/ic_compat.jpeg', cls: 'compat', route: '/comparison',
+    img: '/webh/ic_compat.webp', cls: 'compat', route: '/comparison',
     accentColor: 'rgba(124,58,237,0.15)', borderColor: 'rgba(124,58,237,0.22)', delay: '0.25s',
   },
 ]
@@ -410,9 +405,9 @@ function QuickActionsGrid({ navigate }) {
             pointerEvents: 'none',
           }}/>
           <div style={{
-            width: 68, height: 68, background: '#000', borderRadius: 12,
+            width: 68, height: 68, borderRadius: 12,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            marginBottom: 12, overflow: 'hidden',
+            marginBottom: 12,
           }}>
             <img src={card.img} alt={card.title}
               className={`aurora-icon-asset ${card.cls}`} loading="lazy"

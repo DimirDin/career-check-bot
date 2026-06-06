@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useTelegram }       from './hooks/useTelegram'
 import { NavigationContext } from './context/NavigationContext'
 import { WelcomePage }       from './pages/WelcomePage'
@@ -91,6 +91,7 @@ export default function App() {
   const [error,     setError]     = useState(null)
   const [liquidActive, setLiquidActive] = useState(false)
   const lang = tg?.initDataUnsafe?.user?.language_code?.slice(0, 2) || 'ru'
+  const targetScreenRef = useRef(SCREEN.MENU)
 
   // ── Навигация ────────────────────────────────────────────────────────────
   const navigate = useCallback((path) => {
@@ -141,13 +142,13 @@ export default function App() {
       const startParam = tg?.initDataUnsafe?.start_param || ''
       if (startParam.startsWith('compare_')) {
         setCompareHash(startParam.replace('compare_', ''))
-        setScreen(SCREEN.COMPARISON)
+        targetScreenRef.current = SCREEN.COMPARISON
       } else {
-        setScreen(SCREEN.MENU)
+        targetScreenRef.current = SCREEN.MENU
       }
     } catch (e) {
       setError(e.message)
-      setScreen(SCREEN.ERROR)
+      targetScreenRef.current = SCREEN.ERROR
     }
   }, [user, initData, lang])
 
@@ -178,7 +179,7 @@ export default function App() {
   const renderScreen = () => {
     switch (screen) {
       case SCREEN.SPLASH:
-        return <SplashScreen onDone={() => setScreen(SCREEN.LOADING)} />
+        return <SplashScreen onDone={() => setScreen(targetScreenRef.current || SCREEN.MENU)} />
       case SCREEN.LOADING:
         return <QuizLoadingSkeleton />
       case SCREEN.SAVING:

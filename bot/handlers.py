@@ -151,8 +151,8 @@ async def cmd_start(message: Message, state: FSMContext, pool: asyncpg.Pool):
                 web_app=BotWebAppInfo(url=f"https://{domain}"),
             ),
         )
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning(f"set_chat_menu_button error: {e}")
 
     tg_lang = message.from_user.language_code if message.from_user else None
     lang    = resolve_lang(tg_lang)

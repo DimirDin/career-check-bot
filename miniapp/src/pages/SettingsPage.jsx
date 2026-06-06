@@ -65,6 +65,7 @@ export function SettingsPage({ onBack }) {
       <div className="settings-header">
         <h2 className="settings-title">{T.title}</h2>
       </div>
+      <div className="settings-header-spacer" />
 
       <div className="settings-body">
         {/* Notifications */}

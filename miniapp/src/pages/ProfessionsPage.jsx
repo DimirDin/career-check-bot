@@ -94,8 +94,9 @@ export function ProfessionsPage({ userResults, onBack, onSelectProfession }) {
       {/* Header */}
       <div className="profs-header">
         <h2 className="profs-title">{T.title}</h2>
-        <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>{professions.length}</span>
+        <span className="profs-count">{professions.length}</span>
       </div>
+      <div className="profs-header-spacer" />
 
       {/* Search */}
       <div style={{ padding: '0 16px 8px' }}>

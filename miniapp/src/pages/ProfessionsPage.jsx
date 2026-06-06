@@ -33,7 +33,17 @@ export function ProfessionsPage({ userResults, onBack, onSelectProfession }) {
     if (initData) params.set('init_data', initData)
     fetch(`/api/professions?${params}`)
       .then(r => r.json())
-      .then(d => { setProfessions(d.professions || []); setLoading(false) })
+      .then(d => {
+        const raw = d.professions || []
+        const seen = new Set()
+        const unique = raw.filter(p => {
+          if (seen.has(p.id)) return false
+          seen.add(p.id)
+          return true
+        })
+        setProfessions(unique)
+        setLoading(false)
+      })
       .catch(() => setLoading(false))
   }, [initData, lang])
 

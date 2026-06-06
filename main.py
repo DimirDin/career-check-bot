@@ -148,7 +148,7 @@ async def main() -> None:
         # Кнопка снизу чата открывает Mini App
         await bot.set_chat_menu_button(
             menu_button=MenuButtonWebApp(
-                text="Открыть CareerCheck",
+                text="CareerCheck",
                 web_app=WebAppInfo(url=miniapp_url),
             )
         )

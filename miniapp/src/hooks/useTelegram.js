@@ -38,7 +38,9 @@ export function useTelegram() {
         tg.contentSafeAreaInsets?.top ?? 0,
         tg.safeAreaInsets?.top        ?? 0,
       )
-      document.documentElement.style.setProperty('--tg-header-h', top + 'px')
+      if (top > 0) {
+        document.documentElement.style.setProperty('--tg-header-h', top + 'px')
+      }
     }
 
     applyInsets()

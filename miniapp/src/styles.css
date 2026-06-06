@@ -17,7 +17,7 @@
   --bronze:    #cd7c3f;
   --radius:    16px;
   --radius-sm: 10px;
-  --safe-top:    env(safe-area-inset-top,    0px);
+  --safe-top:    env(safe-area-inset-top,    44px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   /* --tg-header-h обновляется из JS (useTelegram): высота шапки Telegram */
   --tg-header-h: 0px;

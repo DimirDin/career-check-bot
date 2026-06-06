@@ -29,22 +29,35 @@ export function ProfessionsPage({ userResults, onBack, onSelectProfession }) {
   }, [tg, onBack])
 
   useEffect(() => {
-    const params = new URLSearchParams({ lang })
-    if (initData) params.set('init_data', initData)
-    fetch(`/api/professions?${params}`)
-      .then(r => r.json())
-      .then(d => {
+    const load = async () => {
+      try {
+        const params = new URLSearchParams({ lang })
+        if (initData) params.set('init_data', initData)
+        const res = await fetch(`/api/professions?${params}`)
+
+        if (res.status === 403) {
+          setProfessions([])
+          return
+        }
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+
+        const d = await res.json()
         const raw = d.professions || []
         const seen = new Set()
-        const unique = raw.filter(p => {
+        const uniq = raw.filter(p => {
           if (seen.has(p.id)) return false
           seen.add(p.id)
           return true
         })
-        setProfessions(unique)
+        setProfessions(uniq)
+      } catch (err) {
+        console.error('professions load error:', err)
+        setProfessions([])
+      } finally {
         setLoading(false)
-      })
-      .catch(() => setLoading(false))
+      }
+    }
+    load()
   }, [initData, lang])
 
   const filtered = useMemo(() => {

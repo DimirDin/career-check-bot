@@ -142,17 +142,17 @@ async def cmd_start(message: Message, state: FSMContext, pool: asyncpg.Pool):
     await state.clear()
 
     # Устанавливаем кнопку меню для конкретного чата (даёт кнопку OPEN)
-    domain = os.getenv("DOMAIN", "careercheck.app")
     try:
+        from aiogram.types import MenuButtonWebApp, WebAppInfo
         await message.bot.set_chat_menu_button(
             chat_id=message.chat.id,
             menu_button=MenuButtonWebApp(
                 text="CareerCheck",
-                web_app=BotWebAppInfo(url=f"https://{domain}"),
+                web_app=WebAppInfo(url="https://careercheck.app"),
             ),
         )
     except Exception as e:
-        logger.warning(f"set_chat_menu_button error: {e}")
+        logger.warning(f"[OPEN button] set_chat_menu_button error: {e}")
 
     tg_lang = message.from_user.language_code if message.from_user else None
     lang    = resolve_lang(tg_lang)

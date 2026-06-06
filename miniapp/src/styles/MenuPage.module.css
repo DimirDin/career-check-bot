@@ -29,7 +29,7 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-.safeAreaTop    { height: var(--safe-top, 12px); }
+.safeAreaTop    { height: var(--app-top, 12px); }
 .safeAreaBottom { height: env(safe-area-inset-bottom, 16px); }
 
 /* ── Toast ──────────────────────────────────────── */

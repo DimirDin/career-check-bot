@@ -17,8 +17,11 @@
   --bronze:    #cd7c3f;
   --radius:    16px;
   --radius-sm: 10px;
+  /* --safe-top обновляется из JS (useTelegram): device notch + Telegram header */
   --safe-top:    env(safe-area-inset-top,    0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+  /* алиас — для явного использования в новых компонентах */
+  --content-safe-top: var(--safe-top);
 
   /* Telegram safe area (fullscreen mode) */
   --tg-safe-top:    env(safe-area-inset-top,    0px);

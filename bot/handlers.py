@@ -141,6 +141,19 @@ def _riasec_label(key: str, lang: str) -> str:
 async def cmd_start(message: Message, state: FSMContext, pool: asyncpg.Pool):
     await state.clear()
 
+    # Устанавливаем кнопку меню для конкретного чата (даёт кнопку OPEN)
+    domain = os.getenv("DOMAIN", "careercheck.app")
+    try:
+        await message.bot.set_chat_menu_button(
+            chat_id=message.chat.id,
+            menu_button=MenuButtonWebApp(
+                text="CareerCheck",
+                web_app=BotWebAppInfo(url=f"https://{domain}"),
+            ),
+        )
+    except Exception:
+        pass
+
     tg_lang = message.from_user.language_code if message.from_user else None
     lang    = resolve_lang(tg_lang)
 

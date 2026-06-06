@@ -17,11 +17,13 @@
   --bronze:    #cd7c3f;
   --radius:    16px;
   --radius-sm: 10px;
-  /* --safe-top обновляется из JS (useTelegram): device notch + Telegram header */
   --safe-top:    env(safe-area-inset-top,    0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
-  /* алиас — для явного использования в новых компонентах */
-  --content-safe-top: var(--safe-top);
+  /* --tg-header-h обновляется из JS (useTelegram): высота шапки Telegram */
+  --tg-header-h: 0px;
+  /* итоговый отступ сверху = Telegram header + device notch */
+  --app-top: calc(var(--tg-header-h) + var(--safe-top));
+  --content-safe-top: var(--app-top);
 
   /* Telegram safe area (fullscreen mode) */
   --tg-safe-top:    env(safe-area-inset-top,    0px);
@@ -132,7 +134,7 @@ html, body {
   flex-direction: column;
   position: relative;
   overflow: hidden;
-  padding-top: var(--safe-top);
+  padding-top: 0;
 }
 
 .welcome-bg {
@@ -265,7 +267,7 @@ html, body {
   display: flex;
   flex-direction: column;
   padding: 0 0 calc(24px + var(--safe-bottom));
-  padding-top: var(--safe-top);
+  padding-top: 0;
 }
 
 .progress-bar-wrap {
@@ -708,14 +710,14 @@ html, body {
   align-items: center;
   justify-content: center;
   padding: 40px 28px calc(32px + var(--safe-bottom));
-  padding-top: calc(var(--safe-top) + 16px);
+  padding-top: 16px;
   gap: 0;
   min-height: 100dvh;
 }
 
 .onboarding-skip {
   position: absolute;
-  top: calc(var(--safe-top) + 14px);
+  top: 14px;
   right: 20px;
   background: none;
   border: none;
@@ -890,7 +892,7 @@ html, body {
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding-top: var(--safe-top);
+  padding-top: 0;
   padding-bottom: calc(16px + var(--safe-bottom));
   gap: 0;
 }
@@ -1180,7 +1182,7 @@ html, body {
   display: flex;
   flex-direction: column;
   padding: 0 0 calc(24px + var(--safe-bottom));
-  padding-top: var(--safe-top);
+  padding-top: 0;
 }
 
 .quick-header {
@@ -1216,7 +1218,7 @@ html, body {
   display: flex;
   flex-direction: column;
   padding-bottom: calc(16px + var(--safe-bottom));
-  padding-top: var(--safe-top);
+  padding-top: 0;
   overflow-y: auto;
 }
 
@@ -1302,7 +1304,7 @@ html, body {
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding-top: var(--safe-top);
+  padding-top: 0;
   padding-bottom: calc(16px + var(--safe-bottom));
   overflow-y: auto;
 }
@@ -1377,7 +1379,7 @@ html, body {
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding-top: var(--safe-top);
+  padding-top: 0;
   padding-bottom: calc(16px + var(--safe-bottom));
   overflow-y: auto;
 }
@@ -1419,7 +1421,7 @@ html, body {
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding-top: var(--safe-top);
+  padding-top: 0;
   overflow: hidden;
 }
 .profs-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px 8px; flex-shrink: 0; }
@@ -1489,7 +1491,7 @@ html, body {
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding-top: var(--safe-top);
+  padding-top: 0;
   padding-bottom: calc(16px + var(--safe-bottom));
   overflow-y: auto;
 }
@@ -1531,7 +1533,7 @@ html, body {
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding-top: var(--safe-top);
+  padding-top: 0;
   padding-bottom: var(--safe-bottom);
   height: 100dvh;
   overflow: hidden;

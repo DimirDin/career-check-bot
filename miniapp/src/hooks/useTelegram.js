@@ -30,29 +30,28 @@ export function useTelegram() {
     try { tg.setHeaderColor('#0B0E1A') }     catch {}
     try { tg.setBackgroundColor('#0B0E1A') } catch {}
 
-    // Обновляем CSS-переменную --safe-top = notch + Telegram header
-    // contentSafeAreaInsets.top — высота шапки Telegram (Back/Close)
+    // Устанавливаем --tg-header-h = высота шапки Telegram (Back/Close + device notch в fullscreen)
+    // contentSafeAreaInsets.top — Telegram UI header (в fullscreen уже включает notch)
     // safeAreaInsets.top        — device notch
-    const updateSafeArea = () => {
-      const deviceTop  = tg.safeAreaInsets?.top        ?? 0
-      const contentTop = tg.contentSafeAreaInsets?.top ?? 0
-      const total = deviceTop + contentTop
-      if (total > 0) {
-        document.documentElement.style.setProperty('--safe-top', `${total}px`)
-      }
+    const applyInsets = () => {
+      const top = Math.max(
+        tg.contentSafeAreaInsets?.top ?? 0,
+        tg.safeAreaInsets?.top        ?? 0,
+      )
+      document.documentElement.style.setProperty('--tg-header-h', top + 'px')
     }
 
-    updateSafeArea()
-    tg.onEvent('safeAreaChanged',        updateSafeArea)
-    tg.onEvent('contentSafeAreaChanged', updateSafeArea)
+    applyInsets()
+    tg.onEvent('safeAreaChanged',        applyInsets)
+    tg.onEvent('contentSafeAreaChanged', applyInsets)
 
     const handler = () => setThemeParams({ ...tg.themeParams })
     tg.onEvent('themeChanged', handler)
 
     return () => {
-      tg.offEvent('themeChanged',             handler)
-      tg.offEvent('safeAreaChanged',          updateSafeArea)
-      tg.offEvent('contentSafeAreaChanged',   updateSafeArea)
+      tg.offEvent('themeChanged',           handler)
+      tg.offEvent('safeAreaChanged',        applyInsets)
+      tg.offEvent('contentSafeAreaChanged', applyInsets)
     }
   }, [])
 

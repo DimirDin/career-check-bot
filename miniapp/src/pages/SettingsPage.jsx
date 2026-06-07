@@ -6,9 +6,11 @@ export function SettingsPage({ onBack }) {
   const lang  = tg?.initDataUnsafe?.user?.language_code?.slice(0, 2) || 'ru'
   const isRu  = lang !== 'en'
 
-  const [challenges, setChallenges] = useState(null)
-  const [streak,     setStreak]     = useState(0)
-  const [toggling,   setToggling]   = useState(false)
+  const [challenges,   setChallenges]   = useState(null)
+  const [streak,       setStreak]       = useState(0)
+  const [toggling,     setToggling]     = useState(false)
+  const [referral,     setReferral]     = useState(null)
+  const [copied,       setCopied]       = useState(false)
 
   useEffect(() => {
     if (!tg) return
@@ -23,7 +25,26 @@ export function SettingsPage({ onBack }) {
       .then(r => r.json())
       .then(d => { setChallenges(d.subscribed); setStreak(d.streak || 0) })
       .catch(() => setChallenges(false))
+    fetch(`/api/referral/progress?init_data=${encodeURIComponent(initData)}`)
+      .then(r => r.json())
+      .then(d => setReferral(d))
+      .catch(() => {})
   }, [initData])
+
+  function copyReferralLink() {
+    if (!referral?.link) return
+    haptic.medium()
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(referral.link).then(() => {
+        setCopied(true)
+        setTimeout(() => setCopied(false), 2000)
+      })
+    } else {
+      tg?.HapticFeedback?.notificationOccurred('success')
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }
+  }
 
   async function toggleChallenges() {
     if (toggling || !initData) return
@@ -52,6 +73,12 @@ export function SettingsPage({ onBack }) {
     profile:        isRu ? 'Профиль'                : 'Profile',
     lang:           isRu ? 'Язык'                   : 'Language',
     langVal:        isRu ? 'Из Telegram (автоматически)' : 'From Telegram (automatic)',
+    referral:       isRu ? 'Пригласить друга'        : 'Invite a Friend',
+    referralDesc:   isRu ? 'Копируй ссылку и отправь другу — когда он пройдёт тест, получишь бонус' : 'Share your link — when your friend completes the test, you get a bonus',
+    referralCount:  (n, t) => isRu ? `Приглашено: ${n} из ${t} прошли тест` : `Invited: ${n} of ${t} completed test`,
+    referralBonus:  isRu ? '🎉 Бонус получен!' : '🎉 Bonus received!',
+    copyLink:       isRu ? 'Копировать ссылку' : 'Copy link',
+    copied:         isRu ? 'Скопировано!' : 'Copied!',
     about:          isRu ? 'О приложении'           : 'About',
     version:        'CareerCheck v2.1',
     support:        isRu ? 'Поддержка' : 'Support',
@@ -99,6 +126,44 @@ export function SettingsPage({ onBack }) {
               <div className="settings-row-desc">{T.langVal}</div>
             </div>
             <span className="settings-row-value">{lang.toUpperCase()}</span>
+          </div>
+        </div>
+
+        {/* Referral */}
+        <div className="settings-section">
+          <div className="settings-section-label">{T.referral}</div>
+          <div className="settings-info-card" style={{ gap: 10 }}>
+            <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.55)', lineHeight: 1.5, marginBottom: 8 }}>
+              {T.referralDesc}
+            </div>
+            {referral && (
+              <div style={{ fontSize: 12, color: '#a78bfa', marginBottom: 8 }}>
+                {T.referralCount(referral.count, referral.total)}
+                {referral.granted && <span style={{ marginLeft: 8 }}>{T.referralBonus}</span>}
+              </div>
+            )}
+            {referral?.link && (
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <div style={{
+                  flex: 1, fontSize: 11, color: 'rgba(255,255,255,0.4)',
+                  background: 'rgba(255,255,255,0.06)', borderRadius: 8,
+                  padding: '7px 10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                }}>
+                  {referral.link}
+                </div>
+                <button
+                  onClick={copyReferralLink}
+                  style={{
+                    flexShrink: 0, background: copied ? '#22d3a5' : '#7347e6',
+                    border: 'none', borderRadius: 8, padding: '7px 14px',
+                    color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                    transition: 'background 0.2s',
+                  }}
+                >
+                  {copied ? T.copied : T.copyLink}
+                </button>
+              </div>
+            )}
           </div>
         </div>
 

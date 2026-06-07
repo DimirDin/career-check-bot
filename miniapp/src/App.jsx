@@ -17,6 +17,7 @@ import { SettingsPage }         from './pages/SettingsPage'
 import { ProfessionsPage }      from './pages/ProfessionsPage'
 import { ProfessionDetailPage } from './pages/ProfessionDetailPage'
 import { PremiumPromoPage }     from './pages/PremiumPromoPage'
+import { ChallengesPage }       from './pages/ChallengesPage'
 import { StarField }            from './components/StarField'
 import { AuroraStreak }         from './components/AuroraStreak'
 import { BottomNav }            from './components/BottomNav/BottomNav'
@@ -40,6 +41,7 @@ const SCREEN = {
   SETTINGS:       'settings',
   PROFESSIONS:    'professions',
   PROF_DETAIL:    'prof_detail',
+  CHALLENGES:     'challenges',
   COMING_SOON:    'coming_soon',
   PREMIUM_PROMO:  'premium_promo',
   ERROR:        'error',
@@ -74,7 +76,7 @@ const ROUTE_MAP = {
   '/history':     SCREEN.HISTORY,
   '/ai-chat':     SCREEN.AI_CHAT,
   '/settings':    SCREEN.SETTINGS,
-  '/challenges':  SCREEN.COMING_SOON,
+  '/challenges':  SCREEN.CHALLENGES,
   '/comparison':  SCREEN.COMPARISON,
   '/support':     SCREEN.COMING_SOON,
 }
@@ -291,6 +293,8 @@ export default function App() {
             onStartTest={() => navigate('/test')}
           />
         )
+      case SCREEN.CHALLENGES:
+        return <ChallengesPage onBack={() => navigate('/menu')} />
       case SCREEN.PREMIUM_PROMO:
         return (
           <PremiumPromoPage

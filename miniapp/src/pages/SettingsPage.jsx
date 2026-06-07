@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useTelegram } from '../hooks/useTelegram'
+import { AppHeader } from '../components/AppHeader/AppHeader'
 
 export function SettingsPage({ onBack }) {
   const { tg, haptic, initData } = useTelegram()
@@ -89,12 +90,9 @@ export function SettingsPage({ onBack }) {
 
   return (
     <div className="settings-page">
-      <div className="settings-header">
-        <h2 className="settings-title">{T.title}</h2>
-      </div>
-      <div className="settings-header-spacer" />
+      <AppHeader />
 
-      <div className="settings-body">
+      <div className="settings-body" style={{ paddingTop: 'var(--page-top)' }}>
         {/* Notifications */}
         <div className="settings-section">
           <div className="settings-section-label">{T.notifications}</div>

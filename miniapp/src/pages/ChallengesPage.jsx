@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useTelegram } from '../hooks/useTelegram'
+import { AppHeader } from '../components/AppHeader/AppHeader'
 
 const SAMPLE_CHALLENGES_RU = [
   { id: 1, title: 'Исследуй новое поле', desc: 'Прочитай 1 статью о профессии из твоего топ-5 и запиши 3 инсайта.', xp: 20 },
@@ -93,31 +94,18 @@ export function ChallengesPage({ onBack }) {
 
   return (
     <div style={{ minHeight: '100dvh', background: 'linear-gradient(160deg,#05050b 0%,#0c0c1e 60%,#08081a 100%)', color: '#f0eeff', fontFamily: "'Inter',sans-serif" }}>
-      {/* Header */}
-      <div style={{
-        position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
-        background: 'rgba(5,5,11,0.88)', backdropFilter: 'blur(20px)',
-        borderBottom: '1px solid rgba(244,63,94,0.15)',
-        padding: 'calc(10px + env(safe-area-inset-top,0px)) 16px 12px',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        height: 68,
-      }}>
-        <div>
-          <div style={{ fontSize: 17, fontWeight: 700, fontFamily: "'Syne',sans-serif" }}>{T.title}</div>
-          <div style={{ fontSize: 10, color: '#f43f5e', letterSpacing: '0.08em', marginTop: 1 }}>{T.subtitle}</div>
-        </div>
+      <AppHeader />
+
+      <div style={{ paddingTop: 'var(--page-top)', paddingLeft: 16, paddingRight: 16, paddingBottom: 'var(--page-bottom)' }}>
+        {/* Streak badge */}
         {streak > 0 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(249,115,22,0.15)', border: '1px solid rgba(249,115,22,0.3)', borderRadius: 20, padding: '5px 12px' }}>
-            <span style={{ fontSize: 16 }}>🔥</span>
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: '#f97316', lineHeight: 1 }}>{streak}</div>
-              <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', letterSpacing: '0.05em' }}>{T.days}</div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(249,115,22,0.15)', border: '1px solid rgba(249,115,22,0.3)', borderRadius: 20, padding: '5px 12px' }}>
+              <span style={{ fontSize: 16 }}>🔥</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: '#f97316' }}>{streak} {T.days}</span>
             </div>
           </div>
         )}
-      </div>
-
-      <div style={{ paddingTop: 'var(--page-top)', paddingLeft: 16, paddingRight: 16, paddingBottom: 'var(--page-bottom)' }}>
 
         {/* Progress bar */}
         <div style={{ background: 'rgba(13,13,26,0.65)', border: '1px solid rgba(244,63,94,0.18)', borderRadius: 16, padding: '14px 16px', marginBottom: 14 }}>

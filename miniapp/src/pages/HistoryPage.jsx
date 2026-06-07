@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useTelegram }          from '../hooks/useTelegram'
 import { useSwipeToDismiss }    from '../hooks/useSwipeToDismiss'
+import { AppHeader }            from '../components/AppHeader/AppHeader'
 
 const TRAITS     = ['O', 'C', 'E', 'A', 'S']
 const TRAIT_RU   = { O:'Открытость', C:'Сознат.', E:'Экстравер.', A:'Доброжелат.', S:'Стабильность' }
@@ -112,12 +113,9 @@ export function HistoryPage({ lastResult, onBack, onStartTest }) {
 
   return (
     <div className="history-page swipe-page" ref={swipeRef} {...swipeHandlers}>
-      <div className="history-header">
-        <h2 className="history-title">{T.title}</h2>
-      </div>
-      <div className="history-header-spacer" />
+      <AppHeader />
 
-      <div style={{ padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={{ padding: '0 16px', paddingTop: 'var(--page-top)', display: 'flex', flexDirection: 'column', gap: 14 }}>
 
         {/* Счётчик */}
         <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', textAlign: 'center', marginTop: -6 }}>

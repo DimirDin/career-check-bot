@@ -5,6 +5,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useLocation } from '../context/NavigationContext'
 import { useTelegram } from '../hooks/useTelegram'
+import { AppHeader } from '../components/AppHeader/AppHeader'
 
 /* ─────────────────────────────────────────────
    AURORA V2 DESIGN TOKENS
@@ -186,50 +187,6 @@ function RadarChart({ scores = { O: 82, C: 65, E: 71, A: 88, N: 45 }, size = 118
         return <circle key={k} cx={p.x} cy={p.y} r="3.5" fill="#06b6d4" stroke="rgba(6,182,212,0.5)" strokeWidth="4" filter="url(#auroraRadarGlow)"/>
       })}
     </svg>
-  )
-}
-
-/* ─────────────────────────────────────────────
-   HEADER
-───────────────────────────────────────────── */
-function HeaderProfile({ user }) {
-  const initials = ((user.firstName?.[0] ?? '') + (user.lastName?.[0] ?? '')).toUpperCase() || '?'
-  return (
-    <div style={{
-      position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
-      background: 'rgba(5,5,11,0.82)',
-      backdropFilter: 'blur(20px)',
-      WebkitBackdropFilter: 'blur(20px)',
-      borderBottom: '1px solid rgba(124,58,237,0.14)',
-      padding: 'calc(10px + env(safe-area-inset-top, 0px)) 16px 12px',
-    }}>
-      {/* Имя по центру */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
-        <div style={{
-          width: 36, height: 36, borderRadius: 10, flexShrink: 0,
-          background: 'linear-gradient(135deg, rgba(124,58,237,0.3), rgba(6,182,212,0.2))',
-          border: '1px solid rgba(124,58,237,0.4)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 13, fontWeight: 700, color: '#a78bfa',
-          boxShadow: '0 0 12px rgba(124,58,237,0.25)',
-          letterSpacing: '0.03em',
-        }}>
-          {initials}
-        </div>
-        <div>
-          <div style={{
-            fontSize: 15, fontWeight: 600, lineHeight: 1.2,
-            background: 'linear-gradient(135deg, #e2e0f0, #a78bfa)',
-            WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
-          }}>
-            {user.firstName || 'Пользователь'}
-          </div>
-          <div style={{ fontSize: 10, color: T.textMuted, letterSpacing: '0.05em', marginTop: 1 }}>
-            ПРОФИЛЬ АКТИВЕН
-          </div>
-        </div>
-      </div>
-    </div>
   )
 }
 
@@ -446,12 +403,6 @@ export function MenuPage() {
     tg.setBackgroundColor?.('#05050b')
   }, [tg])
 
-  // Данные пользователя из Telegram
-  const userData = {
-    firstName: user?.first_name || tg?.initDataUnsafe?.user?.first_name || 'Пользователь',
-    lastName: user?.last_name || tg?.initDataUnsafe?.user?.last_name || '',
-  }
-
   // Проверяем есть ли результаты теста
   const testDone = !!localStorage.getItem('cc_test_done')
   const radarScores = { O: 82, C: 65, E: 71, A: 88, N: 45 }
@@ -531,8 +482,7 @@ export function MenuPage() {
         </div>
       </div>
 
-      {/* Fixed Header */}
-      <HeaderProfile user={userData}/>
+      <AppHeader />
     </div>
   )
 }

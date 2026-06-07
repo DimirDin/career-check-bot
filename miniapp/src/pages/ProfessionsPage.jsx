@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo, useCallback } from 'react'
 import { useTelegram } from '../hooks/useTelegram'
+import { AppHeader } from '../components/AppHeader/AppHeader'
 
 const RIASEC_LABELS_RU = { R:'Реалистичный', I:'Исследовательский', A:'Артистичный', S:'Социальный', E:'Предприимчивый', C:'Конвенциональный' }
 const RIASEC_LABELS_EN = { R:'Realistic', I:'Investigative', A:'Artistic', S:'Social', E:'Enterprising', C:'Conventional' }
@@ -91,13 +92,9 @@ export function ProfessionsPage({ userResults, onBack, onSelectProfession }) {
 
   return (
     <div className="profs-page">
-      {/* Header */}
-      <div className="profs-header">
-        <h2 className="profs-title">{T.title}</h2>
-        <span className="profs-count">{professions.length}</span>
-      </div>
-      <div className="profs-header-spacer" />
+      <AppHeader />
 
+      <div style={{ paddingTop: 'var(--page-top)' }}>
       {/* Search */}
       <div style={{ padding: '0 16px 8px' }}>
         <input
@@ -201,6 +198,7 @@ export function ProfessionsPage({ userResults, onBack, onSelectProfession }) {
       <div style={{ padding: '0 16px 16px' }}>
         <button className="btn-back-results" onClick={onBack}>{T.back}</button>
       </div>
+      </div>{/* /paddingTop wrapper */}
     </div>
   )
 }

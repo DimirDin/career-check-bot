@@ -74,6 +74,27 @@
 
   /* Universal page header height (matches MenuPage HEADER_H) */
   --header-h: 68px;
+
+  /* ── Единый отступ контента ───────────────────── */
+  /* Сверху: высота фиксированной шапки + notch устройства  */
+  --page-top:    calc(var(--header-h) + env(safe-area-inset-top, 0px));
+  /* Снизу: bottom nav + safe area нижнего края              */
+  --page-bottom: var(--bottom-nav-total);
+}
+
+/* ── Base page container ────────────────────────────────────────── */
+/* Применять на корневой div каждого экрана для единого отступа      */
+.page {
+  min-height: 100dvh;
+  padding-top: var(--page-top);
+  padding-bottom: var(--page-bottom);
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+/* Страница без кастомной шапки (QuizPage — шапка рисуется внутри) */
+.page--no-header {
+  padding-top: 0;
 }
 
 /* ── Reset ─────────────────────────────────────────────────────── */
@@ -1655,7 +1676,7 @@ html, body {
   flex: 1;
   overflow-y: auto;
   padding: 16px;
-  padding-top: calc(58px + env(safe-area-inset-top, 0px) + 16px);
+  padding-top: calc(var(--header-h) + env(safe-area-inset-top, 0px) + 16px);
   display: flex;
   flex-direction: column;
   gap: 10px;

@@ -456,13 +456,11 @@ export function MenuPage() {
   const testDone = !!localStorage.getItem('cc_test_done')
   const radarScores = { O: 82, C: 65, E: 71, A: 88, N: 45 }
 
-  const HEADER_H = 68
-
   return (
     <div style={{
       minHeight: '100dvh',
       background: 'linear-gradient(160deg, #05050b 0%, #0c0c1e 60%, #08081a 100%)',
-      paddingTop: `calc(${HEADER_H}px + env(safe-area-inset-top, 0px))`,
+      paddingTop: 'var(--page-top)',
       paddingLeft: 14, paddingRight: 14,
       overflowY: 'auto',
       WebkitOverflowScrolling: 'touch',

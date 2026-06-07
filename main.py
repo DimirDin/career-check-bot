@@ -139,10 +139,10 @@ async def main() -> None:
 
         # Команды меню
         await bot.set_my_commands([
-            BotCommand(command="start",            description="🚀 Открыть CareerCheck"),
-            BotCommand(command="refer",            description="👥 Реферальная ссылка"),
-            BotCommand(command="challenges",       description="🎯 Ежедневные задания"),
-            BotCommand(command="help",             description="❓ Помощь"),
+            BotCommand(command="start",      description="🏠 Главное меню"),
+            BotCommand(command="challenges", description="🎯 Ежедневные задания"),
+            BotCommand(command="refer",      description="👥 Пригласить друга (+бонус)"),
+            BotCommand(command="help",       description="❓ Помощь и FAQ"),
         ])
 
         # Кнопка снизу чата открывает Mini App

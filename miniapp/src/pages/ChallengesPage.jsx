@@ -117,7 +117,7 @@ export function ChallengesPage({ onBack }) {
         )}
       </div>
 
-      <div style={{ paddingTop: 84, paddingLeft: 16, paddingRight: 16, paddingBottom: 24 }}>
+      <div style={{ paddingTop: 'var(--page-top)', paddingLeft: 16, paddingRight: 16, paddingBottom: 'var(--page-bottom)' }}>
 
         {/* Progress bar */}
         <div style={{ background: 'rgba(13,13,26,0.65)', border: '1px solid rgba(244,63,94,0.18)', borderRadius: 16, padding: '14px 16px', marginBottom: 14 }}>

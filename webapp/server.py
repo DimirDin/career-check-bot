@@ -789,11 +789,13 @@ async def referral_progress(init_data: str, request: Request):
             "SELECT COUNT(*) FROM purchases WHERE telegram_id = $1 AND payload = 'referral_bonus'",
             user["id"]
         ) or 0
+    bot_username = os.getenv("BOT_USERNAME", "CareerCheck_Bot")
     return {
         "count":   int(completed),
         "total":   int(total),
         "needed":  3,
         "granted": granted > 0,
+        "link":    f"https://t.me/{bot_username}?start=ref_{user['id']}",
     }
 
 

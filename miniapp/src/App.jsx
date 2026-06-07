@@ -70,12 +70,12 @@ const ROUTE_MAP = {
   '/results':     SCREEN.RESULTS,
   '/welcome':     SCREEN.WELCOME,
   '/premium':     SCREEN.PREMIUM_PROMO,
-  '/professions': SCREEN.COMING_SOON,
+  '/professions': SCREEN.PROFESSIONS,
   '/history':     SCREEN.HISTORY,
   '/ai-chat':     SCREEN.AI_CHAT,
   '/settings':    SCREEN.SETTINGS,
-  '/professions': SCREEN.PROFESSIONS,
-  '/settings':    SCREEN.COMING_SOON,
+  '/challenges':  SCREEN.COMING_SOON,
+  '/comparison':  SCREEN.COMPARISON,
   '/support':     SCREEN.COMING_SOON,
 }
 

@@ -22,7 +22,7 @@ const TABS = [
   {
     id: 'test',
     label: 'Тест',
-    path: '/quick-test',
+    path: '/test',
     icon: (active) => (
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
         <polygon
@@ -37,22 +37,38 @@ const TABS = [
     ),
   },
   {
-    id: 'history',
-    label: 'История',
-    path: '/history',
+    id: 'catalog',
+    label: 'Каталог',
+    path: '/professions',
     icon: (active) => (
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-        <circle
-          cx="12" cy="12" r="9"
-          stroke={active ? '#6C5CE7' : '#8B8FA8'}
+        <rect
+          x="3" y="3" width="18" height="18" rx="3"
+          stroke={active ? '#06b6d4' : '#8B8FA8'}
           strokeWidth="2"
-          fill={active ? 'rgba(108,92,231,0.15)' : 'none'}
+          fill={active ? 'rgba(6,182,212,0.12)' : 'none'}
         />
-        <polyline
-          points="12,7 12,12 15,15"
-          stroke={active ? '#6C5CE7' : '#8B8FA8'}
+        <path
+          d="M7 8h10M7 12h10M7 16h6"
+          stroke={active ? '#06b6d4' : '#8B8FA8'}
           strokeWidth="2"
           strokeLinecap="round"
+        />
+      </svg>
+    ),
+  },
+  {
+    id: 'challenges',
+    label: 'Задания',
+    path: '/challenges',
+    icon: (active) => (
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+        <path
+          d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6L12 2z"
+          stroke={active ? '#f43f5e' : '#8B8FA8'}
+          strokeWidth="2"
+          strokeLinejoin="round"
+          fill={active ? 'rgba(244,63,94,0.12)' : 'none'}
         />
       </svg>
     ),
@@ -80,11 +96,11 @@ const TABS = [
   },
 ]
 
-// Маппинг путей → активный таб
 function resolveActiveTab(current) {
   if (!current || current === '/menu' || current === '/') return 'home'
-  if (current.startsWith('/quick-test') || current.startsWith('/test') || current.startsWith('/results') || current.startsWith('/quiz')) return 'test'
-  if (current.startsWith('/history')) return 'history'
+  if (current.startsWith('/test') || current.startsWith('/results') || current.startsWith('/quiz') || current.startsWith('/quick')) return 'test'
+  if (current.startsWith('/professions')) return 'catalog'
+  if (current.startsWith('/challenges')) return 'challenges'
   if (current.startsWith('/settings') || current.startsWith('/profile')) return 'profile'
   return 'home'
 }

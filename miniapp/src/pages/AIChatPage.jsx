@@ -5,6 +5,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useTelegram } from '../hooks/useTelegram'
 import { track }       from '../hooks/useAnalytics'
+import { AppHeader }   from '../components/AppHeader/AppHeader'
 
 const BOT_LINK = 'https://t.me/CareerCheck_Bot?start=premium'
 
@@ -114,13 +115,7 @@ export function AIChatPage({ onBack }) {
 
   return (
     <div className="chat-page">
-      {/* Header */}
-      <div className="chat-header">
-        <h2 className="chat-title">{T.title}</h2>
-        {remaining !== null && !exceeded && (
-          <span className="chat-quota">{T.free(remaining)}</span>
-        )}
-      </div>
+      <AppHeader />
 
       {/* Messages */}
       <div className="chat-messages">

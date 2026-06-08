@@ -108,6 +108,15 @@ function resolveActiveTab(current) {
 export function BottomNav() {
   const { navigate, current } = useContext(NavigationContext)
   const activeTab = resolveActiveTab(current)
+  const testDone = !!localStorage.getItem('cc_test_done')
+
+  function handleTabClick(tab) {
+    if (tab.id === 'test' && testDone) {
+      navigate('/test-hub')
+    } else {
+      navigate(tab.path)
+    }
+  }
 
   return (
     <nav className="bottom-nav" role="navigation" aria-label="Основная навигация">
@@ -117,7 +126,7 @@ export function BottomNav() {
           <button
             key={tab.id}
             className={`bottom-nav__tab${isActive ? ' bottom-nav__tab--active' : ''}`}
-            onClick={() => navigate(tab.path)}
+            onClick={() => handleTabClick(tab)}
             aria-label={tab.label}
             aria-current={isActive ? 'page' : undefined}
           >

@@ -43,17 +43,20 @@ async def update_menu_button_for_user(bot: Bot, user_id: int, pool: asyncpg.Pool
     - Тест пройден    → "📊 Мои результаты"
     """
     domain = os.getenv("DOMAIN", "careercheck.app")
-    url = f"https://{domain}"
+    base_url = f"https://{domain}"
     try:
         user     = await get_user(pool, user_id)
         progress = await get_progress(pool, user["id"]) if user else None
 
         if progress and 0 < progress.get("current_question", 0) < 60:
             text = "▶️ Продолжить тест"
+            url  = base_url
         elif user and user.get("test_completed"):
             text = "📊 Мои результаты"
+            url  = f"{base_url}?start=results"
         else:
             text = "🚀 Начать тест"
+            url  = base_url
 
         await bot.set_chat_menu_button(
             chat_id=user_id,

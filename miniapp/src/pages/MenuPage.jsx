@@ -2,7 +2,7 @@
  * CareerCheck · AURORA V2 — MenuPage.jsx
  */
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate, useLocation } from '../context/NavigationContext'
 import { useTelegram } from '../hooks/useTelegram'
 import { AppHeader } from '../components/AppHeader/AppHeader'
@@ -307,14 +307,29 @@ const CARDS = [
 
 function QuickActionsGrid({ navigate }) {
   const [pressed, setPressed] = useState(null)
+  const touchStart = useRef(null)
+
+  function onTouchStart(e, id) {
+    setPressed(id)
+    touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
+  }
+
+  function onTouchEnd(e, route) {
+    setPressed(null)
+    if (!touchStart.current) return
+    const dx = Math.abs(e.changedTouches[0].clientX - touchStart.current.x)
+    const dy = Math.abs(e.changedTouches[0].clientY - touchStart.current.y)
+    if (dx < 8 && dy < 8) navigate(route)  // только если не было движения
+    touchStart.current = null
+  }
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12, marginBottom: 14 }}>
       {CARDS.map((card) => (
         <div key={card.id} className="aurora-no-select"
-          onTouchStart={() => setPressed(card.id)}
-          onTouchEnd={() => { setPressed(null); navigate(card.route) }}
-          onTouchCancel={() => setPressed(null)}
+          onTouchStart={(e) => onTouchStart(e, card.id)}
+          onTouchEnd={(e) => onTouchEnd(e, card.route)}
+          onTouchCancel={() => { setPressed(null); touchStart.current = null }}
           onClick={() => navigate(card.route)}
           style={{
             background: 'rgba(13,13,26,0.65)',

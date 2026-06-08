@@ -81,7 +81,7 @@ export function SettingsPage({ onBack }) {
     copyLink:       isRu ? 'Копировать ссылку' : 'Copy link',
     copied:         isRu ? 'Скопировано!' : 'Copied!',
     about:          isRu ? 'О приложении'           : 'About',
-    version:        'CareerCheck v2.1',
+    version:        'CareerCheck v3.0',
     support:        isRu ? 'Поддержка' : 'Support',
     supportLink:    '@CareerCheckSupport',
     privacy:        isRu ? 'Тест основан на научной модели Big Five (OCEAN).\nДанные хранятся анонимно.' : 'Test based on the scientific Big Five (OCEAN) model.\nData stored anonymously.',

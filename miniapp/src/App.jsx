@@ -44,6 +44,7 @@ const SCREEN = {
   CHALLENGES:     'challenges',
   COMING_SOON:    'coming_soon',
   PREMIUM_PROMO:  'premium_promo',
+  TEST_HUB:       'test_hub',
   ERROR:        'error',
 }
 
@@ -69,6 +70,7 @@ function setCachedQuestions(lang, questions) {
 const ROUTE_MAP = {
   '/menu':        SCREEN.MENU,
   '/test':        SCREEN.QUIZ,
+  '/test-hub':    SCREEN.TEST_HUB,
   '/results':     SCREEN.RESULTS,
   '/welcome':     SCREEN.WELCOME,
   '/premium':     SCREEN.PREMIUM_PROMO,
@@ -96,10 +98,12 @@ export default function App() {
   const targetScreenRef = useRef(SCREEN.MENU)
 
   // ── Навигация ────────────────────────────────────────────────────────────
-  const navigate = useCallback((path) => {
+  const navigate = useCallback((path, opts = {}) => {
     if (path === '/test') {
-      // Сбрасываем старый прогресс чтобы не начинать с прерванного места
-      localStorage.removeItem('cc_progress')
+      if (opts.fresh) {
+        // Явный запрос начать заново — сбрасываем прогресс
+        localStorage.removeItem('cc_progress')
+      }
       if (!localStorage.getItem('cc_onboarding_done')) {
         setRoute('/test')
         setScreen(SCREEN.ONBOARDING)
@@ -140,11 +144,15 @@ export default function App() {
         }
       }
 
-      // N2: обрабатываем start_param для comparison
+      // N2: обрабатываем start_param для comparison или deep-link
       const startParam = tg?.initDataUnsafe?.start_param || ''
+      // Также проверяем query-параметр ?start=results (от кнопки бота)
+      const urlStart = new URLSearchParams(window.location.search).get('start') || ''
       if (startParam.startsWith('compare_')) {
         setCompareHash(startParam.replace('compare_', ''))
         targetScreenRef.current = SCREEN.COMPARISON
+      } else if (startParam === 'results' || urlStart === 'results') {
+        targetScreenRef.current = SCREEN.RESULTS
       } else {
         targetScreenRef.current = SCREEN.MENU
       }
@@ -204,6 +212,18 @@ export default function App() {
           <QuizPage
             questions={questions}
             onFinish={handleFinish}
+            onBack={() => navigate('/menu')}
+          />
+        )
+      case SCREEN.TEST_HUB:
+        return (
+          <TestHubScreen
+            results={results}
+            onViewResults={() => navigate('/results')}
+            onRetake={() => navigate('/test', { fresh: true })}
+            onPremium={() => navigate('/premium')}
+            onBack={() => navigate('/menu')}
+            tg={tg}
           />
         )
       case SCREEN.RESULTS:
@@ -311,7 +331,7 @@ export default function App() {
 
   // V3: экраны без transition-анимации (у них своя)
   const NO_TRANSITION = [SCREEN.SPLASH, SCREEN.QUIZ, SCREEN.QUICK_TEST]
-  const transitionKey = NO_TRANSITION.includes(screen) ? undefined : screen
+  const transitionKey = NO_TRANSITION.includes(screen) ? undefined : screen // eslint-disable-line
 
   // Экраны без BottomNav
   const NO_BOTTOM_NAV = [
@@ -374,6 +394,88 @@ const COMING_LABELS = {
   '/history':     { emoji: '🔄', title: 'История тестов', sub: 'Скоро — все ваши прохождения в одном месте' },
   '/settings':    { emoji: '⚙️', title: 'Настройки', sub: 'Скоро — язык, уведомления, профиль' },
   '/support':     { emoji: '❓', title: 'Помощь', sub: 'По всем вопросам: @CareerCheckSupport' },
+}
+
+function TestHubScreen({ results, onViewResults, onRetake, onPremium, onBack, tg }) {
+  useEffect(() => {
+    if (!tg) return
+    tg.BackButton.show()
+    tg.BackButton.onClick(onBack)
+    return () => { tg.BackButton.offClick(onBack); tg.BackButton.hide() }
+  }, [tg, onBack])
+
+  const hasResult = !!results?.normalized_scores
+  const top1 = results?.top_professions?.[0]
+
+  return (
+    <div style={{
+      minHeight: '100dvh',
+      background: 'linear-gradient(160deg, #05050b 0%, #0c0c1e 60%, #08081a 100%)',
+      color: '#f0eeff',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '24px 20px',
+      gap: 16,
+    }}>
+      <div style={{ fontSize: 52, marginBottom: 8 }}>🧬</div>
+      <h2 style={{ margin: 0, fontSize: 22, fontWeight: 800, textAlign: 'center' }}>
+        {hasResult ? 'Тест пройден' : 'Карьерный тест'}
+      </h2>
+      {hasResult && top1 && (
+        <div style={{
+          background: 'rgba(124,58,237,0.12)',
+          border: '1px solid rgba(124,58,237,0.3)',
+          borderRadius: 16,
+          padding: '14px 20px',
+          textAlign: 'center',
+          width: '100%',
+          maxWidth: 320,
+        }}>
+          <div style={{ fontSize: 11, color: '#9b97c0', letterSpacing: '0.1em', marginBottom: 6, textTransform: 'uppercase' }}>
+            Лучшее совпадение
+          </div>
+          <div style={{ fontSize: 18, fontWeight: 700, color: '#a78bfa' }}>{top1.title}</div>
+          <div style={{ fontSize: 14, color: '#22d3a5', marginTop: 4 }}>{top1.match}% совпадение</div>
+        </div>
+      )}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%', maxWidth: 320 }}>
+        {hasResult && (
+          <button onClick={onViewResults} style={{
+            background: 'linear-gradient(135deg, #7c3aed, #06b6d4)',
+            border: 'none', borderRadius: 14, padding: '14px',
+            color: '#fff', fontSize: 15, fontWeight: 700, cursor: 'pointer',
+            boxShadow: '0 4px 20px rgba(124,58,237,0.4)',
+          }}>
+            📊 Мои результаты
+          </button>
+        )}
+        {hasResult && (
+          <button onClick={onPremium} style={{
+            background: 'rgba(251,191,36,0.1)',
+            border: '1px solid rgba(251,191,36,0.35)', borderRadius: 14, padding: '13px',
+            color: '#fbbf24', fontSize: 15, fontWeight: 600, cursor: 'pointer',
+          }}>
+            ⭐ Получить Premium PDF
+          </button>
+        )}
+        <button onClick={onRetake} style={{
+          background: 'rgba(255,255,255,0.06)',
+          border: '1px solid rgba(255,255,255,0.12)', borderRadius: 14, padding: '13px',
+          color: '#9b97c0', fontSize: 14, fontWeight: 600, cursor: 'pointer',
+        }}>
+          🔄 Пройти тест заново
+        </button>
+      </div>
+      <button onClick={onBack} style={{
+        background: 'none', border: 'none', cursor: 'pointer',
+        color: '#5a5878', fontSize: 13, marginTop: 4,
+      }}>
+        ← Назад в меню
+      </button>
+    </div>
+  )
 }
 
 function ComingSoonScreen({ route, onBack, tg }) {

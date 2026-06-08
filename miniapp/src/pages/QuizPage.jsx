@@ -5,25 +5,22 @@ import { track } from '../hooks/useAnalytics'
 
 const SCORE_LABELS = ['Совсем нет', 'Скорее нет', 'Нейтрально', 'Скорее да', 'Полностью да']
 
-// Киберпанк цвета для каждой черты
 const TRAIT_COLORS = {
-  O: { primary: '#06b6d4', glow: 'rgba(6,182,212,0.4)',  bg: 'rgba(6,182,212,0.08)',  label: 'Открытость' },
-  C: { primary: '#7c3aed', glow: 'rgba(124,58,237,0.4)', bg: 'rgba(124,58,237,0.08)', label: 'Добросовестность' },
-  E: { primary: '#fbbf24', glow: 'rgba(251,191,36,0.4)', bg: 'rgba(251,191,36,0.08)', label: 'Экстраверсия' },
-  A: { primary: '#22d3a5', glow: 'rgba(34,211,165,0.4)', bg: 'rgba(34,211,165,0.08)', label: 'Доброжелательность' },
-  S: { primary: '#f43f5e', glow: 'rgba(244,63,94,0.4)',  bg: 'rgba(244,63,94,0.08)',  label: 'Стабильность' },
+  O: { primary: '#06b6d4', glow: 'rgba(6,182,212,0.5)',  bg: 'rgba(6,182,212,0.08)',  label: 'Открытость' },
+  C: { primary: '#a78bfa', glow: 'rgba(167,139,250,0.5)', bg: 'rgba(167,139,250,0.08)', label: 'Добросов.' },
+  E: { primary: '#fbbf24', glow: 'rgba(251,191,36,0.5)', bg: 'rgba(251,191,36,0.08)', label: 'Экстраверсия' },
+  A: { primary: '#22d3a5', glow: 'rgba(34,211,165,0.5)', bg: 'rgba(34,211,165,0.08)', label: 'Дружелюбие' },
+  S: { primary: '#f43f5e', glow: 'rgba(244,63,94,0.5)',  bg: 'rgba(244,63,94,0.08)',  label: 'Стабильность' },
 }
+
+const SCORE_COLORS = ['#ef4444', '#f97316', '#eab308', '#84cc16', '#22c55e']
 
 const PROGRESS_KEY = 'cc_progress'
 const MILESTONES   = [20, 40]
 
 export function saveProgress(questionIndex, answers) {
   try {
-    localStorage.setItem(PROGRESS_KEY, JSON.stringify({
-      questionIndex,
-      answers,
-      ts: Date.now(),
-    }))
+    localStorage.setItem(PROGRESS_KEY, JSON.stringify({ questionIndex, answers, ts: Date.now() }))
   } catch {}
 }
 
@@ -32,309 +29,13 @@ export function loadProgress() {
     const raw = localStorage.getItem(PROGRESS_KEY)
     if (!raw) return null
     const { questionIndex, answers, ts } = JSON.parse(raw)
-    if (Date.now() - ts > 86400 * 1000) {
-      localStorage.removeItem(PROGRESS_KEY)
-      return null
-    }
+    if (Date.now() - ts > 86400 * 1000) { localStorage.removeItem(PROGRESS_KEY); return null }
     return { questionIndex, answers }
-  } catch {
-    return null
-  }
+  } catch { return null }
 }
 
 export function clearProgress() {
   try { localStorage.removeItem(PROGRESS_KEY) } catch {}
-}
-
-// CSS для киберпанк-анимаций — инжектируется один раз
-const QUIZ_CSS = `
-  @keyframes quiz-neon-pulse {
-    0%, 100% { box-shadow: 0 0 8px var(--qt-glow), 0 0 20px var(--qt-glow), inset 0 0 8px rgba(0,0,0,0.3); }
-    50%       { box-shadow: 0 0 16px var(--qt-glow), 0 0 40px var(--qt-glow), inset 0 0 12px rgba(0,0,0,0.3); }
-  }
-  @keyframes quiz-border-flow {
-    0%   { background-position: 0% 50%; }
-    100% { background-position: 200% 50%; }
-  }
-  @keyframes quiz-slide-in {
-    from { opacity: 0; transform: translateX(48px); }
-    to   { opacity: 1; transform: translateX(0); }
-  }
-  @keyframes quiz-slide-out-left {
-    from { opacity: 1; transform: translateX(0); }
-    to   { opacity: 0; transform: translateX(-48px); }
-  }
-  @keyframes quiz-slide-out-right {
-    from { opacity: 1; transform: translateX(0); }
-    to   { opacity: 0; transform: translateX(48px); }
-  }
-  @keyframes quiz-ripple {
-    0%   { transform: scale(0); opacity: 0.6; }
-    100% { transform: scale(2.5); opacity: 0; }
-  }
-  @keyframes quiz-progress-glow {
-    0%, 100% { filter: blur(3px) brightness(1); }
-    50%       { filter: blur(5px) brightness(1.4); }
-  }
-  @keyframes quiz-particle {
-    0%   { transform: translateY(0) translateX(0) scale(1); opacity: 0.6; }
-    100% { transform: translateY(-60px) translateX(var(--px)) scale(0); opacity: 0; }
-  }
-  @keyframes quiz-counter-pop {
-    0%   { transform: scale(1); }
-    40%  { transform: scale(1.25); }
-    100% { transform: scale(1); }
-  }
-  @keyframes quiz-btn-select {
-    0%   { transform: scale(1); }
-    30%  { transform: scale(0.96); }
-    70%  { transform: scale(1.02); }
-    100% { transform: scale(1); }
-  }
-
-  .quiz-cyber-page {
-    display: flex;
-    flex-direction: column;
-    min-height: 100dvh;
-    background: linear-gradient(160deg, #020208 0%, #080818 50%, #050512 100%);
-    overflow: hidden;
-    position: relative;
-  }
-
-  /* Header */
-  .quiz-cyber-header {
-    position: fixed;
-    top: 0; left: 0; right: 0;
-    z-index: 100;
-    background: rgba(2,2,8,0.88);
-    backdrop-filter: blur(24px);
-    -webkit-backdrop-filter: blur(24px);
-    border-bottom: 1px solid rgba(6,182,212,0.15);
-    padding: calc(10px + env(safe-area-inset-top, 0px)) 16px 10px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-  }
-  .quiz-cyber-back-btn {
-    display: flex; align-items: center; gap: 6px;
-    background: rgba(6,182,212,0.08);
-    border: 1px solid rgba(6,182,212,0.25);
-    border-radius: 10px;
-    padding: 7px 12px;
-    color: #06b6d4;
-    font-size: 13px; font-weight: 600;
-    cursor: pointer;
-    transition: background 0.15s, border-color 0.15s;
-    white-space: nowrap;
-    flex-shrink: 0;
-  }
-  .quiz-cyber-back-btn:active { background: rgba(6,182,212,0.18); }
-
-  .quiz-cyber-counter {
-    display: flex; align-items: baseline; gap: 3px;
-    flex-shrink: 0;
-  }
-  .quiz-cyber-num {
-    font-size: 22px; font-weight: 800;
-    background: linear-gradient(135deg, #06b6d4, #a78bfa);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    line-height: 1;
-  }
-  .quiz-cyber-total {
-    font-size: 13px; color: rgba(255,255,255,0.3); font-weight: 500;
-  }
-
-  /* Progress bar */
-  .quiz-cyber-progress-wrap {
-    position: relative;
-    height: 4px;
-    background: rgba(255,255,255,0.06);
-    margin-top: 1px;
-  }
-  .quiz-cyber-progress-fill {
-    position: absolute;
-    top: 0; left: 0; bottom: 0;
-    background: linear-gradient(90deg, #7c3aed, #06b6d4, #a78bfa);
-    background-size: 200% 100%;
-    animation: quiz-border-flow 3s linear infinite;
-    transition: width 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-    border-radius: 0 2px 2px 0;
-  }
-  .quiz-cyber-progress-glow {
-    position: absolute;
-    top: -2px; bottom: -2px;
-    right: 0;
-    width: 16px;
-    background: linear-gradient(90deg, transparent, #06b6d4);
-    filter: blur(3px);
-    animation: quiz-progress-glow 1.5s ease-in-out infinite;
-    border-radius: 2px;
-  }
-
-  /* Trait badge */
-  .quiz-cyber-trait {
-    flex: 1;
-    display: flex;
-    justify-content: center;
-  }
-  .quiz-cyber-trait-chip {
-    font-size: 10px; font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    padding: 4px 10px;
-    border-radius: 20px;
-    border: 1px solid var(--qt-primary);
-    color: var(--qt-primary);
-    background: var(--qt-bg);
-    box-shadow: 0 0 8px var(--qt-glow);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 160px;
-  }
-
-  /* Spacer under fixed header */
-  .quiz-cyber-header-spacer {
-    flex-shrink: 0;
-    height: calc(68px + 4px + env(safe-area-inset-top, 0px));
-  }
-
-  /* Body */
-  .quiz-cyber-body {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    padding: 16px 16px 0;
-  }
-
-  /* Question card */
-  .quiz-cyber-card {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 28px 24px;
-    background: rgba(8,8,24,0.7);
-    border-radius: 20px;
-    border: 1px solid var(--qt-primary);
-    box-shadow: 0 0 12px var(--qt-glow), 0 0 32px rgba(0,0,0,0.6), inset 0 0 20px rgba(0,0,0,0.3);
-    position: relative;
-    overflow: hidden;
-    animation: quiz-neon-pulse 2.5s ease-in-out infinite;
-    margin-bottom: 16px;
-  }
-  .quiz-cyber-card::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: radial-gradient(ellipse at top right, var(--qt-bg) 0%, transparent 60%);
-    pointer-events: none;
-  }
-  .quiz-cyber-card-text {
-    font-size: 19px;
-    font-weight: 500;
-    line-height: 1.55;
-    color: #f0eeff;
-    text-align: center;
-    position: relative;
-    z-index: 1;
-  }
-
-  /* Card animation classes */
-  .quiz-cyber-card.anim-in    { animation: quiz-slide-in 0.25s cubic-bezier(0.34,1.56,0.64,1) both, quiz-neon-pulse 2.5s ease-in-out 0.25s infinite; }
-  .quiz-cyber-card.anim-out-l { animation: quiz-slide-out-left  0.2s ease both; }
-  .quiz-cyber-card.anim-out-r { animation: quiz-slide-out-right 0.2s ease both; }
-
-  /* Answer buttons */
-  .quiz-cyber-answers {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    padding: 0 0 calc(24px + env(safe-area-inset-bottom, 0px));
-  }
-  .quiz-cyber-answer {
-    position: relative;
-    overflow: hidden;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    background: rgba(8,8,24,0.75);
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 14px;
-    padding: 13px 16px;
-    cursor: pointer;
-    transition: border-color 0.18s, background 0.18s, transform 0.12s;
-    color: #f0eeff;
-    text-align: left;
-    -webkit-tap-highlight-color: transparent;
-  }
-  .quiz-cyber-answer:active { transform: scale(0.98); }
-  .quiz-cyber-answer.selected {
-    border-color: var(--qt-primary);
-    background: var(--qt-bg);
-    box-shadow: 0 0 12px var(--qt-glow), inset 0 0 8px rgba(0,0,0,0.2);
-    animation: quiz-btn-select 0.3s ease;
-  }
-  .quiz-cyber-answer-num {
-    width: 32px; height: 32px;
-    border-radius: 50%;
-    border: 1.5px solid rgba(255,255,255,0.15);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 14px; font-weight: 700;
-    color: rgba(255,255,255,0.4);
-    flex-shrink: 0;
-    transition: border-color 0.18s, color 0.18s, background 0.18s;
-  }
-  .quiz-cyber-answer.selected .quiz-cyber-answer-num {
-    border-color: var(--qt-primary);
-    color: var(--qt-primary);
-    background: var(--qt-bg);
-    box-shadow: 0 0 8px var(--qt-glow);
-  }
-  .quiz-cyber-answer-label {
-    font-size: 14px;
-    color: rgba(255,255,255,0.5);
-    transition: color 0.18s;
-  }
-  .quiz-cyber-answer.selected .quiz-cyber-answer-label {
-    color: #f0eeff;
-  }
-  /* Ripple */
-  .quiz-cyber-ripple {
-    position: absolute;
-    width: 80px; height: 80px;
-    border-radius: 50%;
-    background: var(--qt-primary);
-    opacity: 0;
-    transform: scale(0);
-    animation: quiz-ripple 0.5s ease-out forwards;
-    pointer-events: none;
-    margin-left: -40px; margin-top: -40px;
-  }
-
-  /* Floating particles */
-  .quiz-cyber-particle {
-    position: fixed;
-    width: 4px; height: 4px;
-    border-radius: 50%;
-    background: var(--qt-primary, #06b6d4);
-    pointer-events: none;
-    z-index: 0;
-    opacity: 0;
-    animation: quiz-particle 1.2s ease-out forwards;
-  }
-`
-
-let quizCssInjected = false
-function injectQuizCSS() {
-  if (quizCssInjected) return
-  quizCssInjected = true
-  const s = document.createElement('style')
-  s.textContent = QUIZ_CSS
-  document.head.appendChild(s)
 }
 
 export function QuizPage({ questions, onFinish, onBack }) {
@@ -351,16 +52,13 @@ export function QuizPage({ questions, onFinish, onBack }) {
   const [animDir,       setAnimDir]       = useState('in')
   const [transitioning, setTransitioning] = useState(false)
   const [milestone,     setMilestone]     = useState(null)
-  const [ripples,       setRipples]       = useState([])
-  const [counterAnim,   setCounterAnim]   = useState(false)
-  const prefetchedRef   = useRef(false)
+  const prefetchedRef = useRef(false)
 
-  const q        = questions[current]
-  const trait    = q?.trait || 'O'
-  const tc       = TRAIT_COLORS[trait] || TRAIT_COLORS.O
-  const progress = (current / questions.length) * 100
+  const q       = questions[current]
+  const trait   = q?.trait || 'O'
+  const tc      = TRAIT_COLORS[trait] || TRAIT_COLORS.O
+  const pct     = Math.round((current / questions.length) * 100)
 
-  useEffect(() => { injectQuizCSS() }, [])
   useEffect(() => { track('test_start') }, [])
   useEffect(() => {
     if (current === 10) track('q10_answered')
@@ -378,44 +76,21 @@ export function QuizPage({ questions, onFinish, onBack }) {
   useEffect(() => {
     setAnimDir('in')
     setSelected(null)
-    setCounterAnim(true)
-    const t = setTimeout(() => setCounterAnim(false), 300)
-    return () => clearTimeout(t)
   }, [current])
 
-  const addRipple = useCallback((e, btnEl) => {
-    const rect   = btnEl.getBoundingClientRect()
-    const touch  = e.touches?.[0] || e
-    const x      = (touch.clientX - rect.left)
-    const y      = (touch.clientY - rect.top)
-    const id     = Date.now()
-    setRipples(r => [...r, { id, x, y }])
-    setTimeout(() => setRipples(r => r.filter(rp => rp.id !== id)), 600)
-  }, [])
-
-  const handleSelect = useCallback(async (score, e) => {
+  const handleSelect = useCallback(async (score) => {
     if (transitioning || milestone) return
-
-    // Ripple
-    if (e?.currentTarget) addRipple(e, e.currentTarget)
-
     if (score <= 2)       haptic.light?.()
     else if (score === 3) haptic.medium?.()
     else                  haptic.rigid?.()
     setSelected(score)
 
-    const newAnswer = {
-      question_id: q.id,
-      trait:       q.trait,
-      score,
-      is_inverted: q.is_inverted,
-    }
-
-    await new Promise(r => setTimeout(r, 240))
+    const newAnswer = { question_id: q.id, trait: q.trait, score, is_inverted: q.is_inverted }
+    await new Promise(r => setTimeout(r, 230))
 
     setTransitioning(true)
     setAnimDir('out-left')
-    await new Promise(r => setTimeout(r, 200))
+    await new Promise(r => setTimeout(r, 190))
 
     const newAnswers = [...answers, newAnswer]
     setAnswers(newAnswers)
@@ -441,14 +116,14 @@ export function QuizPage({ questions, onFinish, onBack }) {
 
     setCurrent(nextIdx)
     setTransitioning(false)
-  }, [transitioning, milestone, current, answers, q, haptic, onFinish, questions.length, addRipple])
+  }, [transitioning, milestone, current, answers, q, haptic, onFinish, questions.length])
 
   const handleBack = useCallback(async () => {
     if (current === 0 || transitioning || milestone) return
     haptic.light?.()
     setTransitioning(true)
     setAnimDir('out-right')
-    await new Promise(r => setTimeout(r, 200))
+    await new Promise(r => setTimeout(r, 190))
     const prevAnswers = answers.slice(0, -1)
     setAnswers(prevAnswers)
     const prevIdx = current - 1
@@ -457,112 +132,253 @@ export function QuizPage({ questions, onFinish, onBack }) {
     setTransitioning(false)
   }, [current, transitioning, milestone, answers, haptic])
 
-  const animClass = {
-    'in':         'anim-in',
-    'out-left':   'anim-out-l',
-    'out-right':  'anim-out-r',
+  const animStyle = {
+    'in':         { animation: 'qSlideIn 0.28s cubic-bezier(0.34,1.56,0.64,1) both' },
+    'out-left':   { animation: 'qSlideOutL 0.19s ease both' },
+    'out-right':  { animation: 'qSlideOutR 0.19s ease both' },
   }[animDir]
-
-  const cssVars = {
-    '--qt-primary': tc.primary,
-    '--qt-glow':    tc.glow,
-    '--qt-bg':      tc.bg,
-  }
 
   if (!q) return null
 
   return (
-    <div className="quiz-cyber-page" style={cssVars}>
+    <>
+      <style>{`
+        @keyframes qSlideIn    { from { opacity:0; transform: translateX(40px) } to { opacity:1; transform:translateX(0) } }
+        @keyframes qSlideOutL  { from { opacity:1; transform: translateX(0)    } to { opacity:0; transform:translateX(-40px) } }
+        @keyframes qSlideOutR  { from { opacity:1; transform: translateX(0)    } to { opacity:0; transform:translateX(40px) } }
+        @keyframes qNeonPulse  {
+          0%,100% { box-shadow: 0 0 10px ${tc.glow}, 0 0 24px ${tc.glow}; }
+          50%     { box-shadow: 0 0 20px ${tc.glow}, 0 0 48px ${tc.glow}; }
+        }
+        @keyframes qBarShimmer {
+          0%   { background-position: -200% center; }
+          100% { background-position: 200% center; }
+        }
+        @keyframes qBtnPop {
+          0%  { transform: scale(1); }
+          35% { transform: scale(0.96); }
+          70% { transform: scale(1.02); }
+          100%{ transform: scale(1); }
+        }
+      `}</style>
 
-      {/* Fixed header */}
-      <div className="quiz-cyber-header">
-        <button className="quiz-cyber-back-btn" onClick={onBack}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M19 12H5M12 5l-7 7 7 7"/>
-          </svg>
-          Меню
-        </button>
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        minHeight: '100dvh',
+        background: 'linear-gradient(170deg, #04040e 0%, #08081a 55%, #060614 100%)',
+        overflowX: 'hidden',
+      }}>
 
-        <div className="quiz-cyber-trait">
-          <div className="quiz-cyber-trait-chip" style={cssVars}>
-            {tc.label}
+        {/* ── Заголовок (как AppHeader — те же отступы) ── */}
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0,
+          zIndex: 200,
+          background: 'rgba(4,4,14,0.88)',
+          backdropFilter: 'blur(22px)',
+          WebkitBackdropFilter: 'blur(22px)',
+          borderBottom: `1px solid ${tc.primary}28`,
+          padding: 'calc(10px + env(safe-area-inset-top, 0px)) 14px 0',
+        }}>
+          {/* Верхняя строка: назад | trait | счётчик */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            height: 44,
+          }}>
+            {/* Назад на предыдущий вопрос */}
+            <button
+              onClick={current > 0 ? handleBack : onBack}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 5,
+                background: 'rgba(255,255,255,0.06)',
+                border: '1px solid rgba(255,255,255,0.1)',
+                borderRadius: 10, padding: '6px 11px',
+                color: 'rgba(255,255,255,0.7)', fontSize: 13, fontWeight: 600,
+                cursor: 'pointer', whiteSpace: 'nowrap',
+              }}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M19 12H5M12 5l-7 7 7 7"/>
+              </svg>
+              {current > 0 ? 'Назад' : 'Меню'}
+            </button>
+
+            {/* Trait chip по центру */}
+            <div style={{
+              fontSize: 11, fontWeight: 700, letterSpacing: '0.1em',
+              textTransform: 'uppercase',
+              color: tc.primary,
+              background: tc.bg,
+              border: `1px solid ${tc.primary}50`,
+              borderRadius: 20,
+              padding: '4px 12px',
+              boxShadow: `0 0 10px ${tc.glow}`,
+            }}>
+              {tc.label}
+            </div>
+
+            {/* Счётчик вопросов */}
+            <div style={{
+              fontSize: 13, fontWeight: 700,
+              color: 'rgba(255,255,255,0.85)',
+              background: 'rgba(255,255,255,0.06)',
+              border: '1px solid rgba(255,255,255,0.1)',
+              borderRadius: 10, padding: '6px 11px',
+              whiteSpace: 'nowrap',
+            }}>
+              <span style={{ color: tc.primary }}>{current + 1}</span>
+              <span style={{ color: 'rgba(255,255,255,0.3)' }}>/{questions.length}</span>
+            </div>
+          </div>
+
+          {/* Прогресс-полоса прямо под строкой */}
+          <div style={{
+            height: 3,
+            background: 'rgba(255,255,255,0.06)',
+            marginTop: 8,
+          }}>
+            <div style={{
+              height: '100%',
+              width: `${pct}%`,
+              background: `linear-gradient(90deg, #7c3aed, ${tc.primary})`,
+              backgroundSize: '200% 100%',
+              animation: 'qBarShimmer 2s linear infinite',
+              borderRadius: '0 2px 2px 0',
+              transition: 'width 0.4s cubic-bezier(0.34,1.56,0.64,1)',
+              boxShadow: `0 0 8px ${tc.glow}`,
+            }}/>
           </div>
         </div>
 
-        <div className="quiz-cyber-counter">
-          <span
-            className="quiz-cyber-num"
-            style={{ display: 'inline-block', animation: counterAnim ? 'quiz-counter-pop 0.3s ease' : 'none' }}
-          >
-            {current + 1}
-          </span>
-          <span className="quiz-cyber-total">/{questions.length}</span>
-        </div>
-      </div>
+        {/* Спейсер под fixed header */}
+        <div style={{ height: 'calc(68px + env(safe-area-inset-top, 0px))', flexShrink: 0 }} />
 
-      {/* Progress bar (right below header) */}
-      <div className="quiz-cyber-progress-wrap">
-        <div
-          className="quiz-cyber-progress-fill"
-          style={{ width: `${progress}%` }}
-        />
-        {progress > 0 && (
+        {/* ── Тело страницы ── */}
+        <div style={{
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          padding: '16px 16px 0',
+        }}>
+
+          {/* Карточка вопроса */}
           <div
-            className="quiz-cyber-progress-glow"
-            style={{ left: `calc(${progress}% - 16px)`, background: `linear-gradient(90deg, transparent, ${tc.primary})` }}
+            style={{
+              flex: 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '28px 22px',
+              background: 'rgba(8,8,24,0.72)',
+              borderRadius: 20,
+              border: `1.5px solid ${tc.primary}`,
+              boxShadow: `0 0 16px ${tc.glow}, 0 0 40px rgba(0,0,0,0.5), inset 0 0 24px rgba(0,0,0,0.3)`,
+              marginBottom: 14,
+              position: 'relative',
+              overflow: 'hidden',
+              animation: 'qNeonPulse 2.8s ease-in-out infinite',
+              ...animStyle,
+            }}
+          >
+            {/* фоновый gradient-spot */}
+            <div style={{
+              position: 'absolute', inset: 0, pointerEvents: 'none',
+              background: `radial-gradient(ellipse at top right, ${tc.bg} 0%, transparent 65%)`,
+            }}/>
+            <p style={{
+              fontSize: 19,
+              fontWeight: 500,
+              lineHeight: 1.6,
+              color: '#f0eeff',
+              textAlign: 'center',
+              position: 'relative',
+              zIndex: 1,
+            }}>
+              {q.question_text}
+            </p>
+          </div>
+
+          {/* Кнопки ответа */}
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 8,
+            paddingBottom: 'calc(20px + env(safe-area-inset-bottom, 0px))',
+          }}>
+            {[1, 2, 3, 4, 5].map(score => {
+              const isSelected = selected === score
+              const c = SCORE_COLORS[score - 1]
+              return (
+                <button
+                  key={score}
+                  onClick={() => handleSelect(score)}
+                  disabled={transitioning || !!milestone}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 14,
+                    background: isSelected
+                      ? `rgba(${hexToRgb(c)}, 0.1)`
+                      : 'rgba(10,10,26,0.7)',
+                    border: `1px solid ${isSelected ? c : 'rgba(255,255,255,0.08)'}`,
+                    borderRadius: 14,
+                    padding: '13px 16px',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                    color: '#f0eeff',
+                    textAlign: 'left',
+                    boxShadow: isSelected ? `0 0 14px ${c}40` : 'none',
+                    animation: isSelected ? 'qBtnPop 0.28s ease' : 'none',
+                    WebkitTapHighlightColor: 'transparent',
+                  }}
+                >
+                  <span style={{
+                    width: 32, height: 32,
+                    borderRadius: '50%',
+                    border: `1.5px solid ${isSelected ? c : 'rgba(255,255,255,0.18)'}`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 14, fontWeight: 700, flexShrink: 0,
+                    color: isSelected ? c : 'rgba(255,255,255,0.4)',
+                    background: isSelected ? `${c}18` : 'transparent',
+                    boxShadow: isSelected ? `0 0 8px ${c}60` : 'none',
+                    transition: 'all 0.15s ease',
+                  }}>
+                    {score}
+                  </span>
+                  <span style={{
+                    fontSize: 14,
+                    color: isSelected ? '#f0eeff' : 'rgba(255,255,255,0.5)',
+                    transition: 'color 0.15s',
+                  }}>
+                    {SCORE_LABELS[score - 1]}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Milestone overlay */}
+        {milestone && (
+          <MilestoneCard
+            answers={milestone}
+            totalQuestions={questions.length}
+            lang={lang}
+            onContinue={() => setMilestone(null)}
           />
         )}
       </div>
-
-      {/* Spacer */}
-      <div className="quiz-cyber-header-spacer" />
-
-      {/* Body */}
-      <div className="quiz-cyber-body">
-        {/* Question card */}
-        <div className={`quiz-cyber-card ${animClass}`} style={cssVars}>
-          <p className="quiz-cyber-card-text">{q.question_text}</p>
-        </div>
-
-        {/* Answer buttons */}
-        <div className="quiz-cyber-answers">
-          {[1, 2, 3, 4, 5].map(score => (
-            <button
-              key={score}
-              className={`quiz-cyber-answer ${selected === score ? 'selected' : ''}`}
-              style={cssVars}
-              onClick={(e) => handleSelect(score, e)}
-              disabled={transitioning || !!milestone}
-            >
-              {/* Ripples for this button */}
-              {ripples.map(rp => (
-                <span
-                  key={rp.id}
-                  className="quiz-cyber-ripple"
-                  style={{ left: rp.x, top: rp.y, background: tc.primary }}
-                />
-              ))}
-              <span className="quiz-cyber-answer-num">{score}</span>
-              <span className="quiz-cyber-answer-label">{SCORE_LABELS[score - 1]}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Milestone overlay */}
-      {milestone && (
-        <MilestoneCard
-          answers={milestone}
-          totalQuestions={questions.length}
-          lang={lang}
-          onContinue={() => setMilestone(null)}
-        />
-      )}
-
-      {/* Back on first question — handled by Telegram back button or our header */}
-      {current > 0 && (
-        <div style={{ display: 'none' }} /* Telegram back button in useTelegram */ />
-      )}
-    </div>
+    </>
   )
+}
+
+// Конвертер hex → "r, g, b" для rgba()
+function hexToRgb(hex) {
+  const r = parseInt(hex.slice(1, 3), 16)
+  const g = parseInt(hex.slice(3, 5), 16)
+  const b = parseInt(hex.slice(5, 7), 16)
+  return `${r}, ${g}, ${b}`
 }

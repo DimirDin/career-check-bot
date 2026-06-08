@@ -52,10 +52,10 @@ async def update_menu_button_for_user(bot: Bot, user_id: int, pool: asyncpg.Pool
             text = "▶️ Продолжить тест"
             url  = base_url
         elif user and user.get("test_completed"):
-            text = "📊 Мои результаты"
+            text = "🚀 Открыть CareerCheck"
             url  = f"{base_url}?start=results"
         else:
-            text = "🚀 Начать тест"
+            text = "🚀 Открыть CareerCheck"
             url  = base_url
 
         await bot.set_chat_menu_button(

@@ -335,7 +335,7 @@ export default function App() {
 
   // Экраны без BottomNav
   const NO_BOTTOM_NAV = [
-    SCREEN.SPLASH, SCREEN.LOADING, SCREEN.QUIZ, SCREEN.QUICK_TEST, SCREEN.ONBOARDING,
+    SCREEN.SPLASH, SCREEN.LOADING, SCREEN.QUICK_TEST, SCREEN.ONBOARDING,
   ]
   const showBottomNav = !NO_BOTTOM_NAV.includes(screen)
 

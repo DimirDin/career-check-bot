@@ -34,26 +34,38 @@ export function useTelegram() {
     // contentSafeAreaInsets.top — Telegram UI header (в fullscreen уже включает notch)
     // safeAreaInsets.top        — device notch
     const applyInsets = () => {
-      const top = Math.max(
-        tg.contentSafeAreaInsets?.top ?? 0,
-        tg.safeAreaInsets?.top        ?? 0,
-      )
+      const contentTop = tg.contentSafeAreaInsets?.top ?? 0
+      const safeTop    = tg.safeAreaInsets?.top        ?? 0
+      let top = Math.max(contentTop, safeTop)
+      // В fullscreen Telegram отрисовывает строку BackButton (~44px) поверх контента.
+      // Если contentSafeAreaInsets ещё не включает эту строку (старый API или гонка),
+      // добавляем её вручную: notch + стандартная высота Telegram-шапки.
+      if (tg.isFullscreen && contentTop <= safeTop + 10 && safeTop > 0) {
+        top = safeTop + 44
+      }
       if (top > 0) {
         document.documentElement.style.setProperty('--tg-header-h', top + 'px')
       }
     }
 
     applyInsets()
+    // Ретраи: contentSafeAreaInsets может обновиться позже (BackButton, fullscreen-анимация)
+    const t1 = setTimeout(applyInsets, 300)
+    const t2 = setTimeout(applyInsets, 800)
     tg.onEvent('safeAreaChanged',        applyInsets)
     tg.onEvent('contentSafeAreaChanged', applyInsets)
+    tg.onEvent('fullscreenChanged',      applyInsets)
 
     const handler = () => setThemeParams({ ...tg.themeParams })
     tg.onEvent('themeChanged', handler)
 
     return () => {
+      clearTimeout(t1)
+      clearTimeout(t2)
       tg.offEvent('themeChanged',           handler)
       tg.offEvent('safeAreaChanged',        applyInsets)
       tg.offEvent('contentSafeAreaChanged', applyInsets)
+      tg.offEvent('fullscreenChanged',      applyInsets)
     }
   }, [])
 

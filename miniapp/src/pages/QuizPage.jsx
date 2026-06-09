@@ -118,34 +118,15 @@ export function QuizPage({ questions, onFinish, onBack }) {
     setTransitioning(false)
   }, [transitioning, milestone, current, answers, q, haptic, onFinish, questions.length])
 
-  const handleBack = useCallback(async () => {
-    if (current === 0 || transitioning || milestone) return
-    haptic.light?.()
-    setTransitioning(true)
-    setAnimDir('out-right')
-    await new Promise(r => setTimeout(r, 190))
-    const prevAnswers = answers.slice(0, -1)
-    setAnswers(prevAnswers)
-    const prevIdx = current - 1
-    setCurrent(prevIdx)
-    saveProgress(prevIdx, prevAnswers)
-    setTransitioning(false)
-  }, [current, transitioning, milestone, answers, haptic])
-
-  const backHandler = useCallback(() => {
-    if (current > 0) handleBack()
-    else onBack()
-  }, [current, handleBack, onBack])
-
   useEffect(() => {
     if (!tg) return
     tg.BackButton.show()
-    tg.BackButton.onClick(backHandler)
+    tg.BackButton.onClick(onBack)
     return () => {
-      tg.BackButton.offClick(backHandler)
+      tg.BackButton.offClick(onBack)
       tg.BackButton.hide()
     }
-  }, [tg, backHandler])
+  }, [tg, onBack])
 
   const animStyle = {
     'in':         { animation: 'qSlideIn 0.28s cubic-bezier(0.34,1.56,0.64,1) both' },
@@ -185,78 +166,59 @@ export function QuizPage({ questions, onFinish, onBack }) {
         overflowX: 'hidden',
       }}>
 
-        {/* ── Заголовок (как AppHeader — те же отступы) ── */}
+        {/* ── Шапка: счётчик вопросов ── */}
         <div style={{
           position: 'fixed',
           top: 0, left: 0, right: 0,
           zIndex: 200,
-          background: 'rgba(4,4,14,0.88)',
+          background: 'rgba(4,4,14,0.92)',
           backdropFilter: 'blur(22px)',
           WebkitBackdropFilter: 'blur(22px)',
-          borderBottom: `1px solid ${tc.primary}28`,
-          padding: 'calc(10px + var(--tg-header-h, env(safe-area-inset-top, 0px))) 14px 0',
+          padding: 'var(--tg-header-h, env(safe-area-inset-top, 0px)) 14px 0',
         }}>
-          {/* Верхняя строка: trait chip по центру */}
+          {/* Строка: название черты слева, счётчик по центру */}
           <div style={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             height: 44,
+            position: 'relative',
           }}>
-            <div style={{
-              fontSize: 11, fontWeight: 700, letterSpacing: '0.1em',
+            <span style={{
+              position: 'absolute', left: 0,
+              fontSize: 10, fontWeight: 700, letterSpacing: '0.08em',
               textTransform: 'uppercase',
-              color: tc.primary,
-              background: tc.bg,
-              border: `1px solid ${tc.primary}50`,
-              borderRadius: 20,
-              padding: '4px 12px',
-              boxShadow: `0 0 10px ${tc.glow}`,
+              color: `${tc.primary}70`,
             }}>
               {tc.label}
+            </span>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+              <span style={{ fontSize: 20, fontWeight: 800, color: tc.primary, lineHeight: 1 }}>
+                {current + 1}
+              </span>
+              <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.3)', fontWeight: 500 }}>
+                / {questions.length}
+              </span>
             </div>
           </div>
 
-          {/* Прогресс-полоса + счётчик вопросов */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-            marginTop: 8,
-            paddingBottom: 8,
-          }}>
+          {/* Прогресс-полоса под шапкой */}
+          <div style={{ height: 3, background: 'rgba(255,255,255,0.06)' }}>
             <div style={{
-              flex: 1,
-              height: 3,
-              background: 'rgba(255,255,255,0.06)',
-            }}>
-              <div style={{
-                height: '100%',
-                width: `${pct}%`,
-                background: `linear-gradient(90deg, #7c3aed, ${tc.primary})`,
-                backgroundSize: '200% 100%',
-                animation: 'qBarShimmer 2s linear infinite',
-                borderRadius: '0 2px 2px 0',
-                transition: 'width 0.4s cubic-bezier(0.34,1.56,0.64,1)',
-                boxShadow: `0 0 8px ${tc.glow}`,
-              }}/>
-            </div>
-            <div style={{
-              fontSize: 12, fontWeight: 700,
-              color: 'rgba(255,255,255,0.85)',
-              background: 'rgba(255,255,255,0.06)',
-              border: '1px solid rgba(255,255,255,0.1)',
-              borderRadius: 8, padding: '3px 8px',
-              whiteSpace: 'nowrap', flexShrink: 0,
-            }}>
-              <span style={{ color: tc.primary }}>{current + 1}</span>
-              <span style={{ color: 'rgba(255,255,255,0.3)' }}>/{questions.length}</span>
-            </div>
+              height: '100%',
+              width: `${pct}%`,
+              background: `linear-gradient(90deg, #7c3aed, ${tc.primary})`,
+              backgroundSize: '200% 100%',
+              animation: 'qBarShimmer 2s linear infinite',
+              borderRadius: '0 2px 2px 0',
+              transition: 'width 0.4s cubic-bezier(0.34,1.56,0.64,1)',
+              boxShadow: `0 0 8px ${tc.glow}`,
+            }}/>
           </div>
         </div>
 
         {/* Спейсер под fixed header */}
-        <div style={{ height: 'calc(96px + var(--tg-header-h, env(safe-area-inset-top, 0px)))', flexShrink: 0 }} />
+        <div style={{ height: 'calc(var(--tg-header-h, env(safe-area-inset-top, 0px)) + 47px)', flexShrink: 0 }} />
 
         {/* ── Тело страницы ── */}
         <div style={{

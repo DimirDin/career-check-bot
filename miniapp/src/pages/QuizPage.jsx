@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useTelegram } from '../hooks/useTelegram'
 import { MilestoneCard } from '../components/MilestoneCard'
+import { AppHeader } from '../components/AppHeader/AppHeader'
 import { track } from '../hooks/useAnalytics'
 
 const SCORE_LABELS = ['Совсем нет', 'Скорее нет', 'Нейтрально', 'Скорее да', 'Полностью да']
@@ -118,27 +119,6 @@ export function QuizPage({ questions, onFinish, onBack }) {
     setTransitioning(false)
   }, [transitioning, milestone, current, answers, q, haptic, onFinish, questions.length])
 
-  useEffect(() => {
-    if (!tg) return
-    tg.BackButton.show()
-    tg.BackButton.onClick(onBack)
-    // После показа BackButton Telegram обновляет contentSafeAreaInsets —
-    // пересчитываем CSS-переменную чтобы шапка встала на правильную позицию
-    const refreshInsets = () => {
-      const contentTop = tg.contentSafeAreaInsets?.top ?? 0
-      const safeTop    = tg.safeAreaInsets?.top        ?? 0
-      let top = Math.max(contentTop, safeTop)
-      if (tg.isFullscreen && contentTop <= safeTop + 10 && safeTop > 0) top = safeTop + 44
-      if (top > 0) document.documentElement.style.setProperty('--tg-header-h', top + 'px')
-    }
-    const t = setTimeout(refreshInsets, 150)
-    return () => {
-      clearTimeout(t)
-      tg.BackButton.offClick(onBack)
-      tg.BackButton.hide()
-    }
-  }, [tg, onBack])
-
   const animStyle = {
     'in':         { animation: 'qSlideIn 0.28s cubic-bezier(0.34,1.56,0.64,1) both' },
     'out-left':   { animation: 'qSlideOutL 0.19s ease both' },
@@ -169,184 +149,139 @@ export function QuizPage({ questions, onFinish, onBack }) {
         }
       `}</style>
 
+      {/* Стандартная шапка приложения */}
+      <AppHeader />
+      <div style={{ height: 'var(--page-top)', flexShrink: 0 }} />
+
+      {/* Инфо-бар теста: черта + счётчик + прогресс */}
+      <div style={{ padding: '10px 16px 0', flexShrink: 0 }}>
+        <div style={{
+          display: 'flex', alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: 8,
+        }}>
+          <div style={{
+            fontSize: 11, fontWeight: 700, letterSpacing: '0.08em',
+            textTransform: 'uppercase',
+            color: tc.primary, background: tc.bg,
+            border: `1px solid ${tc.primary}50`,
+            borderRadius: 20, padding: '4px 12px',
+            boxShadow: `0 0 8px ${tc.glow}`,
+          }}>
+            {tc.label}
+          </div>
+          <div style={{ fontSize: 13, fontWeight: 700 }}>
+            <span style={{ color: tc.primary }}>{current + 1}</span>
+            <span style={{ color: 'rgba(255,255,255,0.3)' }}>/{questions.length}</span>
+          </div>
+        </div>
+        <div style={{ height: 3, background: 'rgba(255,255,255,0.06)' }}>
+          <div style={{
+            height: '100%',
+            width: `${pct}%`,
+            background: `linear-gradient(90deg, #7c3aed, ${tc.primary})`,
+            backgroundSize: '200% 100%',
+            animation: 'qBarShimmer 2s linear infinite',
+            borderRadius: '0 2px 2px 0',
+            transition: 'width 0.4s cubic-bezier(0.34,1.56,0.64,1)',
+            boxShadow: `0 0 8px ${tc.glow}`,
+          }}/>
+        </div>
+      </div>
+
+      {/* Карточка вопроса + кнопки ответа */}
       <div style={{
+        flex: 1,
         display: 'flex',
         flexDirection: 'column',
-        minHeight: '100dvh',
-        background: 'linear-gradient(170deg, #04040e 0%, #08081a 55%, #060614 100%)',
+        padding: '12px 16px 0',
         overflowX: 'hidden',
       }}>
-
-        {/* ── Шапка: счётчик вопросов ── */}
-        <div style={{
-          position: 'fixed',
-          top: 0, left: 0, right: 0,
-          zIndex: 200,
-          background: 'rgba(4,4,14,0.92)',
-          backdropFilter: 'blur(22px)',
-          WebkitBackdropFilter: 'blur(22px)',
-          borderBottom: `1px solid ${tc.primary}30`,
-          padding: 'var(--tg-header-h, env(safe-area-inset-top, 0px)) 14px 0',
-        }}>
-          {/* Строка: название черты слева, счётчик по центру */}
-          <div style={{
+        <div
+          style={{
+            flex: 1,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            height: 44,
+            padding: '28px 22px',
+            background: 'rgba(8,8,24,0.72)',
+            borderRadius: 20,
+            border: `1.5px solid ${tc.primary}`,
+            boxShadow: `0 0 16px ${tc.glow}, 0 0 40px rgba(0,0,0,0.5), inset 0 0 24px rgba(0,0,0,0.3)`,
+            marginBottom: 14,
             position: 'relative',
-          }}>
-            <span style={{
-              position: 'absolute', left: 0,
-              fontSize: 10, fontWeight: 700, letterSpacing: '0.08em',
-              textTransform: 'uppercase',
-              color: `${tc.primary}70`,
-            }}>
-              {tc.label}
-            </span>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
-              <span style={{ fontSize: 20, fontWeight: 800, color: tc.primary, lineHeight: 1 }}>
-                {current + 1}
-              </span>
-              <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.3)', fontWeight: 500 }}>
-                / {questions.length}
-              </span>
-            </div>
-          </div>
-
-          {/* Прогресс-полоса под шапкой */}
-          <div style={{ height: 3, background: 'rgba(255,255,255,0.06)' }}>
-            <div style={{
-              height: '100%',
-              width: `${pct}%`,
-              background: `linear-gradient(90deg, #7c3aed, ${tc.primary})`,
-              backgroundSize: '200% 100%',
-              animation: 'qBarShimmer 2s linear infinite',
-              borderRadius: '0 2px 2px 0',
-              transition: 'width 0.4s cubic-bezier(0.34,1.56,0.64,1)',
-              boxShadow: `0 0 8px ${tc.glow}`,
-            }}/>
-          </div>
-        </div>
-
-        {/* Спейсер под fixed header */}
-        <div style={{ height: 'calc(var(--tg-header-h, env(safe-area-inset-top, 0px)) + 47px)', flexShrink: 0 }} />
-
-        {/* ── Тело страницы ── */}
-        <div style={{
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          padding: '16px 16px 0',
-        }}>
-
-          {/* Карточка вопроса */}
-          <div
-            style={{
-              flex: 1,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '28px 22px',
-              background: 'rgba(8,8,24,0.72)',
-              borderRadius: 20,
-              border: `1.5px solid ${tc.primary}`,
-              boxShadow: `0 0 16px ${tc.glow}, 0 0 40px rgba(0,0,0,0.5), inset 0 0 24px rgba(0,0,0,0.3)`,
-              marginBottom: 14,
-              position: 'relative',
-              overflow: 'hidden',
-              animation: 'qNeonPulse 2.8s ease-in-out infinite',
-              ...animStyle,
-            }}
-          >
-            {/* фоновый gradient-spot */}
-            <div style={{
-              position: 'absolute', inset: 0, pointerEvents: 'none',
-              background: `radial-gradient(ellipse at top right, ${tc.bg} 0%, transparent 65%)`,
-            }}/>
-            <p style={{
-              fontSize: 19,
-              fontWeight: 500,
-              lineHeight: 1.6,
-              color: '#f0eeff',
-              textAlign: 'center',
-              position: 'relative',
-              zIndex: 1,
-            }}>
-              {q.question_text}
-            </p>
-          </div>
-
-          {/* Кнопки ответа */}
+            overflow: 'hidden',
+            animation: 'qNeonPulse 2.8s ease-in-out infinite',
+            ...animStyle,
+          }}
+        >
           <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 8,
-            paddingBottom: 'calc(32px + env(safe-area-inset-bottom, 0px))',
+            position: 'absolute', inset: 0, pointerEvents: 'none',
+            background: `radial-gradient(ellipse at top right, ${tc.bg} 0%, transparent 65%)`,
+          }}/>
+          <p style={{
+            fontSize: 19, fontWeight: 500, lineHeight: 1.6,
+            color: '#f0eeff', textAlign: 'center',
+            position: 'relative', zIndex: 1,
           }}>
-            {[1, 2, 3, 4, 5].map(score => {
-              const isSelected = selected === score
-              const c = SCORE_COLORS[score - 1]
-              return (
-                <button
-                  key={score}
-                  onClick={() => handleSelect(score)}
-                  disabled={transitioning || !!milestone}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 14,
-                    background: isSelected
-                      ? `rgba(${hexToRgb(c)}, 0.1)`
-                      : 'rgba(10,10,26,0.7)',
-                    border: `1px solid ${isSelected ? c : 'rgba(255,255,255,0.08)'}`,
-                    borderRadius: 14,
-                    padding: '13px 16px',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                    color: '#f0eeff',
-                    textAlign: 'left',
-                    boxShadow: isSelected ? `0 0 14px ${c}40` : 'none',
-                    animation: isSelected ? 'qBtnPop 0.28s ease' : 'none',
-                    WebkitTapHighlightColor: 'transparent',
-                  }}
-                >
-                  <span style={{
-                    width: 32, height: 32,
-                    borderRadius: '50%',
-                    border: `1.5px solid ${isSelected ? c : 'rgba(255,255,255,0.18)'}`,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 14, fontWeight: 700, flexShrink: 0,
-                    color: isSelected ? c : 'rgba(255,255,255,0.4)',
-                    background: isSelected ? `${c}18` : 'transparent',
-                    boxShadow: isSelected ? `0 0 8px ${c}60` : 'none',
-                    transition: 'all 0.15s ease',
-                  }}>
-                    {score}
-                  </span>
-                  <span style={{
-                    fontSize: 14,
-                    color: isSelected ? '#f0eeff' : 'rgba(255,255,255,0.5)',
-                    transition: 'color 0.15s',
-                  }}>
-                    {SCORE_LABELS[score - 1]}
-                  </span>
-                </button>
-              )
-            })}
-          </div>
+            {q.question_text}
+          </p>
         </div>
 
-        {/* Milestone overlay */}
-        {milestone && (
-          <MilestoneCard
-            answers={milestone}
-            totalQuestions={questions.length}
-            lang={lang}
-            onContinue={() => setMilestone(null)}
-          />
-        )}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingBottom: 16 }}>
+          {[1, 2, 3, 4, 5].map(score => {
+            const isSelected = selected === score
+            const c = SCORE_COLORS[score - 1]
+            return (
+              <button
+                key={score}
+                onClick={() => handleSelect(score)}
+                disabled={transitioning || !!milestone}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 14,
+                  background: isSelected ? `rgba(${hexToRgb(c)}, 0.1)` : 'rgba(10,10,26,0.7)',
+                  border: `1px solid ${isSelected ? c : 'rgba(255,255,255,0.08)'}`,
+                  borderRadius: 14, padding: '13px 16px',
+                  cursor: 'pointer', transition: 'all 0.15s ease',
+                  color: '#f0eeff', textAlign: 'left',
+                  boxShadow: isSelected ? `0 0 14px ${c}40` : 'none',
+                  animation: isSelected ? 'qBtnPop 0.28s ease' : 'none',
+                  WebkitTapHighlightColor: 'transparent',
+                }}
+              >
+                <span style={{
+                  width: 32, height: 32, borderRadius: '50%',
+                  border: `1.5px solid ${isSelected ? c : 'rgba(255,255,255,0.18)'}`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 14, fontWeight: 700, flexShrink: 0,
+                  color: isSelected ? c : 'rgba(255,255,255,0.4)',
+                  background: isSelected ? `${c}18` : 'transparent',
+                  boxShadow: isSelected ? `0 0 8px ${c}60` : 'none',
+                  transition: 'all 0.15s ease',
+                }}>
+                  {score}
+                </span>
+                <span style={{
+                  fontSize: 14,
+                  color: isSelected ? '#f0eeff' : 'rgba(255,255,255,0.5)',
+                  transition: 'color 0.15s',
+                }}>
+                  {SCORE_LABELS[score - 1]}
+                </span>
+              </button>
+            )
+          })}
+        </div>
       </div>
+
+      {milestone && (
+        <MilestoneCard
+          answers={milestone}
+          totalQuestions={questions.length}
+          lang={lang}
+          onContinue={() => setMilestone(null)}
+        />
+      )}
     </>
   )
 }

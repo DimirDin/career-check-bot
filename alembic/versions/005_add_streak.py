@@ -1,4 +1,4 @@
-"""Add streak_days and last_completed_date to challenge_subscriptions.
+"""Add last_completed_date to user_challenges.
 
 Revision ID: 005
 Revises: 004
@@ -16,15 +16,10 @@ depends_on = None
 
 def upgrade() -> None:
     op.add_column(
-        'challenge_subscriptions',
-        sa.Column('streak_days', sa.Integer(), nullable=False, server_default='0'),
-    )
-    op.add_column(
-        'challenge_subscriptions',
+        'user_challenges',
         sa.Column('last_completed_date', sa.Date(), nullable=True),
     )
 
 
 def downgrade() -> None:
-    op.drop_column('challenge_subscriptions', 'last_completed_date')
-    op.drop_column('challenge_subscriptions', 'streak_days')
+    op.drop_column('user_challenges', 'last_completed_date')

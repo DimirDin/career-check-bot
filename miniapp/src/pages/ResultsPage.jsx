@@ -5,10 +5,12 @@ import { Confetti }        from '../components/Confetti'
 import { TypewriterText }  from '../components/TypewriterText'
 import { OdometerNumber }  from '../components/OdometerNumber'
 import { MagneticBtn }     from '../components/MagneticBtn'
+import { ProfessionMatchRow } from '../components/ProfessionMatchRow'
 import { useTelegram }     from '../hooks/useTelegram'
 import { useNavigate }     from '../context/NavigationContext'
 import { track }           from '../hooks/useAnalytics'
 import { getBadges }       from '../utils/calculator'
+import { getTraitInterpretation } from '../utils/traitInterpretations'
 
 const isRuLang = (tg) => tg?.initDataUnsafe?.user?.language_code?.startsWith('ru')
 
@@ -34,7 +36,9 @@ const TRAIT_DESCRIPTIONS = {
 export function ResultsPage({ results, onBack }) {
   const { haptic, tg, user, initData } = useTelegram()
   const navigate = useNavigate()
+  const lang = tg?.initDataUnsafe?.user?.language_code?.startsWith('ru') ? 'ru' : 'en'
   const [expanded,        setExpanded]        = useState(null)
+  const [percentiles,     setPercentiles]     = useState(null)
   const [confetti,        setConfetti]        = useState(false)
   const [compareLink,     setCompareLink]     = useState(null)
   const [premiumLoading,  setPremiumLoading]  = useState(false)
@@ -77,6 +81,16 @@ export function ResultsPage({ results, onBack }) {
 
   // M1: view_results event
   useEffect(() => { track('view_results') }, [])
+
+  // Перцентили
+  useEffect(() => {
+    const uid = user?.id || tg?.initDataUnsafe?.user?.id
+    if (!uid) return
+    fetch(`/api/stats/percentiles/${uid}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => d && setPercentiles(d))
+      .catch(() => {})
+  }, [user, tg])
 
   // T7: referral progress
   useEffect(() => {
@@ -259,20 +273,41 @@ export function ResultsPage({ results, onBack }) {
       {/* ── Hero ─────────────────────────────────────────────────────────── */}
       <div className="results-hero visible">
         <div className="hero-bg" />
-        <div className="results-type-label">Твой профессиональный тип</div>
+        <div className="results-type-label">{isRuLang(tg) ? 'Твой профессиональный тип' : 'Your professional type'}</div>
         <div className="results-type-name">
           <TypewriterText text={domLabel} delay={300} speed={40} />
         </div>
         <div className="results-top-trait">
-          Сильная черта: <strong>{TRAIT_LABELS[TRAIT_KEYS.indexOf(topTrait)]}</strong> — {norm[topTrait]}%
+          {isRuLang(tg) ? 'Сильная черта: ' : 'Top trait: '}
+          <strong>{TRAIT_LABELS[TRAIT_KEYS.indexOf(topTrait)]}</strong> — {norm[topTrait]}%
         </div>
+        {/* Compact share button */}
+        <button
+          onClick={handleShare}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            padding: '8px 16px', marginTop: 12,
+            background: 'transparent',
+            border: '1px solid rgba(255,255,255,0.15)',
+            borderRadius: 20,
+            color: 'rgba(255,255,255,0.6)', fontSize: 13, cursor: 'pointer',
+            transition: 'all 0.2s',
+          }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+          </svg>
+          {isRuLang(tg) ? 'Поделиться результатом' : 'Share result'}
+        </button>
       </div>
 
       <div className="tab-content">
 
         {/* ── Big Five ───────────────────────────────────────────────────── */}
         <div className="section-card visible">
-          <h3 className="section-title">Big Five личности</h3>
+          <h3 className="section-title">{isRuLang(tg) ? 'Big Five личности' : 'Big Five personality'}</h3>
           <div className="trait-list">
             {TRAIT_KEYS.map((key, i) => (
               <div key={key} className="trait-row">
@@ -284,9 +319,36 @@ export function ResultsPage({ results, onBack }) {
                   <div className="trait-bar-fill" style={{ '--target-w': `${norm[key]}%`, '--delay': `${i * 70}ms` }} />
                 </div>
                 <p className="trait-desc">{TRAIT_DESCRIPTIONS[key]}</p>
+                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', marginTop: 4, marginBottom: 4, lineHeight: 1.4 }}>
+                  {getTraitInterpretation(key, norm[key] || 0, lang)}
+                </p>
               </div>
             ))}
           </div>
+          {/* Перцентиль */}
+          {percentiles && (() => {
+            const topKey   = TRAIT_KEYS.reduce((a, b) => (percentiles[a] || 99) < (percentiles[b] || 99) ? a : b)
+            const topPct   = percentiles[topKey]
+            const topName  = TRAIT_LABELS[TRAIT_KEYS.indexOf(topKey)]
+            if (!topPct || topPct > 30) return null
+            return (
+              <div style={{
+                marginTop: 14, padding: '12px 14px',
+                background: 'rgba(0,212,170,0.07)',
+                border: '1px solid rgba(0,212,170,0.2)',
+                borderRadius: 10,
+              }}>
+                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', margin: '0 0 4px' }}>
+                  {isRuLang(tg) ? 'Среди всех пользователей' : 'Among all users'}
+                </p>
+                <p style={{ fontSize: 14, fontWeight: 600, color: '#fff', margin: 0 }}>
+                  {isRuLang(tg) ? 'Топ' : 'Top'}{' '}
+                  <strong style={{ color: '#00d4aa' }}>{topPct}%</strong>{' '}
+                  {isRuLang(tg) ? `по «${topName}»` : `in ${topName}`}
+                </p>
+              </div>
+            )
+          })()}
         </div>
 
         {/* ── Badges / Ачивки ───────────────────────────────────────────── */}
@@ -377,6 +439,23 @@ export function ResultsPage({ results, onBack }) {
             ))}
           </div>
         </div>
+
+        {/* ── Топ профессий с ProfessionMatchRow ─────────────────────────── */}
+        {profs.length > 0 && (
+          <div className="section-card visible">
+            <h3 className="section-title">{isRuLang(tg) ? 'Твои профессии' : 'Your careers'}</h3>
+            {profs.slice(0, 5).map((prof, i) => (
+              <ProfessionMatchRow
+                key={prof.title || i}
+                rank={i + 1}
+                title={prof.title}
+                match={prof.match}
+                riasec={RIASEC_LABELS[prof.riasec] || prof.riasec}
+                onClick={() => { haptic.light?.(); navigate('profession-detail', { professionTitle: prof.title }) }}
+              />
+            ))}
+          </div>
+        )}
 
         {/* ── Premium (V4: shimmer on first view) ────────────────────────── */}
         <div ref={premiumRef} className="premium-block card-holo">

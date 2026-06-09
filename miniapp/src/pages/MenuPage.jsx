@@ -404,11 +404,111 @@ function SectionHeader({ title, action, onAction }) {
 }
 
 /* ─────────────────────────────────────────────
+   PERSONAL HERO (тест пройден)
+───────────────────────────────────────────── */
+const RIASEC_RU = { R:'Реалистичный',I:'Исследовательский',A:'Артистичный',S:'Социальный',E:'Предприимчивый',C:'Конвенциональный' }
+const RIASEC_EN = { R:'Realistic',I:'Investigative',A:'Artistic',S:'Social',E:'Enterprising',C:'Conventional' }
+
+function PersonalHeroBlock({ riasec, topProfession, lang, onResults, onRetake }) {
+  const entries = Object.entries(riasec || {})
+  const domKey  = entries.length ? entries.sort((a, b) => b[1] - a[1])[0][0] : 'I'
+  const labels  = lang === 'ru' ? RIASEC_RU : RIASEC_EN
+  const domLabel = labels[domKey] || domKey
+  const isRu   = lang === 'ru'
+
+  return (
+    <div style={{
+      background: 'linear-gradient(135deg, rgba(124,58,237,0.15) 0%, rgba(6,182,212,0.08) 100%)',
+      border: '1px solid rgba(124,58,237,0.3)',
+      borderLeft: '4px solid #7c3aed',
+      borderRadius: 16, padding: 20, marginBottom: 14,
+      animation: 'aurora-fadeInUp 0.5s ease both', animationDelay: '0.05s',
+    }}>
+      <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', color: T.cyan, marginBottom: 4 }}>
+        {isRu ? 'Твой тип' : 'Your type'}
+      </div>
+      <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 22, fontWeight: 800, color: T.textPrimary, marginBottom: topProfession ? 6 : 16, lineHeight: 1.2 }}>
+        {domLabel}
+      </div>
+      {topProfession && (
+        <div style={{ fontSize: 14, color: T.textSecondary, marginBottom: 16 }}>
+          {topProfession.title || topProfession.name}{' '}
+          <span style={{ color: T.cyan, fontWeight: 700 }}>— {topProfession.match}%</span>
+        </div>
+      )}
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button onClick={onResults} style={{
+          flex: 1,
+          background: 'linear-gradient(135deg, rgba(124,58,237,0.6), rgba(6,182,212,0.5))',
+          border: 'none', borderRadius: 10, padding: '9px 14px',
+          color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+        }}>
+          {isRu ? 'Мои результаты' : 'My results'}
+        </button>
+        <button onClick={onRetake} style={{
+          background: 'rgba(255,255,255,0.07)',
+          border: '1px solid rgba(255,255,255,0.15)',
+          borderRadius: 10, padding: '9px 14px',
+          color: 'rgba(255,255,255,0.6)', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+        }}>
+          {isRu ? 'Заново' : 'Retake'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function XPBarInline({ xp, lang }) {
+  const isRu = lang === 'ru'
+  const XP_LEVELS = [
+    { level:1, name:'Новичок',       nameEn:'Beginner',   minXP:0    },
+    { level:2, name:'Искатель',      nameEn:'Explorer',   minXP:100  },
+    { level:3, name:'Исследователь', nameEn:'Researcher', minXP:300  },
+    { level:4, name:'Эксперт',       nameEn:'Expert',     minXP:700  },
+    { level:5, name:'Мастер',        nameEn:'Master',     minXP:1500 },
+  ]
+  let current = XP_LEVELS[0]
+  for (let i = XP_LEVELS.length - 1; i >= 0; i--) {
+    if (xp >= XP_LEVELS[i].minXP) { current = XP_LEVELS[i]; break }
+  }
+  const next = XP_LEVELS.find(l => l.minXP > xp)
+  const percent = next ? Math.round((xp - current.minXP) / (next.minXP - current.minXP) * 100) : 100
+  const levelName = isRu ? current.name : current.nameEn
+
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 10,
+      padding: '10px 16px', marginBottom: 14,
+      background: 'rgba(124,58,237,0.08)',
+      border: '1px solid rgba(124,58,237,0.15)',
+      borderRadius: 12,
+    }}>
+      <span style={{ fontSize: 12, fontWeight: 700, color: T.violet, whiteSpace: 'nowrap' }}>
+        {isRu ? `Ур.${current.level}` : `Lv.${current.level}`}
+      </span>
+      <div style={{ flex: 1, height: 6, background: 'rgba(255,255,255,0.1)', borderRadius: 3, overflow: 'hidden' }}>
+        <div style={{
+          height: '100%', width: `${percent}%`,
+          background: 'linear-gradient(90deg, #7c3aed, #06b6d4)',
+          borderRadius: 3, transition: 'width 0.6s ease',
+        }}/>
+      </div>
+      <span style={{ fontSize: 12, color: T.textSecondary, whiteSpace: 'nowrap' }}>{levelName}</span>
+      <span style={{ fontSize: 11, color: T.textMuted, whiteSpace: 'nowrap' }}>
+        {xp}{next ? `/${next.minXP}` : ''} XP
+      </span>
+    </div>
+  )
+}
+
+/* ─────────────────────────────────────────────
    MAIN: MenuPage
 ───────────────────────────────────────────── */
 export function MenuPage() {
   const navigate = useNavigate()
-  const { tg, user } = useTelegram()
+  const { tg, user, initData } = useTelegram()
+
+  const [userResult, setUserResult] = useState(null)
 
   useEffect(() => { injectCSS() }, [])
 
@@ -418,9 +518,24 @@ export function MenuPage() {
     tg.setBackgroundColor?.('#05050b')
   }, [tg])
 
-  // Проверяем есть ли результаты теста
-  const testDone = !!localStorage.getItem('cc_test_done')
-  const radarScores = { O: 82, C: 65, E: 71, A: 88, N: 45 }
+  // Загружаем последний результат для персонального hero
+  useEffect(() => {
+    if (!initData) return
+    fetch(`/api/user/state?init_data=${encodeURIComponent(initData)}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.hasResults) setUserResult(d) })
+      .catch(() => {})
+  }, [initData])
+
+  const testDone    = !!userResult?.hasResults || !!localStorage.getItem('cc_test_done')
+  const radarScores = userResult
+    ? { O: userResult.normalized?.O || 70, C: userResult.normalized?.C || 60,
+        E: userResult.normalized?.E || 65, A: userResult.normalized?.A || 75, N: 100 - (userResult.normalized?.S || 50) }
+    : { O: 82, C: 65, E: 71, A: 88, N: 45 }
+
+  const userXP  = userResult?.totalXP || 0
+  const lang    = tg?.initDataUnsafe?.user?.language_code?.slice(0, 2) || 'ru'
+  const isRu    = lang !== 'en'
 
   return (
     <div style={{
@@ -444,24 +559,52 @@ export function MenuPage() {
       }}/>
 
       <div style={{ position: 'relative', zIndex: 1, maxWidth: 430, margin: '0 auto' }}>
-        {/* Hero */}
+        {/* Hero — персональный если тест пройден, дефолтный иначе */}
         <div style={{ marginTop: 12, marginBottom: 4 }}>
-          <SectionHeader title={testDone ? 'Ваш результат' : 'Начни здесь'}/>
-          <HeroCard
-            testDone={testDone}
-            radarScores={radarScores}
-            onStartTest={() => navigate('/test')}
-            onOpenResults={() => navigate('/results')}
-          />
+          <SectionHeader title={testDone ? (isRu ? 'Ваш результат' : 'Your result') : (isRu ? 'Начни здесь' : 'Start here')}/>
+          {testDone && userResult ? (
+            <PersonalHeroBlock
+              riasec={userResult.riasec || {}}
+              topProfession={userResult.topProfession}
+              lang={lang}
+              onResults={() => navigate('/results')}
+              onRetake={() => navigate('/test')}
+            />
+          ) : (
+            <HeroCard
+              testDone={testDone}
+              radarScores={radarScores}
+              onStartTest={() => navigate('/test')}
+              onOpenResults={() => navigate('/results')}
+            />
+          )}
         </div>
+
+        {/* XP Bar */}
+        {testDone && (
+          <XPBarInline xp={userXP} lang={lang} />
+        )}
 
         {/* Quick Actions */}
         <div style={{ marginBottom: 4 }}>
-          <SectionHeader title="Модули" action="Все" onAction={() => navigate('/professions')}/>
+          <SectionHeader title={isRu ? 'Модули' : 'Modules'} action={isRu ? 'Все' : 'All'} onAction={() => navigate('/professions')}/>
           <QuickActionsGrid navigate={navigate}/>
         </div>
 
-        {/* XP Progress block */}
+        {/* Stats line */}
+        <div style={{
+          display: 'flex', justifyContent: 'center', gap: 8,
+          fontSize: 12, color: 'rgba(255,255,255,0.3)',
+          padding: '4px 0 8px',
+        }}>
+          <span>160+ {isRu ? 'профессий' : 'professions'}</span>
+          <span>·</span>
+          <span>5 {isRu ? 'языков' : 'languages'}</span>
+          <span>·</span>
+          <span>Big Five + RIASEC</span>
+        </div>
+
+        {/* History row */}
         <div className="aurora-glass-card aurora-no-select" style={{
           padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14,
           cursor: 'pointer',
@@ -483,7 +626,7 @@ export function MenuPage() {
           </div>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 13, fontWeight: 600, color: T.textPrimary, marginBottom: 4 }}>
-              История прохождений
+              {isRu ? 'История прохождений' : 'Test history'}
             </div>
             <div style={{ height: 4, borderRadius: 4, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
               <div style={{

@@ -316,6 +316,52 @@ async def get_results(telegram_id: int, init_data: str, request: Request):
     }
 
 
+@app.get("/api/stats/percentiles/{tg_id}")
+async def get_percentiles(tg_id: int, request: Request):
+    """Возвращает перцентили пользователя относительно всей базы (без авторизации — публичная статистика)."""
+    pool = request.app.state.pool
+    try:
+        db_user = await get_user(pool, tg_id)
+        if not db_user:
+            raise HTTPException(status_code=404, detail="User not found")
+        result = await get_last_result(pool, db_user["id"])
+        if not result:
+            raise HTTPException(status_code=404, detail="No results")
+
+        def _p(v):
+            return json.loads(v) if isinstance(v, str) else (v or {})
+
+        norm = _p(result["normalized_scores"])
+
+        # Получаем средние по всей базе
+        avg_row = await pool.fetchrow("""
+            SELECT
+                AVG((normalized_scores::json->>'O')::float) AS avg_o,
+                AVG((normalized_scores::json->>'C')::float) AS avg_c,
+                AVG((normalized_scores::json->>'E')::float) AS avg_e,
+                AVG((normalized_scores::json->>'A')::float) AS avg_a,
+                AVG((normalized_scores::json->>'S')::float) AS avg_s
+            FROM results
+        """)
+        if not avg_row:
+            raise HTTPException(status_code=503, detail="No stats")
+
+        percentiles = {}
+        for trait in ['O', 'C', 'E', 'A', 'S']:
+            user_val = norm.get(trait, 50)
+            avg_val  = float(avg_row[f'avg_{trait.lower()}'] or 50)
+            # Аппроксимация: чем выше user_val относительно avg — тем ниже перцентиль (топ X%)
+            raw = 100 - user_val + (user_val - avg_val) * 0.5
+            percentiles[trait] = max(1, min(99, round(raw)))
+
+        return percentiles
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Percentiles error: {e}")
+        raise HTTPException(status_code=500, detail="Internal error")
+
+
 @app.post("/api/results/save")
 async def save_results_from_miniapp(body: SaveResultRequest, request: Request):
     """Принимает ответы из Mini App, считает результаты и сохраняет."""

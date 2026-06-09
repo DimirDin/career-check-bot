@@ -132,6 +132,59 @@ export function ProfessionDetailPage({ professionTitle, userResults, onBack }) {
           )}
         </div>
 
+        {/* Персонализированная секция "Подходит тебе" */}
+        {Object.keys(userNorm).length > 0 && Object.keys(reqTraits).length > 0 && (() => {
+          // Считаем совпадение
+          const diffs = TRAITS.map(t => Math.abs((userNorm[t] || 0) - (reqTraits[t] || 50)))
+          const avgDiff = diffs.reduce((a, b) => a + b, 0) / diffs.length
+          const matchPct = Math.max(0, Math.min(100, Math.round(100 - avgDiff)))
+          const matchColor = matchPct >= 70 ? '#22d3a5' : matchPct >= 50 ? '#fbbf24' : '#f97316'
+          return (
+            <div style={{
+              background: 'rgba(34,211,165,0.06)',
+              border: `1px solid ${matchColor}40`,
+              borderRadius: 14, padding: 16,
+            }}>
+              <h3 style={{ fontSize: 14, fontWeight: 700, color: matchColor, margin: '0 0 12px' }}>
+                {isRu ? `Подходит тебе на ${matchPct}%` : `${matchPct}% match for you`}
+              </h3>
+              {TRAITS.map(t => {
+                const userVal = userNorm[t] || 0
+                const reqVal  = reqTraits[t] || 50
+                const diff    = userVal - reqVal
+                const isGood  = diff >= -15
+                const col     = TRAIT_CLR[t]
+                return (
+                  <div key={t} style={{ marginBottom: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+                      <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', width: 110, flexShrink: 0 }}>{tn[t]}</span>
+                      <div style={{ flex: 1, position: 'relative', height: 6, background: 'rgba(255,255,255,0.08)', borderRadius: 3 }}>
+                        <div style={{
+                          position: 'absolute', left: 0, top: 0,
+                          width: `${userVal}%`, height: '100%',
+                          background: isGood ? col : '#f97316',
+                          borderRadius: 3, opacity: 0.85,
+                        }}/>
+                        {/* Requirement marker */}
+                        <div style={{
+                          position: 'absolute', top: -2,
+                          left: `${reqVal}%`,
+                          width: 2, height: 10,
+                          background: 'rgba(255,255,255,0.5)',
+                          borderRadius: 1,
+                        }}/>
+                      </div>
+                      <span style={{ fontSize: 12, color: isGood ? '#22d3a5' : '#f97316', width: 16, textAlign: 'center' }}>
+                        {isGood ? '✓' : '↑'}
+                      </span>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )
+        })()}
+
         {/* Reality */}
         {details.reality && (
           <div className="section-card" style={{ opacity: 1, transform: 'none' }}>

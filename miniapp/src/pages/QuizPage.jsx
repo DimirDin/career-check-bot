@@ -6,6 +6,41 @@ import { track } from '../hooks/useAnalytics'
 
 const SCORE_LABELS = ['Совсем нет', 'Скорее нет', 'Нейтрально', 'Скорее да', 'Полностью да']
 
+const TRAIT_ORDER  = ['O', 'C', 'E', 'A', 'S']
+const TRAIT_COLORS_DOT = { O: '#06b6d4', C: '#a78bfa', E: '#fbbf24', A: '#22d3a5', S: '#f43f5e' }
+const Q_PER_TRAIT  = 12   // 60 вопросов / 5 черт
+
+function TraitDots({ current }) {
+  const completedTraits = TRAIT_ORDER.filter((_, i) => current >= (i + 1) * Q_PER_TRAIT)
+  const activeIdx       = Math.min(Math.floor(current / Q_PER_TRAIT), TRAIT_ORDER.length - 1)
+  const activeTrait     = TRAIT_ORDER[activeIdx]
+
+  return (
+    <div style={{ display: 'flex', gap: 6, justifyContent: 'center', marginBottom: 6 }}>
+      {TRAIT_ORDER.map(t => {
+        const isDone   = completedTraits.includes(t)
+        const isActive = t === activeTrait && !isDone
+        const col      = TRAIT_COLORS_DOT[t]
+        return (
+          <div key={t} style={{
+            width: 24, height: 24, borderRadius: '50%',
+            border: `1px solid ${isActive || isDone ? col : 'rgba(255,255,255,0.1)'}`,
+            background: isDone
+              ? `${col}33`
+              : isActive ? `${col}18` : 'rgba(255,255,255,0.04)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 9, fontWeight: 700,
+            color: isActive || isDone ? col : 'rgba(255,255,255,0.25)',
+            transition: 'all 0.3s ease',
+          }}>
+            {isDone ? '✓' : t}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 const TRAIT_COLORS = {
   O: { primary: '#06b6d4', glow: 'rgba(6,182,212,0.5)',  bg: 'rgba(6,182,212,0.08)',  label: 'Открытость' },
   C: { primary: '#a78bfa', glow: 'rgba(167,139,250,0.5)', bg: 'rgba(167,139,250,0.08)', label: 'Добросов.' },
@@ -170,12 +205,15 @@ export function QuizPage({ questions, onFinish, onBack }) {
           }}>
             {tc.label}
           </div>
-          <div style={{ fontSize: 13, fontWeight: 700 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
             <span style={{ color: tc.primary }}>{current + 1}</span>
             <span style={{ color: 'rgba(255,255,255,0.3)' }}>/{questions.length}</span>
+            <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)', marginLeft: 2 }}>
+              ~{Math.max(1, Math.ceil((questions.length - current) * 15 / 60))} мин
+            </span>
           </div>
         </div>
-        <div style={{ height: 3, background: 'rgba(255,255,255,0.06)' }}>
+        <div style={{ height: 3, background: 'rgba(255,255,255,0.06)', marginBottom: 8 }}>
           <div style={{
             height: '100%',
             width: `${pct}%`,
@@ -187,6 +225,10 @@ export function QuizPage({ questions, onFinish, onBack }) {
             boxShadow: `0 0 8px ${tc.glow}`,
           }}/>
         </div>
+        {/* Trait dots — OCEAN progress */}
+        {questions.length >= 50 && (
+          <TraitDots current={current} />
+        )}
       </div>
 
       {/* Карточка вопроса + кнопки ответа */}

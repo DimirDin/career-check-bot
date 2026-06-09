@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useTelegram } from '../hooks/useTelegram'
 import { AppHeader } from '../components/AppHeader/AppHeader'
+import { getProgress } from '../utils/xpLevels'
 
 const SAMPLE_CHALLENGES_RU = [
   { id: 1, title: 'Исследуй новое поле', desc: 'Прочитай 1 статью о профессии из твоего топ-5 и запиши 3 инсайта.', xp: 20 },
@@ -23,10 +24,11 @@ export function ChallengesPage({ onBack }) {
   const lang = tg?.initDataUnsafe?.user?.language_code?.slice(0, 2) || 'ru'
   const isRu = lang !== 'en'
 
-  const [subscribed, setSubscribed] = useState(null)
-  const [streak,     setStreak]     = useState(0)
-  const [toggling,   setToggling]   = useState(false)
-  const [done,       setDone]       = useState(() => {
+  const [subscribed,    setSubscribed]    = useState(null)
+  const [streak,        setStreak]        = useState(0)
+  const [toggling,      setToggling]      = useState(false)
+  const [justCompleted, setJustCompleted] = useState(null)
+  const [done,          setDone]          = useState(() => {
     try { return JSON.parse(localStorage.getItem('cc_challenges_done') || '[]') } catch { return [] }
   })
 
@@ -63,10 +65,13 @@ export function ChallengesPage({ onBack }) {
     setToggling(false)
   }
 
-  function toggleDone(id) {
-    haptic.select()
+  function markDone(id) {
+    haptic.success?.()
+    setJustCompleted(id)
+    setTimeout(() => setJustCompleted(null), 600)
     setDone(prev => {
-      const next = prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+      if (prev.includes(id)) return prev
+      const next = [...prev, id]
       try { localStorage.setItem('cc_challenges_done', JSON.stringify(next)) } catch {}
       return next
     })
@@ -92,20 +97,56 @@ export function ChallengesPage({ onBack }) {
     back:       isRu ? '← Назад' : '← Back',
   }
 
+  const { current: lvl, next: lvlNext, percent: lvlPct } = getProgress(totalXp)
+  const levelName = isRu ? lvl.name : lvl.nameEn
+
   return (
     <div style={{ minHeight: '100dvh', background: 'linear-gradient(160deg,#05050b 0%,#0c0c1e 60%,#08081a 100%)', color: '#f0eeff', fontFamily: "'Inter',sans-serif" }}>
+      <style>{`
+        @keyframes completeFlash {
+          0%   { background: rgba(0,212,170,0); }
+          30%  { background: rgba(0,212,170,0.2); }
+          100% { background: rgba(0,212,170,0); }
+        }
+      `}</style>
       <AppHeader />
 
       <div style={{ paddingTop: 'var(--page-top)', paddingLeft: 16, paddingRight: 16, paddingBottom: 'var(--page-bottom)' }}>
-        {/* Streak badge */}
-        {streak > 0 && (
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(249,115,22,0.15)', border: '1px solid rgba(249,115,22,0.3)', borderRadius: 20, padding: '5px 12px' }}>
-              <span style={{ fontSize: 16 }}>🔥</span>
-              <span style={{ fontSize: 13, fontWeight: 700, color: '#f97316' }}>{streak} {T.days}</span>
+
+        {/* Level header */}
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{
+                fontSize: 12, fontWeight: 800, color: '#7c3aed',
+                background: 'rgba(124,58,237,0.15)', border: '1px solid rgba(124,58,237,0.3)',
+                borderRadius: 8, padding: '3px 8px',
+              }}>
+                {isRu ? `Ур. ${lvl.level}` : `Lv. ${lvl.level}`}
+              </span>
+              <span style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.8)' }}>{levelName}</span>
+              {streak > 0 && (
+                <span style={{
+                  fontSize: 12, fontWeight: 600, color: '#f97316',
+                  background: 'rgba(249,115,22,0.12)', border: '1px solid rgba(249,115,22,0.3)',
+                  borderRadius: 20, padding: '3px 10px',
+                }}>
+                  🔥 {streak} {isRu ? (streak === 1 ? 'день' : streak < 5 ? 'дня' : 'дней') : 'days'}
+                </span>
+              )}
             </div>
+            <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>
+              {totalXp}{lvlNext ? `/${lvlNext.minXP}` : ''} XP
+            </span>
           </div>
-        )}
+          <div style={{ height: 6, background: 'rgba(255,255,255,0.07)', borderRadius: 4, overflow: 'hidden' }}>
+            <div style={{
+              height: '100%', width: `${lvlPct}%`,
+              background: 'linear-gradient(90deg, #7c3aed, #06b6d4)',
+              borderRadius: 4, transition: 'width 0.4s ease',
+            }} />
+          </div>
+        </div>
 
         {/* Progress bar */}
         <div style={{ background: 'rgba(13,13,26,0.65)', border: '1px solid rgba(244,63,94,0.18)', borderRadius: 16, padding: '14px 16px', marginBottom: 14 }}>
@@ -150,13 +191,15 @@ export function ChallengesPage({ onBack }) {
         {/* Challenges list */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {challenges.map(c => {
-            const isDone = done.includes(c.id)
+            const isDone      = done.includes(c.id)
+            const isFlashing  = justCompleted === c.id
             return (
               <div key={c.id} style={{
                 background: isDone ? 'rgba(34,211,165,0.06)' : 'rgba(13,13,26,0.65)',
                 border: `1px solid ${isDone ? 'rgba(34,211,165,0.25)' : 'rgba(255,255,255,0.07)'}`,
                 borderRadius: 14, padding: '14px 16px',
                 transition: 'all 0.2s ease',
+                animation: isFlashing ? 'completeFlash 0.6s ease forwards' : 'none',
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, gap: 8 }}>
                   <div style={{
@@ -178,21 +221,62 @@ export function ChallengesPage({ onBack }) {
                 <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', lineHeight: 1.5, marginBottom: 10 }}>
                   {c.desc}
                 </div>
-                <button
-                  onClick={() => toggleDone(c.id)}
-                  style={{
-                    background: isDone ? 'rgba(255,255,255,0.05)' : 'rgba(244,63,94,0.15)',
-                    border: `1px solid ${isDone ? 'rgba(255,255,255,0.1)' : 'rgba(244,63,94,0.35)'}`,
-                    borderRadius: 8, padding: '7px 16px',
-                    color: isDone ? 'rgba(255,255,255,0.4)' : '#f43f5e',
-                    fontSize: 12, fontWeight: 600, cursor: 'pointer', width: '100%',
-                  }}
-                >
-                  {isDone ? T.undo : T.done}
-                </button>
+                {isDone ? (
+                  /* Бейдж "Выполнено" вместо кнопки Отменить */
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: 4,
+                    fontSize: 12, color: '#22d3a5',
+                    padding: '6px 12px', marginTop: 4,
+                    background: 'rgba(0,212,170,0.1)',
+                    borderRadius: 8, width: 'fit-content',
+                  }}>
+                    <span>✓</span>
+                    <span>{isRu ? 'Выполнено' : 'Completed'}</span>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => markDone(c.id)}
+                    style={{
+                      background: 'rgba(244,63,94,0.15)',
+                      border: '1px solid rgba(244,63,94,0.35)',
+                      borderRadius: 8, padding: '7px 16px',
+                      color: '#f43f5e',
+                      fontSize: 12, fontWeight: 600, cursor: 'pointer', width: '100%',
+                    }}
+                  >
+                    {T.done}
+                  </button>
+                )}
               </div>
             )
           })}
+
+          {/* Locked preview — завтрашнее задание */}
+          <div style={{
+            background: 'rgba(13,13,26,0.65)',
+            border: '1px solid rgba(255,255,255,0.07)',
+            borderRadius: 14, padding: '14px 16px',
+            position: 'relative', overflow: 'hidden', opacity: 0.7,
+          }}>
+            <div style={{
+              position: 'absolute', inset: 0,
+              display: 'flex', flexDirection: 'column',
+              alignItems: 'center', justifyContent: 'center',
+              gap: 4, zIndex: 2,
+              fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.7)',
+            }}>
+              <span style={{ fontSize: 20 }}>🔒</span>
+              <span>{isRu ? 'Завтра' : 'Tomorrow'}</span>
+            </div>
+            <div style={{ filter: 'blur(5px)', pointerEvents: 'none', userSelect: 'none' }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: '#f0eeff', marginBottom: 8 }}>
+                {isRu ? 'Следующее задание' : 'Next challenge'}
+              </div>
+              <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>
+                {isRu ? 'Описание появится завтра в 9:00' : 'Description available tomorrow at 9:00'}
+              </div>
+            </div>
+          </div>
         </div>
 
         <div style={{ paddingTop: 16 }}>

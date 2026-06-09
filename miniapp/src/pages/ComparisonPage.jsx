@@ -44,14 +44,56 @@ export function ComparisonPage({ hashCode, myResults, onStartTest, onBack }) {
 
   if (error || !friendData) return (
     <div className="comparison-page">
-      <div style={{ padding: '40px 24px', textAlign: 'center' }}>
+      <div style={{
+        display: 'flex', flexDirection: 'column', alignItems: 'center',
+        textAlign: 'center', padding: '24px 20px', gap: 16,
+        minHeight: '60vh', justifyContent: 'center',
+      }}>
         <div style={{ fontSize: 48 }}>🔗</div>
-        <h3 style={{ marginTop: 16 }}>{isRu ? 'Ссылка устарела' : 'Link expired'}</h3>
-        <p style={{ color: 'rgba(255,255,255,0.5)', marginTop: 8 }}>
-          {isRu ? 'Попроси друга создать новую ссылку' : 'Ask your friend to create a new link'}
+        <h2 style={{ fontSize: 22, fontWeight: 800, color: '#fff', margin: 0 }}>
+          {isRu ? 'Ссылка устарела' : 'Link expired'}
+        </h2>
+        <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)', lineHeight: 1.5, maxWidth: 280, margin: 0 }}>
+          {isRu
+            ? 'Ссылка для сравнения действует 48 часов. Попроси друга создать новую.'
+            : 'Comparison links are valid for 48 hours. Ask your friend to create a new one.'}
         </p>
-        <button className="btn-back-results" style={{ marginTop: 24 }} onClick={onBack}>
-          {isRu ? '← Назад' : '← Back'}
+
+        <div style={{
+          background: 'rgba(124,58,237,0.12)',
+          border: '1px solid rgba(124,58,237,0.25)',
+          borderRadius: 16, padding: 20, width: '100%',
+        }}>
+          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', margin: '0 0 12px' }}>
+            {isRu ? 'А пока — узнай свой тип личности' : 'In the meantime — discover your personality type'}
+          </p>
+          <button
+            className="btn-primary"
+            onClick={() => onStartTest?.()}
+            style={{
+              width: '100%', padding: '13px', borderRadius: 12,
+              background: 'linear-gradient(135deg, #7c3aed, #06b6d4)',
+              border: 'none', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer',
+            }}
+          >
+            🎯 {isRu ? 'Пройти тест бесплатно' : 'Take the test for free'}
+          </button>
+          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', margin: '8px 0 0' }}>
+            {isRu ? '60 вопросов · 15 минут · Big Five + RIASEC' : '60 questions · 15 minutes · Big Five + RIASEC'}
+          </p>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-start', width: '100%', padding: '0 8px' }}>
+          {(isRu ? ['160+ профессий', 'Психологический портрет', 'RIASEC-тип карьеры'] : ['160+ careers', 'Psychological portrait', 'RIASEC career type'])
+            .map(f => (
+              <div key={f} style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', display: 'flex', gap: 8 }}>
+                <span style={{ color: '#00d4aa' }}>✓</span> {f}
+              </div>
+            ))}
+        </div>
+
+        <button className="btn-back-results" onClick={onBack}>
+          {isRu ? '← На главную' : '← Home'}
         </button>
       </div>
     </div>

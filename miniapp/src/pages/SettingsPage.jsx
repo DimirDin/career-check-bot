@@ -1,9 +1,16 @@
 import { useEffect, useState } from 'react'
 import { useTelegram } from '../hooks/useTelegram'
 import { AppHeader } from '../components/AppHeader/AppHeader'
+import { AchievementsCard } from '../components/AchievementsCard'
+import { getLevel } from '../utils/xpLevels'
+import { useNavigate } from '../context/NavigationContext'
+
+const RIASEC_RU = { R:'Реалистичный',I:'Исследовательский',A:'Артистичный',S:'Социальный',E:'Предприимчивый',C:'Конвенциональный' }
+const RIASEC_EN = { R:'Realistic',I:'Investigative',A:'Artistic',S:'Social',E:'Enterprising',C:'Conventional' }
 
 export function SettingsPage({ onBack }) {
-  const { tg, haptic, initData } = useTelegram()
+  const { tg, haptic, initData, user } = useTelegram()
+  const navigate = useNavigate()
   const lang  = tg?.initDataUnsafe?.user?.language_code?.slice(0, 2) || 'ru'
   const isRu  = lang !== 'en'
 
@@ -12,6 +19,7 @@ export function SettingsPage({ onBack }) {
   const [toggling,     setToggling]     = useState(false)
   const [referral,     setReferral]     = useState(null)
   const [copied,       setCopied]       = useState(false)
+  const [userState,    setUserState]    = useState(null)
 
   useEffect(() => {
     if (!tg) return
@@ -29,6 +37,10 @@ export function SettingsPage({ onBack }) {
     fetch(`/api/referral/progress?init_data=${encodeURIComponent(initData)}`)
       .then(r => r.json())
       .then(d => setReferral(d))
+      .catch(() => {})
+    fetch(`/api/user/state?init_data=${encodeURIComponent(initData)}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => d && setUserState(d))
       .catch(() => {})
   }, [initData])
 
@@ -88,11 +100,125 @@ export function SettingsPage({ onBack }) {
     back:           isRu ? '← Назад' : '← Back',
   }
 
+  // Данные профиля
+  const tgUser    = tg?.initDataUnsafe?.user
+  const fullName  = tgUser?.first_name ? `${tgUser.first_name} ${tgUser.last_name || ''}`.trim() : (isRu ? 'Пользователь' : 'User')
+  const initials  = fullName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
+  const totalXP   = userState?.totalXP || 0
+  const lvl       = getLevel(totalXP)
+  const levelName = isRu ? lvl.name : lvl.nameEn
+  const hasPremium = userState?.hasPremium || false
+  const hasResults = userState?.hasResults || false
+
+  const riasecData = userState?.riasec || {}
+  const riasecEntries = Object.entries(riasecData)
+  const domKey = riasecEntries.length ? riasecEntries.sort((a, b) => b[1] - a[1])[0][0] : null
+  const riasecLabel = domKey ? (isRu ? RIASEC_RU[domKey] : RIASEC_EN[domKey]) || domKey : null
+
+  const achieveData = {
+    testCompleted:  hasResults,
+    totalXP,
+    streak,
+    hasPremium,
+    referralCount:  referral?.count || 0,
+    catalogViewed:  !!localStorage.getItem('cc_catalog_viewed'),
+  }
+
   return (
     <div className="settings-page">
       <AppHeader />
 
       <div className="settings-body" style={{ paddingTop: 'var(--page-top)' }}>
+
+        {/* Profile Hero */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 14,
+          padding: 16,
+          background: 'rgba(124,58,237,0.1)',
+          border: '1px solid rgba(124,58,237,0.2)',
+          borderRadius: 16, marginBottom: 20,
+        }}>
+          <div style={{
+            width: 52, height: 52, borderRadius: '50%',
+            background: 'linear-gradient(135deg, #7c3aed, #06b6d4)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 18, fontWeight: 800, color: '#fff', flexShrink: 0,
+          }}>
+            {initials}
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: '#f0eeff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {fullName}
+            </div>
+            {riasecLabel && (
+              <div style={{ fontSize: 12, color: '#06b6d4', fontWeight: 600, marginTop: 2 }}>{riasecLabel}</div>
+            )}
+            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>
+              {levelName} · {totalXP} XP
+            </div>
+          </div>
+        </div>
+
+        {/* Premium status */}
+        {hasPremium ? (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 12,
+            padding: '14px 16px', marginBottom: 16,
+            background: 'rgba(253,203,110,0.08)',
+            border: '1px solid rgba(253,203,110,0.25)',
+            borderRadius: 14,
+          }}>
+            <span style={{ fontSize: 22 }}>🌟</span>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: '#fbbf24' }}>{isRu ? 'Premium активен' : 'Premium active'}</div>
+            </div>
+          </div>
+        ) : (
+          <div
+            onClick={() => navigate('premium-promo')}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 12,
+              padding: '14px 16px', marginBottom: 16,
+              background: 'rgba(124,58,237,0.08)',
+              border: '1px solid rgba(124,58,237,0.25)',
+              borderRadius: 14, cursor: 'pointer',
+            }}
+          >
+            <span style={{ fontSize: 22 }}>⭐</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: '#a78bfa' }}>{isRu ? 'Получить Premium PDF' : 'Get Premium PDF'}</div>
+              <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>
+                {isRu ? 'AI-анализ · 6 страниц · 99 Stars' : 'AI analysis · 6 pages · 99 Stars'}
+              </div>
+            </div>
+            <span style={{ color: 'rgba(255,255,255,0.3)' }}>→</span>
+          </div>
+        )}
+
+        {/* History link */}
+        <div
+          onClick={() => navigate('history')}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 12,
+            padding: '14px 16px', marginBottom: 16,
+            background: 'rgba(13,13,26,0.65)',
+            border: '1px solid rgba(255,255,255,0.07)',
+            borderRadius: 14, cursor: 'pointer',
+          }}
+        >
+          <span style={{ fontSize: 20 }}>📊</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: '#f0eeff' }}>{isRu ? 'История тестов' : 'Test history'}</div>
+            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>{isRu ? 'Все прошлые результаты' : 'All past results'}</div>
+          </div>
+          <span style={{ color: 'rgba(255,255,255,0.3)' }}>→</span>
+        </div>
+
+        {/* Achievements */}
+        <div style={{ marginBottom: 20 }}>
+          <AchievementsCard userData={achieveData} lang={lang} />
+        </div>
+
         {/* Notifications */}
         <div className="settings-section">
           <div className="settings-section-label">{T.notifications}</div>

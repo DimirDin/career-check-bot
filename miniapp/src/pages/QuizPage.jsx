@@ -122,7 +122,18 @@ export function QuizPage({ questions, onFinish, onBack }) {
     if (!tg) return
     tg.BackButton.show()
     tg.BackButton.onClick(onBack)
+    // После показа BackButton Telegram обновляет contentSafeAreaInsets —
+    // пересчитываем CSS-переменную чтобы шапка встала на правильную позицию
+    const refreshInsets = () => {
+      const contentTop = tg.contentSafeAreaInsets?.top ?? 0
+      const safeTop    = tg.safeAreaInsets?.top        ?? 0
+      let top = Math.max(contentTop, safeTop)
+      if (tg.isFullscreen && contentTop <= safeTop + 10 && safeTop > 0) top = safeTop + 44
+      if (top > 0) document.documentElement.style.setProperty('--tg-header-h', top + 'px')
+    }
+    const t = setTimeout(refreshInsets, 150)
     return () => {
+      clearTimeout(t)
       tg.BackButton.offClick(onBack)
       tg.BackButton.hide()
     }
@@ -174,6 +185,7 @@ export function QuizPage({ questions, onFinish, onBack }) {
           background: 'rgba(4,4,14,0.92)',
           backdropFilter: 'blur(22px)',
           WebkitBackdropFilter: 'blur(22px)',
+          borderBottom: `1px solid ${tc.primary}30`,
           padding: 'var(--tg-header-h, env(safe-area-inset-top, 0px)) 14px 0',
         }}>
           {/* Строка: название черты слева, счётчик по центру */}
@@ -270,7 +282,7 @@ export function QuizPage({ questions, onFinish, onBack }) {
             display: 'flex',
             flexDirection: 'column',
             gap: 8,
-            paddingBottom: 'calc(20px + env(safe-area-inset-bottom, 0px))',
+            paddingBottom: 'calc(32px + env(safe-area-inset-bottom, 0px))',
           }}>
             {[1, 2, 3, 4, 5].map(score => {
               const isSelected = selected === score

@@ -12,23 +12,6 @@ export function useTelegram() {
 
   useEffect(() => {
     if (!tg) return
-    tg.ready()
-
-    // Полноэкранный режим (Telegram 10.1+)
-    if (tg.requestFullscreen) {
-      tg.requestFullscreen()
-    } else {
-      tg.expand()
-    }
-
-    // Отключить свайп вниз для закрытия
-    if (tg.disableVerticalSwipes) {
-      tg.disableVerticalSwipes()
-    }
-
-    // Цвета шапки и фона под тёмную тему
-    try { tg.setHeaderColor('#0B0E1A') }     catch {}
-    try { tg.setBackgroundColor('#0B0E1A') } catch {}
 
     // Устанавливаем --tg-header-h = высота шапки Telegram (Back/Close + device notch в fullscreen)
     // contentSafeAreaInsets.top — Telegram UI header (в fullscreen уже включает notch)

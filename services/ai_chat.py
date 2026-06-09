@@ -10,11 +10,12 @@ import logging
 import anthropic
 
 from services.circuit_breaker import anthropic_breaker
+from config.settings import CLAUDE_CHAT_MODEL as CHAT_MODEL
 
 logger = logging.getLogger(__name__)
 
-CHAT_MODEL = "claude-3-5-haiku-20241022"
-MAX_TOKENS = 450   # короткие конкретные ответы
+MAX_TOKENS      = 450   # короткие конкретные ответы
+MAX_HISTORY_PAIRS = 6   # максимум 6 пар user/assistant в контексте
 
 RIASEC_NAMES = {
     "ru": {"R":"Реалистичный","I":"Исследовательский","A":"Артистичный",
@@ -28,6 +29,17 @@ TRAIT_NAMES = {
     "en": {"O":"Openness","C":"Conscientiousness","E":"Extraversion",
            "A":"Agreeableness","S":"Stability"},
 }
+
+
+def _trim_history(history: list) -> list:
+    """Оставляем последние MAX_HISTORY_PAIRS пар user/assistant."""
+    if len(history) <= MAX_HISTORY_PAIRS * 2:
+        return history
+    trimmed = history[-(MAX_HISTORY_PAIRS * 2):]
+    # Убеждаемся что начинается с role=user
+    while trimmed and trimmed[0]["role"] != "user":
+        trimmed = trimmed[1:]
+    return trimmed
 
 
 def _build_system_prompt(normalized: dict, riasec: dict, top_professions: list, lang: str) -> str:
@@ -79,8 +91,8 @@ async def ask_career_ai(
         logger.warning("AI chat skipped: circuit breaker OPEN")
         return None
 
-    system = _build_system_prompt(normalized, riasec, top_professions, lang)
-    messages = list(history) + [{"role": "user", "content": question}]
+    system   = _build_system_prompt(normalized, riasec, top_professions, lang)
+    messages = _trim_history(list(history)) + [{"role": "user", "content": question}]
 
     try:
         client = anthropic.AsyncAnthropic(api_key=api_key, max_retries=2, timeout=30.0)

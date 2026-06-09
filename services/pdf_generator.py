@@ -83,14 +83,22 @@ def _register_fonts():
         try:
             pdfmetrics.registerFont(TTFont('DVReg', reg_path))
             reg_name = 'DVReg'
-        except Exception:
-            pass
+            logger.info(f"Font DVReg loaded: {reg_path}")
+        except Exception as e:
+            logger.error(f"Font DVReg load error: {e}")
+    else:
+        logger.warning("DejaVuSans.ttf NOT FOUND — falling back to Helvetica. Cyrillic text will be corrupted!")
+
     if bold_path:
         try:
             pdfmetrics.registerFont(TTFont('DVBold', bold_path))
             bold_name = 'DVBold'
-        except Exception:
-            pass
+            logger.info(f"Font DVBold loaded: {bold_path}")
+        except Exception as e:
+            logger.error(f"Font DVBold load error: {e}")
+    else:
+        logger.warning("DejaVuSans-Bold.ttf NOT FOUND — falling back to Helvetica-Bold.")
+
     return reg_name or 'Helvetica', bold_name or 'Helvetica-Bold'
 
 

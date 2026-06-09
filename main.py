@@ -127,9 +127,14 @@ async def main() -> None:
     dp.include_router(router)
     dp.include_router(premium_router)
 
-    # Пул + Redis доступны во всех хендлерах
+    # Пул + Redis + bot_username доступны во всех хендлерах
     dp["pool"]  = pool
     dp["redis"] = redis_client
+
+    # Кешируем username бота при старте — не делаем API-запрос на каждый inline
+    bot_info = await bot.get_me()
+    dp["bot_username"] = bot_info.username
+    logger.info(f"Bot username cached: @{bot_info.username}")
 
     # ── Настраиваем бота как Mini App launcher ───────────────────
     domain = os.getenv("DOMAIN", "careercheck.app")

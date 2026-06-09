@@ -97,7 +97,6 @@ async def cb_buy_premium(call: CallbackQuery, pool):
 @premium_router.pre_checkout_query()
 async def pre_checkout(query: PreCheckoutQuery):
     """Telegram вызывает это перед списанием — должны ответить ok в течение 10 сек."""
-    # Проверяем payload на случай если в будущем добавятся другие платные функции
     if query.invoice_payload != PAYLOAD:
         await query.answer(ok=False, error_message="Unknown product")
         return
@@ -109,11 +108,47 @@ async def pre_checkout(query: PreCheckoutQuery):
 @premium_router.message(F.successful_payment)
 async def payment_success(message: Message, pool, redis: aioredis.Redis = None):
     """Оплата прошла — генерируем Premium PDF."""
-    # Игнорируем платежи не от нашего инвойса
     if message.successful_payment.invoice_payload != PAYLOAD:
         return
 
-    lang = await _get_lang(pool, message.from_user.id)
+    lang      = await _get_lang(pool, message.from_user.id)
+    charge_id = message.successful_payment.telegram_payment_charge_id
+
+    # ── Идемпотентность: проверяем не обрабатывали ли уже этот платёж ────────
+    try:
+        existing = await pool.fetchrow(
+            "SELECT id FROM purchases WHERE telegram_payment_charge_id = $1", charge_id
+        )
+        if existing:
+            logger.warning(f"Duplicate payment ignored: charge_id={charge_id}, user={message.from_user.id}")
+            # Пробуем найти PDF в Redis
+            pdf_found = False
+            if redis:
+                try:
+                    cached = await redis.get(f"premium_pdf:{message.from_user.id}")
+                    if cached:
+                        pdf_bytes = base64.b64decode(cached)
+                        await message.answer_document(
+                            document=types.BufferedInputFile(pdf_bytes, filename="CareerCheck_Premium.pdf"),
+                            caption=(
+                                "✅ Ваш отчёт уже был сгенерирован ранее. Вот он снова!"
+                                if lang == "ru" else
+                                "✅ Your report was already generated. Here it is again!"
+                            ),
+                        )
+                        pdf_found = True
+                except Exception as re:
+                    logger.warning(f"Redis PDF retrieve error: {re}")
+
+            if not pdf_found:
+                await message.answer(
+                    f"✅ Ваш отчёт уже был сгенерирован ранее. Если не можете его найти — напишите {SUPPORT_BOT}."
+                    if lang == "ru" else
+                    f"✅ Your report was already generated. If you can't find it, contact {SUPPORT_BOT}."
+                )
+            return
+    except Exception as e:
+        logger.error(f"Idempotency check error: {e}")
 
     await message.answer(
         "✅ Оплата получена! Генерирую ваш Premium-отчёт...\n⏳ Это займёт 15–30 секунд."
@@ -147,8 +182,23 @@ async def payment_success(message: Message, pool, redis: aioredis.Redis = None):
             "date":      datetime.now().strftime("%d.%m.%Y"),
         }
 
-        # generate_premium_pdf — async функция, вызываем напрямую
-        pdf_bytes = await generate_premium_pdf(
+        # Сохраняем запись в БД ДО генерации — гарантирует идемпотентность
+        try:
+            await pool.execute(
+                """INSERT INTO purchases
+                   (user_id, product, amount, telegram_payment_charge_id, created_at)
+                   VALUES ($1, $2, $3, $4, NOW())
+                   ON CONFLICT (telegram_payment_charge_id) DO NOTHING""",
+                db_user["id"],
+                PAYLOAD,
+                message.successful_payment.total_amount,
+                charge_id,
+            )
+        except Exception as e:
+            logger.error(f"Purchase INSERT error: {e}")
+
+        # generate_premium_pdf возвращает (bytes, ai_used)
+        pdf_bytes, ai_used = await generate_premium_pdf(
             user_data         = user_data,
             normalized_scores = normalized,
             riasec            = riasec,
@@ -180,12 +230,22 @@ async def payment_success(message: Message, pool, redis: aioredis.Redis = None):
             caption  = caption,
         )
 
+        # Если AI был недоступен — предупреждаем пользователя
+        if not ai_used:
+            await message.answer(
+                f"⚠️ AI-анализ временно недоступен. Базовый отчёт уже у вас. "
+                f"Напишите нам — добавим персональный анализ: {SUPPORT_BOT}"
+                if lang == "ru" else
+                f"⚠️ AI analysis temporarily unavailable. Basic report sent. "
+                f"Contact us for personalized content: {SUPPORT_BOT}"
+            )
+
         logger.info(
             f"Premium PDF sent: user={message.from_user.id}, "
-            f"stars={message.successful_payment.total_amount}, lang={lang}"
+            f"stars={message.successful_payment.total_amount}, lang={lang}, ai_used={ai_used}"
         )
 
-        # Обновляем кнопку меню — теперь пользователь с Premium
+        # Обновляем кнопку меню
         try:
             from bot.handlers import update_menu_button_for_user
             await update_menu_button_for_user(message.bot, message.from_user.id, pool)

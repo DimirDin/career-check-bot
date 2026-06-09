@@ -50,6 +50,240 @@ TRAIT_LABELS = {
     "hi": ["खुलापन","कर्तव्यनिष्ठा","बहिर्मुखता","सहमतता","स्थिरता"],
 }
 
+PDF_LABELS = {
+    "ru": {
+        "main_title": "ПЕРСОНАЛЬНЫЙ КАРЬЕРНЫЙ ОТЧЁТ",
+        "dom_sub": "Доминирующий тип",
+        "bio_note": "Big Five x RIASEC",
+        "score_label": "баллов",
+        "p1_subtitle": "Психологический профиль",
+        "sec_portrait": "Психологический портрет",
+        "sec_superpower": "Ваша суперсила",
+        "sec_shadow": "На что обратить внимание",
+        "sec_big5": "Профиль личности Big Five (OCEAN)",
+        "sec_riasec": "RIASEC — профессиональные интересы",
+        "p2_subtitle": "Big Five & RIASEC",
+        "sec_vision5": "Карьерное видение — 5 лет",
+        "sec_vision10": "Долгосрочный потенциал — 10 лет",
+        "sec_workenv": "Идеальная рабочая среда",
+        "sec_comms": "Стиль коммуникации",
+        "sec_stress": "Стресс и риск выгорания",
+        "p3_subtitle": "Карьерное видение",
+        "sec_why": "Почему это идеальная профессия для вас",
+        "sec_daylife": "Как выглядит ваш рабочий день",
+        "sec_salary": "Зарплатная траектория",
+        "sec_network": "Советы по нетворкингу",
+        "p4_subtitle": "Анализ",
+        "prof_match": "Совпадение",
+        "prof_type": "Тип",
+        "sec_roadmap": "Ваш роадмап — 5 конкретных шагов",
+        "sec_hard": "Hard skills:",
+        "sec_soft": "Soft skills:",
+        "sec_resources": "Ресурсы, курсы и сообщества",
+        "sec_redflags": "Красные флаги — чего избегать",
+        "p5_subtitle": "Роадмап и навыки",
+        "sec_action": "Действие на сегодня",
+        "sec_message": "Личное послание от карьерного коуча",
+        "p6_subtitle": "Альтернативы и итог",
+        "questions": "Вопросы по отчёту?",
+        "level_high": "Высокий",
+        "level_mid": "Средний",
+        "level_low": "Низкий",
+    },
+    "en": {
+        "main_title": "PERSONAL CAREER REPORT",
+        "dom_sub": "Dominant type",
+        "bio_note": "Big Five x RIASEC",
+        "score_label": "pts",
+        "p1_subtitle": "Psychological Profile",
+        "sec_portrait": "Psychological Profile",
+        "sec_superpower": "Your Superpower",
+        "sec_shadow": "Areas to Watch",
+        "sec_big5": "Big Five Personality Profile (OCEAN)",
+        "sec_riasec": "RIASEC — Professional Interests",
+        "p2_subtitle": "Big Five & RIASEC",
+        "sec_vision5": "Career Vision — 5 Years",
+        "sec_vision10": "Long-Term Potential — 10 Years",
+        "sec_workenv": "Ideal Work Environment",
+        "sec_comms": "Communication Style",
+        "sec_stress": "Stress & Burnout Risk",
+        "p3_subtitle": "Career Vision",
+        "sec_why": "Why This Is Your Ideal Career",
+        "sec_daylife": "A Day in Your Work Life",
+        "sec_salary": "Salary Trajectory",
+        "sec_network": "Networking Advice",
+        "p4_subtitle": "Analysis",
+        "prof_match": "Match",
+        "prof_type": "Type",
+        "sec_roadmap": "Your Roadmap — 5 Concrete Steps",
+        "sec_hard": "Hard skills:",
+        "sec_soft": "Soft skills:",
+        "sec_resources": "Resources, Courses & Communities",
+        "sec_redflags": "Red Flags — What to Avoid",
+        "p5_subtitle": "Roadmap & Skills",
+        "sec_action": "Action for Today",
+        "sec_message": "Personal Message from Your Career Coach",
+        "p6_subtitle": "Alternatives & Summary",
+        "questions": "Questions about the report?",
+        "level_high": "High",
+        "level_mid": "Medium",
+        "level_low": "Low",
+    },
+    "es": {
+        "main_title": "INFORME DE CARRERA PERSONAL",
+        "dom_sub": "Tipo dominante",
+        "bio_note": "Big Five x RIASEC",
+        "score_label": "pts",
+        "p1_subtitle": "Perfil Psicológico",
+        "sec_portrait": "Perfil Psicológico",
+        "sec_superpower": "Tu Superpoder",
+        "sec_shadow": "Áreas a Observar",
+        "sec_big5": "Perfil de Personalidad Big Five (OCEAN)",
+        "sec_riasec": "RIASEC — Intereses Profesionales",
+        "p2_subtitle": "Big Five & RIASEC",
+        "sec_vision5": "Visión de Carrera — 5 Años",
+        "sec_vision10": "Potencial a Largo Plazo — 10 Años",
+        "sec_workenv": "Entorno de Trabajo Ideal",
+        "sec_comms": "Estilo de Comunicación",
+        "sec_stress": "Estrés y Riesgo de Agotamiento",
+        "p3_subtitle": "Visión de Carrera",
+        "sec_why": "Por Qué Esta Es Tu Carrera Ideal",
+        "sec_daylife": "Un Día en Tu Vida Laboral",
+        "sec_salary": "Trayectoria Salarial",
+        "sec_network": "Consejos de Networking",
+        "p4_subtitle": "Análisis",
+        "prof_match": "Coincidencia",
+        "prof_type": "Tipo",
+        "sec_roadmap": "Tu Hoja de Ruta — 5 Pasos Concretos",
+        "sec_hard": "Hard skills:",
+        "sec_soft": "Soft skills:",
+        "sec_resources": "Recursos, Cursos y Comunidades",
+        "sec_redflags": "Banderas Rojas — Qué Evitar",
+        "p5_subtitle": "Hoja de Ruta y Habilidades",
+        "sec_action": "Acción para Hoy",
+        "sec_message": "Mensaje Personal de Tu Coach de Carrera",
+        "p6_subtitle": "Alternativas y Resumen",
+        "questions": "¿Preguntas sobre el informe?",
+        "level_high": "Alto",
+        "level_mid": "Medio",
+        "level_low": "Bajo",
+    },
+    "pt": {
+        "main_title": "RELATÓRIO DE CARREIRA PESSOAL",
+        "dom_sub": "Tipo dominante",
+        "bio_note": "Big Five x RIASEC",
+        "score_label": "pts",
+        "p1_subtitle": "Perfil Psicológico",
+        "sec_portrait": "Perfil Psicológico",
+        "sec_superpower": "Seu Superpoder",
+        "sec_shadow": "Áreas a Observar",
+        "sec_big5": "Perfil de Personalidade Big Five (OCEAN)",
+        "sec_riasec": "RIASEC — Interesses Profissionais",
+        "p2_subtitle": "Big Five & RIASEC",
+        "sec_vision5": "Visão de Carreira — 5 Anos",
+        "sec_vision10": "Potencial de Longo Prazo — 10 Anos",
+        "sec_workenv": "Ambiente de Trabalho Ideal",
+        "sec_comms": "Estilo de Comunicação",
+        "sec_stress": "Estresse e Risco de Burnout",
+        "p3_subtitle": "Visão de Carreira",
+        "sec_why": "Por Que Esta É Sua Carreira Ideal",
+        "sec_daylife": "Um Dia na Sua Vida Profissional",
+        "sec_salary": "Trajetória Salarial",
+        "sec_network": "Conselhos de Networking",
+        "p4_subtitle": "Análise",
+        "prof_match": "Compatibilidade",
+        "prof_type": "Tipo",
+        "sec_roadmap": "Seu Roteiro — 5 Passos Concretos",
+        "sec_hard": "Hard skills:",
+        "sec_soft": "Soft skills:",
+        "sec_resources": "Recursos, Cursos e Comunidades",
+        "sec_redflags": "Sinais de Alerta — O Que Evitar",
+        "p5_subtitle": "Roteiro e Habilidades",
+        "sec_action": "Ação para Hoje",
+        "sec_message": "Mensagem Pessoal do Seu Coach de Carreira",
+        "p6_subtitle": "Alternativas e Resumo",
+        "questions": "Dúvidas sobre o relatório?",
+        "level_high": "Alto",
+        "level_mid": "Médio",
+        "level_low": "Baixo",
+    },
+    "hi": {
+        "main_title": "व्यक्तिगत करियर रिपोर्ट",
+        "dom_sub": "प्रमुख प्रकार",
+        "bio_note": "Big Five x RIASEC",
+        "score_label": "अंक",
+        "p1_subtitle": "मनोवैज्ञानिक प्रोफ़ाइल",
+        "sec_portrait": "मनोवैज्ञानिक प्रोफ़ाइल",
+        "sec_superpower": "आपकी महाशक्ति",
+        "sec_shadow": "ध्यान देने योग्य क्षेत्र",
+        "sec_big5": "Big Five व्यक्तित्व प्रोफ़ाइल (OCEAN)",
+        "sec_riasec": "RIASEC — व्यावसायिक रुचियाँ",
+        "p2_subtitle": "Big Five & RIASEC",
+        "sec_vision5": "करियर दृष्टि — 5 वर्ष",
+        "sec_vision10": "दीर्घकालिक क्षमता — 10 वर्ष",
+        "sec_workenv": "आदर्श कार्य वातावरण",
+        "sec_comms": "संचार शैली",
+        "sec_stress": "तनाव और बर्नआउट जोखिम",
+        "p3_subtitle": "करियर दृष्टि",
+        "sec_why": "यह आपका आदर्श करियर क्यों है",
+        "sec_daylife": "आपके कार्यदिवस की झलक",
+        "sec_salary": "वेतन प्रक्षेपवक्र",
+        "sec_network": "नेटवर्किंग सलाह",
+        "p4_subtitle": "विश्लेषण",
+        "prof_match": "मिलान",
+        "prof_type": "प्रकार",
+        "sec_roadmap": "आपका रोडमैप — 5 ठोस कदम",
+        "sec_hard": "Hard skills:",
+        "sec_soft": "Soft skills:",
+        "sec_resources": "संसाधन, पाठ्यक्रम और समुदाय",
+        "sec_redflags": "रेड फ्लैग — क्या से बचें",
+        "p5_subtitle": "रोडमैप और कौशल",
+        "sec_action": "आज के लिए कार्य",
+        "sec_message": "आपके करियर कोच का व्यक्तिगत संदेश",
+        "p6_subtitle": "विकल्प और सारांश",
+        "questions": "रिपोर्ट के बारे में प्रश्न?",
+        "level_high": "उच्च",
+        "level_mid": "मध्यम",
+        "level_low": "निम्न",
+    },
+}
+
+
+def _L(lang: str) -> dict:
+    """Получить словарь локализации PDF, фолбэк на английский."""
+    return PDF_LABELS.get(lang, PDF_LABELS["en"])
+
+
+def _get_fallback_ai_content(lang: str) -> dict:
+    """Заглушка для AI-контента когда Claude API недоступен."""
+    if lang == "ru":
+        note = "⚠️ AI-анализ временно недоступен. Ваш персонализированный анализ будет добавлен в течение 24 часов. Обратитесь в @CareerCheckSupport."
+    else:
+        note = "⚠️ AI analysis temporarily unavailable. Your personalized analysis will be added within 24 hours. Contact @CareerCheckSupport."
+    return {
+        "personality_portrait": note,
+        "superpower": note,
+        "shadow_side": note,
+        "career_vision_5y": note,
+        "career_vision_10y": note,
+        "ideal_work_environment": note,
+        "communication_style": note,
+        "stress_and_burnout": note,
+        "top1_why_perfect": note,
+        "top1_day_in_life": note,
+        "top1_roadmap": [note],
+        "top1_hard_skills": [],
+        "top1_soft_skills": [],
+        "top1_resources": [],
+        "top2_brief": note,
+        "top3_brief": note,
+        "salary_trajectory": note,
+        "networking_advice": note,
+        "red_flags": [],
+        "action_today": note,
+        "personal_message": note,
+    }
+
 
 # ── Drawing helpers ────────────────────────────────────────────────────────────
 
@@ -144,12 +378,13 @@ def _2col(c, y, la, ra, lc, rc, lt, rt):
 
 def _p1(c, ai, normalized, riasec, name, date, lang):
     draw_bg(c)
-    y = H-M
+    y   = H-M
+    L   = _L(lang)
     rl  = RIASEC_LABELS.get(lang, RIASEC_LABELS["en"])
     dom = max(riasec, key=riasec.get)
-    y = _hdr(c, y, name, date, "Психологический профиль")
+    y   = _hdr(c, y, name, date, L["p1_subtitle"])
 
-    text(c, M, y, "ПЕРСОНАЛЬНЫЙ КАРЬЕРНЫЙ ОТЧЁТ", FONT_BOLD, 15, WHITE)
+    text(c, M, y, L["main_title"], FONT_BOLD, 15, WHITE)
     y -= 8; gradient_bar(c, M, y, W-2*M, thickness=1); y -= 16
 
     bh = 42
@@ -157,30 +392,31 @@ def _p1(c, ai, normalized, riasec, name, date, lang):
     stroked_rect(c, M, y-bh, W-2*M, bh, tuple(p*0.5 for p in PURPLE), lw=1.0, r=6)
     filled_rect(c, M, y-bh, 5, bh, PURPLE, r=0)
     text(c, M+14, y-13, rl.get(dom, dom), FONT_BOLD, 15, WHITE)
-    text(c, M+14, y-27, f"Доминирующий тип: {dom}  ·  Big Five x RIASEC", FONT_REG, 7.5, GRAY)
+    text(c, M+14, y-27, f"{L['dom_sub']}: {dom}  ·  {L['bio_note']}", FONT_REG, 7.5, GRAY)
     text(c, W-M-8, y-13, str(riasec.get(dom)), FONT_BOLD, 22, PURPLE, align='right')
-    text(c, W-M-8, y-27, "баллов", FONT_REG, 7, MUTED, align='right')
+    text(c, W-M-8, y-27, L["score_label"], FONT_REG, 7, MUTED, align='right')
     y -= bh + 10
 
-    y = _sec(c, y, "Психологический портрет", CYAN)
+    y = _sec(c, y, L["sec_portrait"], CYAN)
     if ai.get("personality_portrait"): y = _hi(c, y, ai["personality_portrait"], CYAN)
 
-    y = _sec(c, y, "Ваша суперсила", GOLD)
+    y = _sec(c, y, L["sec_superpower"], GOLD)
     if ai.get("superpower"): y = _blk(c, y, ai["superpower"], fs=9, col=WHITE, lh=13)
     y -= 8; divider(c, y); y -= 14
 
-    y = _sec(c, y, "На что обратить внимание", ORANGE)
+    y = _sec(c, y, L["sec_shadow"], ORANGE)
     if ai.get("shadow_side"): y = _blk(c, y, ai["shadow_side"], col=GRAY)
     _ftr(c, 1, 6)
 
 
 def _p2(c, normalized, riasec, name, date, lang):
     draw_bg(c)
-    y = H-M
+    y  = H-M
+    L  = _L(lang)
     tl = TRAIT_LABELS.get(lang, TRAIT_LABELS["en"])
     rl = RIASEC_LABELS.get(lang, RIASEC_LABELS["en"])
-    y = _hdr(c, y, name, date, "Big Five & RIASEC")
-    y = _sec(c, y, "Профиль личности Big Five (OCEAN)", CYAN)
+    y  = _hdr(c, y, name, date, L["p2_subtitle"])
+    y  = _sec(c, y, L["sec_big5"], CYAN)
 
     lw=88; bx=M+lw+4; bw=W-2*M-lw-32; vx=bx+bw+6; rh=16
     for i,(key,col) in enumerate(zip(TRAIT_KEYS, TRAIT_COLORS)):
@@ -189,15 +425,15 @@ def _p2(c, normalized, riasec, name, date, lang):
         filled_rect(c, bx, ry-6, bw, 8, DIM, r=4)
         if val>0: filled_rect(c, bx, ry-6, bw*val/100, 8, col, r=4)
         text(c, vx, ry-5, f"{val}%", FONT_BOLD, 8.5, col)
-        if val>=70: lt,lc="Высокий",GREEN
-        elif val>=40: lt,lc="Средний",GRAY
-        else: lt,lc="Низкий",ORANGE
+        if val>=70: lt,lc=L["level_high"],GREEN
+        elif val>=40: lt,lc=L["level_mid"],GRAY
+        else: lt,lc=L["level_low"],ORANGE
         tw=c.stringWidth(lt,FONT_REG,6.5)+10
         filled_rect(c, vx+24, ry-9, tw, 10, tuple(p*0.2 for p in lc), r=5)
         text(c, vx+29, ry-5, lt, FONT_REG, 6.5, lc)
 
     y -= len(TRAIT_KEYS)*rh+12; divider(c,y); y-=12
-    y = _sec(c, y, "RIASEC — профессиональные интересы", PURPLE)
+    y  = _sec(c, y, L["sec_riasec"], PURPLE)
 
     rk=["R","I","A","S","E","C"]; rc=[GRAY,PURPLE,ORANGE,GREEN,BLUE,CYAN]
     cols=3; cw=(W-2*M-(cols-1)*6)/cols; ch=46
@@ -220,68 +456,72 @@ def _p2(c, normalized, riasec, name, date, lang):
 
 def _p3(c, ai, name, date, lang):
     draw_bg(c); y=H-M
-    y = _hdr(c, y, name, date, "Карьерное видение")
-    y = _sec(c, y, "Карьерное видение — 5 лет", PURPLE)
+    L = _L(lang)
+    y = _hdr(c, y, name, date, L["p3_subtitle"])
+    y = _sec(c, y, L["sec_vision5"], PURPLE)
     if ai.get("career_vision_5y"): y=_blk(c,y,ai["career_vision_5y"],fs=9,col=WHITE,lh=13)
     y-=6
-    y = _sec(c, y, "Долгосрочный потенциал — 10 лет", BLUE)
+    y = _sec(c, y, L["sec_vision10"], BLUE)
     if ai.get("career_vision_10y"): y=_blk(c,y,ai["career_vision_10y"],col=GRAY)
     y-=6; divider(c,y); y-=12
-    y = _sec(c, y, "Идеальная рабочая среда", GREEN)
+    y = _sec(c, y, L["sec_workenv"], GREEN)
     if ai.get("ideal_work_environment"): y=_hi(c,y,ai["ideal_work_environment"],GREEN)
-    y = _sec(c, y, "Стиль коммуникации", CYAN)
+    y = _sec(c, y, L["sec_comms"], CYAN)
     if ai.get("communication_style"): y=_blk(c,y,ai["communication_style"])
     y-=6; divider(c,y); y-=12
-    y = _sec(c, y, "Стресс и риск выгорания", ORANGE)
+    y = _sec(c, y, L["sec_stress"], ORANGE)
     if ai.get("stress_and_burnout"): y=_blk(c,y,ai["stress_and_burnout"],col=GRAY)
     _ftr(c, 3, 6)
 
 
 def _p4(c, ai, top1, name, date, lang):
     draw_bg(c); y=H-M
-    t1=top1.get("title","")
-    y = _hdr(c, y, name, date, f"Анализ: {trunc(t1,28)}")
-    bh=38
+    L  = _L(lang)
+    t1 = top1.get("title","")
+    y  = _hdr(c, y, name, date, f"{L['p4_subtitle']}: {trunc(t1,28)}")
+    bh = 38
     filled_rect(c, M, y-bh, W-2*M, bh, PANEL, r=6)
     filled_rect(c, M, y-bh, 5, bh, GOLD, r=0)
     text(c, M+14, y-14, f"#1  {trunc(t1,42)}", FONT_BOLD, 13, WHITE)
-    text(c, M+14, y-27, f"Совпадение: {top1.get('match',0)}%  ·  Тип: {top1.get('riasec','')}", FONT_REG, 7.5, GRAY)
+    text(c, M+14, y-27, f"{L['prof_match']}: {top1.get('match',0)}%  ·  {L['prof_type']}: {top1.get('riasec','')}", FONT_REG, 7.5, GRAY)
     text(c, W-M-8, y-14, f"{top1.get('match',0)}%", FONT_BOLD, 20, GOLD, align='right')
     y -= bh+10
-    y = _sec(c, y, "Почему это идеальная профессия для вас", GOLD)
+    y = _sec(c, y, L["sec_why"], GOLD)
     if ai.get("top1_why_perfect"): y=_blk(c,y,ai["top1_why_perfect"],fs=9,col=WHITE,lh=13)
     y-=6; divider(c,y); y-=12
-    y = _sec(c, y, "Как выглядит ваш рабочий день", CYAN)
+    y = _sec(c, y, L["sec_daylife"], CYAN)
     if ai.get("top1_day_in_life"): y=_blk(c,y,ai["top1_day_in_life"])
     y-=6; divider(c,y); y-=12
-    y = _sec(c, y, "Зарплатная траектория", GREEN)
+    y = _sec(c, y, L["sec_salary"], GREEN)
     if ai.get("salary_trajectory"): y=_hi(c,y,ai["salary_trajectory"],GREEN)
-    y = _sec(c, y, "Советы по нетворкингу", BLUE)
+    y = _sec(c, y, L["sec_network"], BLUE)
     if ai.get("networking_advice"): y=_blk(c,y,ai["networking_advice"],col=GRAY)
     _ftr(c, 4, 6)
 
 
 def _p5(c, ai, name, date, lang):
     draw_bg(c); y=H-M
-    y = _hdr(c, y, name, date, "Роадмап и навыки")
-    y = _sec(c, y, "Ваш роадмап — 5 конкретных шагов", GREEN)
+    L = _L(lang)
+    y = _hdr(c, y, name, date, L["p5_subtitle"])
+    y = _sec(c, y, L["sec_roadmap"], GREEN)
     if ai.get("top1_roadmap"): y=_num(c,y,ai["top1_roadmap"],GREEN)
     divider(c,y); y-=12
     y = _2col(c, y,
               ai.get("top1_hard_skills",[]), ai.get("top1_soft_skills",[]),
-              CYAN, PURPLE, "Hard skills:", "Soft skills:")
+              CYAN, PURPLE, L["sec_hard"], L["sec_soft"])
     y-=4; divider(c,y); y-=12
-    y = _sec(c, y, "Ресурсы, курсы и сообщества", ORANGE)
+    y = _sec(c, y, L["sec_resources"], ORANGE)
     if ai.get("top1_resources"): y=_bul(c,y,ai["top1_resources"],ORANGE)
     divider(c,y); y-=12
-    y = _sec(c, y, "Красные флаги — чего избегать", RED_SOFT)
+    y = _sec(c, y, L["sec_redflags"], RED_SOFT)
     if ai.get("red_flags"): y=_bul(c,y,ai["red_flags"],RED_SOFT)
     _ftr(c, 5, 6)
 
 
 def _p6(c, ai, profs, name, date, lang):
     draw_bg(c); y=H-M
-    y = _hdr(c, y, name, date, "Альтернативы и итог")
+    L = _L(lang)
+    y = _hdr(c, y, name, date, L["p6_subtitle"])
     if len(profs)>=2:
         p2=profs[1]
         y = _sec(c, y, f"#2  {trunc(p2.get('title',''),40)}  —  {p2.get('match',0)}%", SILVER)
@@ -293,13 +533,13 @@ def _p6(c, ai, profs, name, date, lang):
         if ai.get("top3_brief"): y=_blk(c,y,ai["top3_brief"])
         y-=6
     divider(c,y); y-=12
-    y = _sec(c, y, "Действие на сегодня", GREEN)
+    y = _sec(c, y, L["sec_action"], GREEN)
     if ai.get("action_today"): y=_hi(c,y,ai["action_today"],GREEN)
     divider(c,y); y-=12
-    y = _sec(c, y, "Личное послание от карьерного коуча", GOLD)
+    y = _sec(c, y, L["sec_message"], GOLD)
     if ai.get("personal_message"): y=_blk(c,y,ai["personal_message"],fs=9,col=WHITE,lh=14)
     y-=12; divider(c,y); y-=10
-    text(c, W/2, y, f"Вопросы по отчёту? {SUPPORT_BOT}", FONT_REG, 7.5, GRAY, align='center')
+    text(c, W/2, y, f"{L['questions']} {SUPPORT_BOT}", FONT_REG, 7.5, GRAY, align='center')
     y-=10
     text(c, W/2, y, "careercheck.app", FONT_BOLD, 8, PURPLE, align='center')
     _ftr(c, 6, 6)
@@ -311,7 +551,10 @@ async def generate_premium_pdf(
     user_data: dict, normalized_scores: dict, riasec: dict,
     top_professions: list, details_list: list,
     lang: str = "ru", api_key: str = "",
-) -> bytes:
+) -> tuple[bytes, bool]:
+    """Генерирует Premium PDF. Возвращает (bytes, ai_used).
+    ai_used=False означает что использован fallback-контент (AI был недоступен).
+    """
     name = (user_data.get("full_name") or user_data.get("name") or "User").strip()
     date = user_data.get("date", "---")
 
@@ -320,8 +563,10 @@ async def generate_premium_pdf(
         top_professions=top_professions, details_list=details_list,
         lang=lang, api_key=api_key,
     )
+    ai_used = bool(ai)
     if not ai:
-        raise RuntimeError("AI analysis unavailable")
+        ai = _get_fallback_ai_content(lang)
+        logger.warning(f"Premium PDF generated with fallback content: '{name}', lang={lang}")
 
     buf = io.BytesIO()
     c   = rl_canvas.Canvas(buf, pagesize=A4)
@@ -335,5 +580,6 @@ async def generate_premium_pdf(
     _p6(c, ai, top_professions, name, date, lang);           c.showPage()
     c.save(); buf.seek(0)
     result = buf.read()
-    logger.info(f"Premium PDF: '{name}', lang={lang}, {len(result)} bytes, 6 pages")
-    return result
+
+    logger.info(f"Premium PDF: '{name}', lang={lang}, {len(result)} bytes, 6 pages, ai_used={ai_used}")
+    return result, ai_used

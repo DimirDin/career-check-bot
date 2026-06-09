@@ -22,6 +22,7 @@ jobs:
             cd /opt/careercheck
             git pull origin main
             docker compose build --no-cache webapp bot
+            docker compose run --rm bot alembic upgrade head
             docker compose up -d webapp bot
             echo "=== Deploy complete ==="
             docker compose ps

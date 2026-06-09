@@ -52,10 +52,10 @@ async def update_menu_button_for_user(bot: Bot, user_id: int, pool: asyncpg.Pool
             text = "▶️ Продолжить тест"
             url  = base_url
         elif user and user.get("test_completed"):
-            text = "🚀 Открыть CareerCheck"
+            text = "📊 Мои результаты"
             url  = base_url
         else:
-            text = "🚀 Открыть CareerCheck"
+            text = "🚀 Начать тест"
             url  = base_url
 
         await bot.set_chat_menu_button(
@@ -707,7 +707,8 @@ async def finish_test(
         professions     = await get_professions(pool, lang=lang)
         top_professions = match_professions(normalized, riasec, professions)
 
-        user = await get_user(pool, message.chat.id)
+        tg_id = telegram_user.id if telegram_user else message.chat.id
+        user = await get_user(pool, tg_id)
         if user:
             try:
                 await save_result(pool, user['id'], raw, normalized, riasec, top_professions)
@@ -906,7 +907,7 @@ async def cb_share_result(callback: CallbackQuery, pool: asyncpg.Pool):
         riasec     = json.loads(row['riasec_profile'])    if isinstance(row['riasec_profile'], str)    else dict(row['riasec_profile'])
         top        = json.loads(row['top_professions'])   if isinstance(row['top_professions'], str)    else list(row['top_professions'])
 
-        loop      = asyncio.get_event_loop()
+        loop      = asyncio.get_running_loop()
         card_bytes = await loop.run_in_executor(
             None,
             lambda: generate_share_card(normalized, riasec, top, lang=lang)
@@ -1129,7 +1130,7 @@ async def cmd_stop_challenges(message: Message, pool: asyncpg.Pool):
 # ── Inline mode — поделиться результатом ─────────────────────────────────────
 
 @router.inline_query()
-async def inline_share_result(query: InlineQuery, pool: asyncpg.Pool):
+async def inline_share_result(query: InlineQuery, pool: asyncpg.Pool, bot_username: str = ""):
     """
     Пользователь пишет @CareerCheck_Bot в любом чате →
     показывает карточку результата → он отправляет её другу.
@@ -1144,7 +1145,8 @@ async def inline_share_result(query: InlineQuery, pool: asyncpg.Pool):
         result = None
 
     domain = os.getenv("DOMAIN", "careercheck.app")
-    bot_username = (await query.bot.me()).username
+    if not bot_username:
+        bot_username = (await query.bot.get_me()).username
 
     if not result:
         # Нет результатов — предлагаем пройти тест

@@ -53,7 +53,7 @@ async def update_menu_button_for_user(bot: Bot, user_id: int, pool: asyncpg.Pool
             url  = base_url
         elif user and user.get("test_completed"):
             text = "🚀 Открыть CareerCheck"
-            url  = f"{base_url}?start=results"
+            url  = base_url
         else:
             text = "🚀 Открыть CareerCheck"
             url  = base_url

@@ -114,3 +114,125 @@ async def ask_career_ai(
         anthropic_breaker.record_failure()
         logger.error(f"AI chat error: {e}")
         return None
+
+
+async def generate_daily_advice(
+    normalized: dict,
+    riasec: dict,
+    lang: str,
+    api_key: str,
+) -> str | None:
+    """Один персонализированный карьерный совет на сегодня."""
+    if anthropic_breaker.is_open:
+        return None
+
+    li = {"ru": "Отвечай строго на русском.", "en": "Reply strictly in English."}.get(lang, "Reply in English.")
+    dom = max(riasec, key=riasec.get) if riasec else "I"
+    top_trait = max(normalized, key=normalized.get) if normalized else "O"
+    low_trait = min(normalized, key=normalized.get) if normalized else "S"
+
+    prompt = f"""{li}
+
+Пользователь: Big Five профиль: O={normalized.get('O',50)}% C={normalized.get('C',50)}% E={normalized.get('E',50)}% A={normalized.get('A',50)}% S={normalized.get('S',50)}%
+Доминирующий RIASEC: {dom}
+Сильная черта: {top_trait} ({normalized.get(top_trait,50)}%)
+Зона роста: {low_trait} ({normalized.get(low_trait,50)}%)
+
+Дай ОДИН конкретный карьерный совет на сегодня. Максимум 2-3 предложения.
+Совет должен быть специфичен для этого профиля — не общий. Упоминай конкретные действия.
+Начни сразу с совета без вступления."""
+
+    try:
+        import anthropic as _anthropic
+        client = _anthropic.AsyncAnthropic(api_key=api_key, timeout=20.0)
+        msg = await client.messages.create(
+            model=CHAT_MODEL,
+            max_tokens=150,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        anthropic_breaker.record_success()
+        return msg.content[0].text.strip()
+    except Exception as e:
+        anthropic_breaker.record_failure()
+        logger.error(f"Daily advice error: {e}")
+        return None
+
+
+async def generate_interview_prep(
+    profession: str,
+    normalized: dict,
+    lang: str,
+    api_key: str,
+) -> str | None:
+    """Топ-5 вопросов и персональный совет для собеседования."""
+    if anthropic_breaker.is_open:
+        return None
+
+    li = {"ru": "Отвечай строго на русском.", "en": "Reply strictly in English."}.get(lang, "Reply in English.")
+    has_profile = bool(normalized)
+    profile_ctx = ""
+    if has_profile:
+        profile_ctx = f"\nПрофиль пользователя (Big Five): O={normalized.get('O',50)}% C={normalized.get('C',50)}% E={normalized.get('E',50)}% A={normalized.get('A',50)}% S={normalized.get('S',50)}%"
+
+    prompt = f"""{li}
+
+Профессия: {profession}{profile_ctx}
+
+Дай подготовку к собеседованию в формате:
+
+<b>Топ-5 вопросов для {profession}:</b>
+1. ...
+2. ...
+3. ...
+4. ...
+5. ...
+
+<b>{'Персональный совет' if has_profile else 'Совет'}:</b>
+[2-3 предложения]
+
+Будь конкретным. Только практичное."""
+
+    try:
+        import anthropic as _anthropic
+        client = _anthropic.AsyncAnthropic(api_key=api_key, timeout=30.0)
+        msg = await client.messages.create(
+            model=CHAT_MODEL,
+            max_tokens=500,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        anthropic_breaker.record_success()
+        return msg.content[0].text.strip()
+    except Exception as e:
+        anthropic_breaker.record_failure()
+        logger.error(f"Interview prep error: {e}")
+        return None
+
+
+async def generate_journal_summary(entries: str, lang: str, api_key: str) -> str | None:
+    """Краткая AI-сводка карьерных записей пользователя."""
+    if anthropic_breaker.is_open:
+        return None
+
+    li = {"ru": "Отвечай строго на русском.", "en": "Reply strictly in English."}.get(lang, "Reply in English.")
+    prompt = f"""{li}
+
+Пользователь вёл карьерный дневник. Вот его записи за последние 30 дней:
+
+{entries}
+
+Напиши краткую (3-4 предложения) психологическую сводку: какие паттерны ты видишь в его карьерных размышлениях? Что его мотивирует? Какой главный инсайт из этих записей? Тон — поддерживающий, конкретный."""
+
+    try:
+        import anthropic as _anthropic
+        client = _anthropic.AsyncAnthropic(api_key=api_key, timeout=30.0)
+        msg = await client.messages.create(
+            model=CHAT_MODEL,
+            max_tokens=300,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        anthropic_breaker.record_success()
+        return msg.content[0].text.strip()
+    except Exception as e:
+        anthropic_breaker.record_failure()
+        logger.error(f"Journal summary error: {e}")
+        return None

@@ -476,3 +476,25 @@ async def cleanup_old_progress(pool: asyncpg.Pool, days: int = 7):
         if deleted > 0:
             logger.info(f"TTL CLEANUP: deleted {deleted} old progress records")
         return deleted
+
+
+# ── AI Reports (Feature 1) ─────────────────────────────────────────────────────
+
+async def save_ai_content(pool: asyncpg.Pool, user_id: int, content: dict):
+    """Сохраняет AI-контент (roadmap, vision) после генерации Premium PDF."""
+    async with pool.acquire() as conn:
+        await conn.execute(
+            """INSERT INTO ai_reports (user_id, content, created_at)
+               VALUES ($1, $2, NOW())
+               ON CONFLICT (user_id) DO UPDATE SET content=$2, created_at=NOW()""",
+            user_id, json.dumps(content, ensure_ascii=False)
+        )
+
+
+async def get_ai_content(pool: asyncpg.Pool, user_id: int) -> dict | None:
+    """Возвращает сохранённый AI-контент пользователя или None."""
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT content FROM ai_reports WHERE user_id=$1", user_id
+        )
+        return json.loads(row['content']) if row else None

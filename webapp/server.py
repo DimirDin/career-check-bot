@@ -845,6 +845,116 @@ async def referral_progress(init_data: str, request: Request):
     }
 
 
+@app.get("/api/ai-content/{tg_id}")
+async def get_ai_content_endpoint(tg_id: int, request: Request):
+    """AI-контент (roadmap, vision) для Career Map страницы."""
+    pool = request.app.state.pool
+    user = await get_user(pool, tg_id)
+    if not user:
+        raise HTTPException(404)
+    from db.database import get_ai_content
+    content = await get_ai_content(pool, user['id'])
+    return content or {}
+
+
+@app.get("/api/journal/{tg_id}")
+async def get_journal(tg_id: int, request: Request):
+    pool = request.app.state.pool
+    user = await get_user(pool, tg_id)
+    if not user:
+        raise HTTPException(404)
+    rows = await pool.fetch(
+        "SELECT id, text, trait_tag, created_at FROM journal_entries WHERE user_id=$1 ORDER BY created_at DESC LIMIT 50",
+        user['id']
+    )
+    result = []
+    for r in rows:
+        d = dict(r)
+        if hasattr(d.get('created_at'), 'isoformat'):
+            d['created_at'] = d['created_at'].isoformat()
+        result.append(d)
+    return result
+
+
+@app.post("/api/journal/{tg_id}")
+async def add_journal_entry(tg_id: int, body: dict, request: Request):
+    pool = request.app.state.pool
+    user = await get_user(pool, tg_id)
+    if not user:
+        raise HTTPException(404)
+    text_val = body.get('text', '').strip()
+    if not text_val or len(text_val) > 1000:
+        raise HTTPException(400, "Invalid text")
+    trait_tag = body.get('trait_tag')
+    if trait_tag not in ('O', 'C', 'E', 'A', 'S', None):
+        trait_tag = None
+    await pool.execute(
+        "INSERT INTO journal_entries (user_id, text, trait_tag) VALUES ($1,$2,$3)",
+        user['id'], text_val, trait_tag
+    )
+    return {"ok": True}
+
+
+@app.delete("/api/journal/{tg_id}/{entry_id}")
+async def delete_journal_entry(tg_id: int, entry_id: int, request: Request):
+    pool = request.app.state.pool
+    user = await get_user(pool, tg_id)
+    if not user:
+        raise HTTPException(404)
+    await pool.execute(
+        "DELETE FROM journal_entries WHERE id=$1 AND user_id=$2",
+        entry_id, user['id']
+    )
+    return {"ok": True}
+
+
+@app.get("/api/journal/{tg_id}/summary")
+async def get_journal_summary(tg_id: int, request: Request):
+    pool = request.app.state.pool
+    user = await get_user(pool, tg_id)
+    if not user:
+        raise HTTPException(404)
+    rows = await pool.fetch(
+        "SELECT text, trait_tag FROM journal_entries WHERE user_id=$1 AND created_at > NOW()-INTERVAL '30 days' ORDER BY created_at DESC",
+        user['id']
+    )
+    if len(rows) < 5:
+        return {"summary": None, "count": len(rows), "needed": 5 - len(rows)}
+    entries_text = "\n".join(f"- [{r['trait_tag'] or '?'}] {r['text']}" for r in rows)
+    from services.ai_chat import generate_journal_summary
+    lang = user.get('lang', 'ru')
+    summary = await generate_journal_summary(entries_text, lang, ANTHROPIC_API_KEY)
+    return {"summary": summary, "count": len(rows)}
+
+
+@app.get("/api/stories-card/{tg_id}")
+async def get_stories_card(tg_id: int, request: Request):
+    """Возвращает PNG 1080x1920 для Stories."""
+    pool = request.app.state.pool
+    user = await get_user(pool, tg_id)
+    if not user:
+        raise HTTPException(404)
+    result = await get_last_result(pool, user['id'])
+    if not result:
+        raise HTTPException(404, "No results")
+
+    import json as _j
+    def _p(v): return _j.loads(v) if isinstance(v, str) else v
+    normalized = _p(result['normalized_scores'])
+    riasec     = _p(result['riasec_profile'])
+    top_profs  = _p(result['top_professions'])
+    lang_val   = user.get('lang', 'ru')
+
+    from services.card_generator import generate_stories_card
+    import asyncio
+    loop = asyncio.get_running_loop()
+    card_bytes = await loop.run_in_executor(
+        None, lambda: generate_stories_card(normalized, riasec, top_profs or [], lang_val)
+    )
+    from fastapi.responses import Response
+    return Response(content=card_bytes, media_type="image/png")
+
+
 # ── Static files + SPA fallback ───────────────────────────────────────────────
 
 DIST = Path(__file__).parent / "dist"

@@ -16,7 +16,7 @@ from aiogram.enums import ParseMode
 from aiogram.fsm.storage.redis import RedisStorage, DefaultKeyBuilder
 
 from config.settings import BOT_TOKEN, DB_CONFIG, REDIS_CONFIG
-from bot.handlers import router
+from bot.handlers import router, weekly_digest_scheduler
 from bot.premium_handlers import premium_router
 from db.database import cleanup_old_progress
 from middlewares.rate_limit import RateLimitMiddleware
@@ -144,10 +144,15 @@ async def main() -> None:
 
         # Команды меню
         await bot.set_my_commands([
-            BotCommand(command="start",      description="🏠 Главное меню"),
-            BotCommand(command="challenges", description="🎯 Ежедневные задания"),
-            BotCommand(command="refer",      description="👥 Пригласить друга (+бонус)"),
-            BotCommand(command="help",       description="❓ Помощь и FAQ"),
+            BotCommand(command="start",       description="🏠 Главное меню"),
+            BotCommand(command="advice",      description="💡 Совет дня под мой профиль"),
+            BotCommand(command="salary",      description="💰 Зарплата в профессии"),
+            BotCommand(command="interview",   description="🎯 Подготовка к собеседованию"),
+            BotCommand(command="week",        description="📊 Итог недели"),
+            BotCommand(command="compare",     description="🔄 Сравнить профиль с другом"),
+            BotCommand(command="challenges",  description="⚡ Ежедневные задания"),
+            BotCommand(command="refer",       description="👥 Пригласить друга (+бонус)"),
+            BotCommand(command="help",        description="❓ Помощь и FAQ"),
         ])
 
         # Кнопка снизу чата открывает Mini App
@@ -184,6 +189,9 @@ async def main() -> None:
     challenges_task = asyncio.create_task(challenge_scheduler(bot, pool))
     logger.info("Challenge scheduler started")
 
+    weekly_task = asyncio.create_task(weekly_digest_scheduler(bot, pool))
+    logger.info("Weekly digest scheduler started")
+
     # ── Polling c graceful stop ───────────────────────────────────
     logger.info("Bot started, polling…")
     try:
@@ -207,6 +215,7 @@ async def main() -> None:
 
         heartbeat_task.cancel()
         challenges_task.cancel()
+        weekly_task.cancel()
 
         logger.info("Closing Redis client…")
         await redis_client.aclose()

@@ -260,3 +260,86 @@ def generate_share_card(
     plt.close(fig)
     buf.seek(0)
     return buf.getvalue()
+
+
+def generate_stories_card(
+    normalized: dict,
+    riasec: dict,
+    top_professions: list,
+    lang: str = "ru",
+) -> bytes:
+    """Генерирует PNG 1080x1920 для Telegram Stories."""
+    import io as _io
+    dom = max(riasec, key=riasec.get) if riasec else "I"
+
+    RIASEC_LABELS_S = {
+        "ru": {"R":"Реалистичный","I":"Исследовательский","A":"Артистичный",
+               "S":"Социальный","E":"Предприимчивый","C":"Конвенциональный"},
+        "en": {"R":"Realistic","I":"Investigative","A":"Artistic",
+               "S":"Social","E":"Enterprising","C":"Conventional"},
+    }
+    TRAIT_NAMES_S = {
+        "ru": ["Открытость","Сознательность","Экстраверсия","Доброжелательность","Стабильность"],
+        "en": ["Openness","Conscientiousness","Extraversion","Agreeableness","Stability"],
+    }
+
+    dom_label = RIASEC_LABELS_S.get(lang, RIASEC_LABELS_S["en"]).get(dom, dom)
+    trait_names = TRAIT_NAMES_S.get(lang, TRAIT_NAMES_S["en"])
+
+    fig = plt.figure(figsize=(7.2, 12.8), facecolor=BG)
+
+    fig.text(0.5, 0.93, "CAREER CHECK",
+             fontproperties=_fp(bold=True, size=18),
+             color=WHITE, va='top', ha='center', transform=fig.transFigure)
+
+    your_type_lbl = "Твой тип" if lang == "ru" else "Your type"
+    fig.text(0.5, 0.88, your_type_lbl,
+             fontproperties=_fp(size=12), color=GRAY,
+             va='top', ha='center', transform=fig.transFigure)
+
+    fig.text(0.5, 0.80, dom_label,
+             fontproperties=_fp(bold=True, size=36), color=WHITE,
+             va='top', ha='center', transform=fig.transFigure)
+
+    fig.text(0.5, 0.70, dom,
+             fontproperties=_fp(bold=True, size=72), color=CYAN,
+             va='top', ha='center', transform=fig.transFigure, alpha=0.15)
+
+    ax = fig.add_axes([0.08, 0.28, 0.84, 0.36])
+    ax.set_facecolor(BG)
+    ax.axis('off')
+
+    TRAIT_COLORS_LIST = [CYAN, PURPLE, ORANGE, GREEN, BLUE]
+    TRAIT_KEYS_LIST = ['O', 'C', 'E', 'A', 'S']
+    for i, (key, color) in enumerate(zip(TRAIT_KEYS_LIST, TRAIT_COLORS_LIST)):
+        val = normalized.get(key, 0)
+        yp = 0.85 - i * 0.18
+        name = trait_names[i] if i < len(trait_names) else key
+        ax.text(-0.01, yp, name, transform=ax.transAxes,
+                fontproperties=_fp(size=10), color=GRAY, ha='right', va='center')
+        ax.barh(yp, 1.0, height=0.11, color=DIM, left=0, transform=ax.transAxes)
+        if val > 0:
+            ax.barh(yp, val / 100, height=0.11, color=color, left=0, transform=ax.transAxes)
+        ax.text(1.02, yp, f"{val}%", transform=ax.transAxes,
+                fontproperties=_fp(bold=True, size=10), color=color, ha='left', va='center')
+
+    if top_professions:
+        tp = top_professions[0]
+        match_lbl = "совпадение" if lang == "ru" else "match"
+        fig.text(0.5, 0.24, f"#{tp.get('title', '')}",
+                 fontproperties=_fp(bold=True, size=15), color=WHITE,
+                 va='top', ha='center', transform=fig.transFigure)
+        fig.text(0.5, 0.19, f"{tp.get('match', 0)}% {match_lbl}",
+                 fontproperties=_fp(size=13), color=CYAN,
+                 va='top', ha='center', transform=fig.transFigure)
+
+    fig.text(0.5, 0.05, "careercheck.app",
+             fontproperties=_fp(bold=True, size=13), color=PURPLE,
+             va='bottom', ha='center', transform=fig.transFigure)
+
+    buf = _io.BytesIO()
+    fig.savefig(buf, format='png', dpi=150, bbox_inches='tight',
+                facecolor=BG, edgecolor='none')
+    plt.close(fig)
+    buf.seek(0)
+    return buf.getvalue()

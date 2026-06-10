@@ -1256,3 +1256,349 @@ async def inline_share_result(query: InlineQuery, pool: asyncpg.Pool, bot_userna
         reply_markup=kb,
     )]
     await query.answer(results, cache_time=0, is_personal=True)
+
+
+# ── /advice ───────────────────────────────────────────────────────────────────
+
+@router.message(Command('advice'))
+async def cmd_advice(message: Message, pool: asyncpg.Pool):
+    user = await get_user(pool, message.from_user.id)
+    lang = user['lang'] if user and user.get('lang') else resolve_lang(message.from_user.language_code)
+
+    if not user:
+        await message.answer("Сначала пройди тест: /start" if lang == 'ru' else "Take the test first: /start")
+        return
+
+    result = await get_last_result(pool, user['id'])
+    if not result:
+        await message.answer(
+            "Сначала пройди тест — тогда советы будут персональными! /start"
+            if lang == 'ru' else
+            "Take the test first — then advice will be personal! /start"
+        )
+        return
+
+    import json as _json
+    def _p(v): return _json.loads(v) if isinstance(v, str) else v
+    normalized = _p(result['normalized_scores'])
+    riasec     = _p(result['riasec_profile'])
+
+    from services.ai_chat import generate_daily_advice
+    from config.settings import ANTHROPIC_API_KEY
+    advice = await generate_daily_advice(
+        normalized=normalized,
+        riasec=riasec,
+        lang=lang,
+        api_key=ANTHROPIC_API_KEY,
+    )
+
+    if not advice:
+        advice = (
+            "Сегодня найди 10 минут чтобы записать одно профессиональное достижение этой недели."
+            if lang == 'ru' else
+            "Today, find 10 minutes to write down one professional achievement from this week."
+        )
+
+    dom = max(riasec, key=riasec.get) if riasec else "I"
+    riasec_emoji = {'R': '🔧', 'I': '🔬', 'A': '🎨', 'S': '🤝', 'E': '💼', 'C': '📋'}.get(dom, '💡')
+
+    if lang == 'ru':
+        await message.answer(
+            f"{riasec_emoji} <b>Совет дня</b>\n\n{advice}\n\n<i>Основан на твоём Big Five профиле</i>"
+        )
+    else:
+        await message.answer(
+            f"{riasec_emoji} <b>Advice of the day</b>\n\n{advice}\n\n<i>Based on your Big Five profile</i>"
+        )
+
+
+# ── /salary ───────────────────────────────────────────────────────────────────
+
+@router.message(Command('salary'))
+async def cmd_salary(message: Message, pool: asyncpg.Pool):
+    user = await get_user(pool, message.from_user.id)
+    lang = user['lang'] if user and user.get('lang') else 'ru'
+
+    args = message.text.split(maxsplit=1)
+    if len(args) < 2:
+        await message.answer(
+            "Укажи профессию: <code>/salary разработчик</code>" if lang == 'ru'
+            else "Specify a profession: <code>/salary developer</code>"
+        )
+        return
+
+    query = args[1].strip()
+    from data.salary_data import find_salary
+    data = find_salary(query, lang)
+
+    if not data:
+        await message.answer(
+            f"Не нашёл данные по '{query}'. Попробуй другое название.\nПример: /salary дизайнер"
+            if lang == 'ru' else
+            f"No data found for '{query}'. Try another name."
+        )
+        return
+
+    matched = data.get('matched', query)
+    curr = data['currency']
+    text = (
+        f"💰 <b>{matched.title()}</b>\n\n"
+        f"Junior: <b>{data['junior']}</b> {curr}\n"
+        f"Middle: <b>{data['mid']}</b> {curr}\n"
+        f"Senior: <b>{data['senior']}</b> {curr}\n\n"
+    )
+
+    if user:
+        result = await get_last_result(pool, user['id'])
+        if result:
+            text += "<i>💡 Для персонального карьерного плана → /start</i>"
+
+    await message.answer(text)
+
+
+# ── /interview ────────────────────────────────────────────────────────────────
+
+@router.message(Command('interview'))
+async def cmd_interview(message: Message, pool: asyncpg.Pool):
+    user = await get_user(pool, message.from_user.id)
+    lang = user['lang'] if user and user.get('lang') else 'ru'
+
+    args = message.text.split(maxsplit=1)
+    if len(args) < 2:
+        await message.answer(
+            "Укажи профессию: <code>/interview UX Designer</code>" if lang == 'ru'
+            else "Specify a profession: <code>/interview UX Designer</code>"
+        )
+        return
+
+    profession = args[1].strip()
+    await message.answer("⏳ Готовлю вопросы..." if lang == 'ru' else "⏳ Preparing questions...")
+
+    normalized = {}
+    if user:
+        result = await get_last_result(pool, user['id'])
+        if result:
+            import json as _j
+            ns = result['normalized_scores']
+            normalized = _j.loads(ns) if isinstance(ns, str) else (ns or {})
+
+    from services.ai_chat import generate_interview_prep
+    from config.settings import ANTHROPIC_API_KEY
+    content = await generate_interview_prep(profession, normalized, lang, ANTHROPIC_API_KEY)
+
+    if not content:
+        await message.answer(
+            "❌ Не удалось получить ответ. Попробуй позже." if lang == 'ru'
+            else "❌ Failed to get response. Try later."
+        )
+        return
+
+    await message.answer(content)
+
+
+# ── /week ─────────────────────────────────────────────────────────────────────
+
+WEEKLY_QUOTES = {
+    'ru': {
+        'R': '"Хорошая работа — это когда то что ты делаешь совпадает с тем что ты умеешь." — К. Роджерс',
+        'I': '"Самый опасный эксперимент — тот что вы никогда не проводили." — Ф. Дайсон',
+        'A': '"Творчество — это позволить себе делать ошибки. Искусство — знать какие оставить." — С. Адамс',
+        'S': '"Лучший способ найти себя — потерять себя в служении другим." — М. Ганди',
+        'E': '"Ваше время ограничено. Не тратьте его живя чужой жизнью." — С. Джобс',
+        'C': '"Порядок — основа всего." — М. Дессолин',
+    },
+    'en': {
+        'R': '"Good work is doing what you do best." — K. Rogers',
+        'I': '"The most dangerous experiment is the one you never do." — F. Dyson',
+        'A': '"Creativity is allowing yourself to make mistakes. Art is knowing which ones to keep." — S. Adams',
+        'S': '"The best way to find yourself is to lose yourself in the service of others." — M. Gandhi',
+        'E': '"Your time is limited. Don\'t waste it living someone else\'s life." — S. Jobs',
+        'C': '"Order is the foundation of all things."',
+    }
+}
+
+
+async def send_weekly_digest_to_user(bot, pool, tg_id: int):
+    user = await get_user(pool, tg_id)
+    if not user:
+        return
+    lang = user.get('lang', 'ru')
+
+    result = await get_last_result(pool, user['id'])
+    if not result:
+        return
+
+    import json as _j
+    riasec_raw = result['riasec_profile']
+    riasec = _j.loads(riasec_raw) if isinstance(riasec_raw, str) else (riasec_raw or {})
+    dom = max(riasec, key=riasec.get) if riasec else 'I'
+
+    quote = WEEKLY_QUOTES.get(lang, WEEKLY_QUOTES['en']).get(dom, '')
+
+    if lang == 'ru':
+        text = (
+            f"📊 <b>Итог недели</b>\n\n"
+            f"Твой тип: <b>{_riasec_label(dom, lang)}</b>\n\n"
+            f"💬 {quote}\n\n"
+            f"<b>На следующей неделе:</b>\n"
+            f"• Пройди одно задание /challenges\n"
+            f"• Посмотри каталог профессий в приложении\n"
+            f"• Запроси совет дня: /advice\n\n"
+            f"<i>Удачной недели!</i>"
+        )
+    else:
+        text = (
+            f"📊 <b>Weekly digest</b>\n\n"
+            f"Your type: <b>{_riasec_label(dom, lang)}</b>\n\n"
+            f"💬 {quote}\n\n"
+            f"<b>Next week:</b>\n"
+            f"• Complete a challenge /challenges\n"
+            f"• Browse the profession catalog\n"
+            f"• Get today's advice: /advice\n\n"
+            f"<i>Have a great week!</i>"
+        )
+
+    try:
+        await bot.send_message(tg_id, text)
+    except Exception as e:
+        logger.warning(f"Weekly digest send error for {tg_id}: {e}")
+
+
+@router.message(Command('week'))
+async def cmd_week(message: Message, pool: asyncpg.Pool):
+    await send_weekly_digest_to_user(message.bot, pool, message.from_user.id)
+
+
+async def weekly_digest_scheduler(bot, pool) -> None:
+    """Рассылает дайджест каждое воскресенье в 10:00."""
+    import asyncio
+    from datetime import datetime, timedelta
+    while True:
+        try:
+            now = datetime.now()
+            days_ahead = (6 - now.weekday()) % 7
+            if days_ahead == 0 and now.hour >= 10:
+                days_ahead = 7
+            target = now.replace(hour=10, minute=0, second=0, microsecond=0) + timedelta(days=days_ahead)
+            wait = (target - now).total_seconds()
+            logger.info(f"Next weekly digest in {wait/3600:.1f}h ({target.strftime('%a %d.%m %H:%M')})")
+            await asyncio.sleep(wait)
+
+            rows = await pool.fetch("SELECT telegram_id FROM users WHERE test_completed=true")
+            for row in rows:
+                await send_weekly_digest_to_user(bot, pool, row['telegram_id'])
+                await asyncio.sleep(0.05)
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            logger.error(f"Weekly scheduler error: {e}")
+            await asyncio.sleep(300)
+
+
+# ── /compare ──────────────────────────────────────────────────────────────────
+
+@router.message(Command('compare'))
+async def cmd_compare(message: Message, pool: asyncpg.Pool):
+    user = await get_user(pool, message.from_user.id)
+    lang = user['lang'] if user and user.get('lang') else 'ru'
+
+    args = message.text.split(maxsplit=1)
+    if len(args) < 2:
+        await message.answer(
+            "Укажи username: <code>/compare @друг</code>" if lang == 'ru'
+            else "Specify username: <code>/compare @friend</code>"
+        )
+        return
+
+    target_username = args[1].strip().lstrip('@')
+
+    target = await pool.fetchrow(
+        "SELECT u.id, u.telegram_id, u.lang FROM users u WHERE u.username=$1",
+        target_username
+    )
+
+    if not target:
+        await message.answer(
+            f"Пользователь @{target_username} не найден в CareerCheck. "
+            f"Пригласи его пройти тест!"
+            if lang == 'ru' else
+            f"User @{target_username} not found in CareerCheck. "
+            f"Invite them to take the test!"
+        )
+        return
+
+    my_result = await get_last_result(pool, user['id']) if user else None
+    their_result = await get_last_result(pool, target['id'])
+
+    if not my_result:
+        await message.answer("Сначала пройди тест: /start" if lang == 'ru' else "Take the test first: /start")
+        return
+    if not their_result:
+        await message.answer(
+            f"@{target_username} ещё не прошёл тест." if lang == 'ru'
+            else f"@{target_username} hasn't taken the test yet."
+        )
+        return
+
+    import json as _j
+    def _p(v): return _j.loads(v) if isinstance(v, str) else v
+
+    my_n  = _p(my_result['normalized_scores'])
+    his_n = _p(their_result['normalized_scores'])
+    my_r  = _p(my_result['riasec_profile'])
+    his_r = _p(their_result['riasec_profile'])
+
+    my_dom  = max(my_r, key=my_r.get) if my_r else 'I'
+    his_dom = max(his_r, key=his_r.get) if his_r else 'I'
+
+    diffs = [abs((my_n.get(t, 50) or 50) - (his_n.get(t, 50) or 50)) for t in 'OCEAS']
+    compat = max(0, round(100 - sum(diffs) / 5))
+
+    my_label  = _riasec_label(my_dom, lang)
+    his_label = _riasec_label(his_dom, lang)
+
+    TRAIT_EMOJI = {'O': '🎨', 'C': '⚡', 'E': '🌟', 'A': '🤝', 'S': '🧘'}
+    trait_names_ru = {'O': 'Открытость', 'C': 'Сознательность', 'E': 'Экстраверсия', 'A': 'Доброжелательность', 'S': 'Стабильность'}
+    trait_names_en = {'O': 'Openness', 'C': 'Conscientiousness', 'E': 'Extraversion', 'A': 'Agreeableness', 'S': 'Stability'}
+    tnames = trait_names_ru if lang == 'ru' else trait_names_en
+
+    trait_lines = ""
+    for t in 'OCEAS':
+        mv = my_n.get(t, 50) or 50
+        hv = his_n.get(t, 50) or 50
+        diff = mv - hv
+        arrow = '↑' if diff > 10 else '↓' if diff < -10 else '≈'
+        trait_lines += f"{TRAIT_EMOJI.get(t, '')} {tnames[t]}: {mv} {arrow} {hv}\n"
+
+    if lang == 'ru':
+        text = (
+            f"🔄 <b>Сравнение профилей</b>\n\n"
+            f"Ты: <b>{my_label}</b>\n"
+            f"@{target_username}: <b>{his_label}</b>\n\n"
+            f"<b>Big Five:</b>\n{trait_lines}\n"
+            f"<b>Совместимость: {compat}%</b>\n\n"
+        )
+        if my_dom == his_dom:
+            text += "Вы одного типа — хорошо понимаете друг друга, но может не хватать разнообразия взглядов."
+        elif compat >= 70:
+            text += "Высокая совместимость. Схожие ценности при разных сильных сторонах — отличная база для команды."
+        elif compat >= 50:
+            text += "Средняя совместимость. Есть точки пересечения и точки роста. Можете дополнять друг друга."
+        else:
+            text += "Разные типы. Это не плохо — противоположности часто создают сильные команды, если есть уважение."
+    else:
+        text = (
+            f"🔄 <b>Profile comparison</b>\n\n"
+            f"You: <b>{my_label}</b>\n"
+            f"@{target_username}: <b>{his_label}</b>\n\n"
+            f"<b>Big Five:</b>\n{trait_lines}\n"
+            f"<b>Compatibility: {compat}%</b>\n\n"
+        )
+        if compat >= 70:
+            text += "High compatibility. Similar values with different strengths — great foundation for a team."
+        elif compat >= 50:
+            text += "Medium compatibility. Common ground and growth areas. You can complement each other."
+        else:
+            text += "Different types. Not bad — opposites often make strong teams when there's mutual respect."
+
+    await message.answer(text)

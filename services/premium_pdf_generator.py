@@ -551,6 +551,7 @@ async def generate_premium_pdf(
     user_data: dict, normalized_scores: dict, riasec: dict,
     top_professions: list, details_list: list,
     lang: str = "ru", api_key: str = "",
+    pool=None, db_user_id: int = None,
 ) -> tuple[bytes, bool]:
     """Генерирует Premium PDF. Возвращает (bytes, ai_used).
     ai_used=False означает что использован fallback-контент (AI был недоступен).
@@ -567,6 +568,14 @@ async def generate_premium_pdf(
     if not ai:
         ai = _get_fallback_ai_content(lang)
         logger.warning(f"Premium PDF generated with fallback content: '{name}', lang={lang}")
+
+    # Save AI content for Career Map
+    try:
+        from db.database import save_ai_content
+        if pool and db_user_id and ai:
+            await save_ai_content(pool, db_user_id, ai)
+    except Exception as _e:
+        logger.warning(f"save_ai_content failed: {_e}")
 
     buf = io.BytesIO()
     c   = rl_canvas.Canvas(buf, pagesize=A4)

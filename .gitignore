@@ -49,3 +49,6 @@ webapp/dist/
 # Контекст проекта (старые версии содержали токены — удалены)
 PROJECT_CONTEXT.md
 PROJECT_CONTEXT2.md
+
+# Claude Code settings
+.claude/

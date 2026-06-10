@@ -11,6 +11,7 @@ import { useNavigate }     from '../context/NavigationContext'
 import { track }           from '../hooks/useAnalytics'
 import { getBadges }       from '../utils/calculator'
 import { getTraitInterpretation } from '../utils/traitInterpretations'
+import { FAMOUS_BY_RIASEC } from '../data/famousPeople'
 
 const isRuLang = (tg) => tg?.initDataUnsafe?.user?.language_code?.startsWith('ru')
 
@@ -190,6 +191,33 @@ export function ResultsPage({ results, onBack }) {
       : 'Take the CareerCheck career test — 10 minutes to discover your profile!'
     const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(text)}`
     openLink(shareUrl)
+  }
+
+  // ── Stories share ─────────────────────────────────────────────────────────
+  const handleShareStory = async () => {
+    try {
+      const response = await fetch(`/api/stories-card/${user?.id}`)
+      if (!response.ok) return
+      const blob = await response.blob()
+      if (window.Telegram?.WebApp?.shareToStory) {
+        const reader = new FileReader()
+        reader.onloadend = () => {
+          window.Telegram.WebApp.shareToStory(reader.result, {
+            text: `Мой карьерный тип: ${domLabel} 🎯\n\ncareercheck.app`,
+          })
+        }
+        reader.readAsDataURL(blob)
+      } else {
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = 'CareerCheck_Story.png'
+        a.click()
+        URL.revokeObjectURL(url)
+      }
+    } catch (e) {
+      console.error('Stories share error:', e)
+    }
   }
 
   // ── Premium — openInvoice в Mini App (issue 7) ────────────────────────────
@@ -401,6 +429,34 @@ export function ResultsPage({ results, onBack }) {
           </div>
         </div>
 
+        {/* ── Famous People ──────────────────────────────────────────────── */}
+        {(() => {
+          const famous = FAMOUS_BY_RIASEC[domRiasec] || []
+          if (!famous.length) return null
+          const riasecTypeName = RIASEC_LABELS[domRiasec] || domRiasec
+          return (
+            <div className="section-card visible">
+              <div className="famous-section">
+                <div className="famous-title">Известные {riasecTypeName}</div>
+                <div className="famous-list">
+                  {famous.map((person, i) => (
+                    <div key={i} className="famous-card">
+                      <div className="famous-avatar">
+                        {person.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
+                      </div>
+                      <div>
+                        <div className="famous-name">{person.name}</div>
+                        <div className="famous-role">{person.role}</div>
+                        <div className="famous-trait">{person.trait}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )
+        })()}
+
         {/* ── Профессии ──────────────────────────────────────────────────── */}
         <div className="section-card visible">
           <h3 className="section-title">Топ профессий</h3>
@@ -512,6 +568,11 @@ export function ResultsPage({ results, onBack }) {
             <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
           </svg>
           {isRuLang(tg) ? 'Поделиться с другом' : 'Share with a friend'}
+        </button>
+
+        {/* ── Stories Share ───────────────────────────────────────────────── */}
+        <button className="stories-share-btn" onClick={handleShareStory}>
+          📸 Поделиться в Stories
         </button>
 
         {/* ── Кнопка Назад ───────────────────────────────────────────────── */}

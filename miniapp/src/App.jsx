@@ -18,6 +18,9 @@ import { ProfessionsPage }      from './pages/ProfessionsPage'
 import { ProfessionDetailPage } from './pages/ProfessionDetailPage'
 import { PremiumPromoPage }     from './pages/PremiumPromoPage'
 import { ChallengesPage }       from './pages/ChallengesPage'
+import { CareerMapPage }        from './pages/CareerMapPage'
+import { JournalPage }          from './pages/JournalPage'
+import { TeamPage }             from './pages/TeamPage'
 import { StarField }            from './components/StarField'
 import { AuroraStreak }         from './components/AuroraStreak'
 import { BottomNav }            from './components/BottomNav/BottomNav'
@@ -45,6 +48,9 @@ const SCREEN = {
   COMING_SOON:    'coming_soon',
   PREMIUM_PROMO:  'premium_promo',
   TEST_HUB:       'test_hub',
+  CAREER_MAP:     'career_map',
+  JOURNAL:        'journal',
+  TEAM:           'team',
   ERROR:        'error',
 }
 
@@ -81,6 +87,9 @@ const ROUTE_MAP = {
   '/challenges':  SCREEN.CHALLENGES,
   '/comparison':  SCREEN.COMPARISON,
   '/support':     SCREEN.COMING_SOON,
+  '/career-map':  SCREEN.CAREER_MAP,
+  '/journal':     SCREEN.JOURNAL,
+  '/team':        SCREEN.TEAM,
 }
 
 export default function App() {
@@ -320,6 +329,22 @@ export default function App() {
           <PremiumPromoPage
             onBack={() => navigate('/menu')}
             onBuy={() => navigate('/results')}
+          />
+        )
+      case SCREEN.CAREER_MAP:
+        return (
+          <CareerMapPage
+            results={results}
+            onBack={() => navigate('/menu')}
+          />
+        )
+      case SCREEN.JOURNAL:
+        return <JournalPage onBack={() => navigate('/menu')} />
+      case SCREEN.TEAM:
+        return (
+          <TeamPage
+            userResults={results}
+            onBack={() => navigate('/menu')}
           />
         )
       case SCREEN.COMING_SOON:

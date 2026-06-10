@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useTelegram } from '../hooks/useTelegram'
 import { useSwipeToDismiss } from '../hooks/useSwipeToDismiss'
+import { ProfessionCompatTest } from '../components/ProfessionCompatTest'
 
 const TRAITS    = ['O','C','E','A','S']
 const TRAIT_RU  = { O:'Открытость', C:'Сознательность', E:'Экстраверсия', A:'Доброжелательность', S:'Стабильность' }
@@ -217,6 +218,10 @@ export function ProfessionDetailPage({ professionTitle, userResults, onBack }) {
               </div>
             )}
           </div>
+        )}
+
+        {prof?.riasec_type && (
+          <ProfessionCompatTest riasecType={prof.riasec_type} />
         )}
 
         <button className="btn-back-results" onClick={onBack}>{T.back}</button>

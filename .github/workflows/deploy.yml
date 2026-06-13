@@ -25,6 +25,8 @@ jobs:
             docker compose build --no-cache webapp bot
             docker compose run --rm bot alembic upgrade head
             docker compose up -d --force-recreate webapp bot
+            cp /opt/careercheck/nginx.conf /etc/nginx/sites-available/careercheck
+            nginx -t && systemctl reload nginx
             echo "=== Deploy complete ==="
             docker compose ps
             curl -sf https://careercheck.app/api/health && echo "Health check OK" || echo "Health check failed"

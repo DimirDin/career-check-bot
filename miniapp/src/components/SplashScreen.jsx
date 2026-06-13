@@ -7,6 +7,8 @@ export function SplashScreen({ onDone }) {
   const subRef    = useRef(null);
   const rafRef    = useRef(null);
   const tidsRef   = useRef([]);
+  const onDoneRef = useRef(onDone);
+  useEffect(() => { onDoneRef.current = onDone; }, [onDone]);
 
   useEffect(() => {
     const WORD       = 'CareerCheck';
@@ -94,13 +96,13 @@ export function SplashScreen({ onDone }) {
     }, SUB_DELAY);
 
     // Завершение
-    T(() => { onDone?.(); }, COMPLETE);
+    T(() => { onDoneRef.current?.(); }, COMPLETE);
 
     return () => {
       tidsRef.current.forEach(clearTimeout);
       cancelAnimationFrame(rafRef.current);
     };
-  }, [onDone]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="splash-root">

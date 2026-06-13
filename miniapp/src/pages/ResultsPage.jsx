@@ -211,7 +211,7 @@ export function ResultsPage({ results, onBack }) {
     haptic.success?.()
     track('referral_claim_pdf')
     setPremiumLoading(true)
-    setPremiumMsg(isRuLang(tg) ? '⏳ Генерируем PDF…' : '⏳ Generating PDF…')
+    setPremiumMsg(isRuLang(tg) ? '⏳ Генерируем PDF… ~30 сек' : '⏳ Generating PDF… ~30 sec')
     try {
       const res = await fetch('/api/premium/referral-claim', {
         method: 'POST',
@@ -222,17 +222,13 @@ export function ResultsPage({ results, onBack }) {
         const err = await res.json().catch(() => ({}))
         throw new Error(err.detail || 'failed')
       }
-      const blob = await res.blob()
-      const url  = URL.createObjectURL(blob)
-      const a    = document.createElement('a')
-      a.href     = url
-      a.download = 'CareerCheck_Premium.pdf'
-      a.click()
-      URL.revokeObjectURL(url)
-      setPremiumMsg(isRuLang(tg) ? '✅ PDF готов!' : '✅ PDF ready!')
+      haptic.success?.()
+      setPremiumMsg(isRuLang(tg)
+        ? '✅ PDF отправлен в Telegram!'
+        : '✅ PDF sent to Telegram!')
     } catch (e) {
       setPremiumMsg(isRuLang(tg) ? '❌ Ошибка. Попробуй позже.' : '❌ Error. Try again later.')
-      logger.error?.('Referral claim error:', e)
+      console.error('Referral claim error:', e)
     } finally {
       setPremiumLoading(false)
     }

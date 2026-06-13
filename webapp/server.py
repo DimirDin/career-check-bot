@@ -509,11 +509,27 @@ async def referral_claim_pdf(body: CompareCreateRequest, request: Request):
         logger.error(f"Referral PDF generation error: {type(e).__name__}: {e}\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"PDF generation failed: {type(e).__name__}: {e}")
 
-    return Response(
-        content=pdf_bytes,
-        media_type="application/pdf",
-        headers={"Content-Disposition": "attachment; filename=CareerCheck_Premium.pdf"},
+    # Отправляем PDF через Bot API прямо в чат пользователя
+    caption = (
+        "🎁 Твой бесплатный Premium Career Report готов!\n\n"
+        "Получен за приглашение друзей в CareerCheck. Спасибо! 🙌"
+        if lang == "ru" else
+        "🎁 Your free Premium Career Report is ready!\n\n"
+        "Earned by inviting friends to CareerCheck. Thank you! 🙌"
     )
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.post(
+                f"https://api.telegram.org/bot{BOT_TOKEN}/sendDocument",
+                data={"chat_id": telegram_id, "caption": caption},
+                files={"document": ("CareerCheck_Premium.pdf", pdf_bytes, "application/pdf")},
+            )
+        if not resp.json().get("ok"):
+            logger.error(f"Bot sendDocument failed: {resp.text}")
+    except Exception as e:
+        logger.error(f"Bot sendDocument error: {e}")
+
+    return {"status": "sent", "ai_used": ai_used}
 
 
 @app.post("/api/premium/download")

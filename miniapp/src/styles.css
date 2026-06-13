@@ -2077,10 +2077,12 @@ body::after {
   gap: 7px;
 }
 
-/* Typewriter через CSS clip-path + steps() — не зависит от React lifecycle */
+/* Splash typerow — плавный reveal, без steps() и overflow:hidden */
 .splash-typerow {
   display: flex;
   align-items: baseline;
+  justify-content: center;
+  gap: 0;
   height: 30px;
 }
 
@@ -2092,32 +2094,28 @@ body::after {
   line-height: 1;
   white-space: nowrap;
   letter-spacing: -0.02em;
-  overflow: hidden;
   display: inline-block;
+  /* НЕТ overflow:hidden — он обрезает выступающие части букв в PJS */
+  -webkit-clip-path: inset(0 100% 0 0);
+  clip-path: inset(0 100% 0 0);
 }
 
-/* "Career" — 6 символов, старт через 0.3s */
 .splash-career {
   color: #ffffff;
-  clip-path: inset(0 100% 0 0);
-  animation: splash-type-career steps(6, end) 0.66s 0.3s forwards;
+  animation: splash-reveal 0.55s ease-out 0.35s both;
 }
 
-/* "Check" — 5 символов, старт после Career (0.3 + 0.66 = 0.96s) */
 .splash-check {
   color: #a855f7;
-  clip-path: inset(0 100% 0 0);
-  animation: splash-type-check steps(5, end) 0.55s 0.96s forwards;
+  animation: splash-reveal 0.5s ease-out 0.95s both;
 }
 
-@keyframes splash-type-career {
-  to { clip-path: inset(0 0% 0 0); }
-}
-@keyframes splash-type-check {
-  to { clip-path: inset(0 0% 0 0); }
+@keyframes splash-reveal {
+  0%   { -webkit-clip-path: inset(0 100% 0 0); clip-path: inset(0 100% 0 0); }
+  100% { -webkit-clip-path: inset(0 -5% 0 0);  clip-path: inset(0 -5% 0 0); }
 }
 
-/* Курсор после текста */
+/* Курсор */
 .splash-cursor {
   display: inline-block;
   width: 2px;
@@ -2129,7 +2127,7 @@ body::after {
   box-shadow: 0 0 8px rgba(168, 85, 247, 1);
   animation:
     splashCursorBlink 0.6s step-end infinite,
-    splashCursorHide  0s 2.1s forwards;
+    splashCursorHide  0s 2.0s forwards;
 }
 
 @keyframes splashCursorBlink {
@@ -2140,7 +2138,7 @@ body::after {
   to { opacity: 0; }
 }
 
-/* Субтитр — появляется через CSS delay */
+/* Субтитр */
 .splash-sub {
   font-size: 12px;
   color: #94a3b8;
@@ -2149,7 +2147,7 @@ body::after {
   letter-spacing: 0.04em;
   text-align: center;
   opacity: 0;
-  animation: splashSubIn 0.5s ease 1.8s forwards;
+  animation: splashSubIn 0.5s ease 1.7s forwards;
 }
 
 @keyframes splashSubIn {

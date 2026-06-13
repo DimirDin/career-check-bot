@@ -20,7 +20,8 @@ jobs:
           script: |
             set -e
             cd /opt/careercheck
-            git pull origin main
+            git fetch origin main
+            git reset --hard origin/main
             docker compose build --no-cache webapp bot
             docker compose run --rm bot alembic upgrade head
             docker compose up -d --force-recreate webapp bot

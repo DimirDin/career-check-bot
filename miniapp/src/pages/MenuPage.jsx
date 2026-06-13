@@ -29,7 +29,7 @@ const T = {
    GLOBAL CSS — injected once
 ───────────────────────────────────────────── */
 const GLOBAL_CSS = `
-  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Inter:wght@300;400;500;600&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap');
 
   @keyframes heartbeat {
     0%   { transform: scale(1); }
@@ -217,7 +217,7 @@ function HeroCard({ testDone, radarScores, onStartTest, onOpenResults }) {
             <div style={{ fontSize: 10, letterSpacing: '0.1em', color: T.cyan, marginBottom: 6, textTransform: 'uppercase' }}>
               ВАШ ПСИХОТИП
             </div>
-            <div style={{ fontFamily: "'Syne', sans-serif", fontSize: 20, fontWeight: 800, color: T.textPrimary, lineHeight: 1.2, marginBottom: 4 }}>
+            <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 20, fontWeight: 800, color: T.textPrimary, lineHeight: 1.2, marginBottom: 4 }}>
               Исследователь
             </div>
             <div style={{ fontSize: 12, color: T.textSecondary, marginBottom: 14, lineHeight: 1.5 }}>
@@ -243,7 +243,7 @@ function HeroCard({ testDone, radarScores, onStartTest, onOpenResults }) {
             <div style={{ fontSize: 10, letterSpacing: '0.1em', color: T.violet, marginBottom: 8, textTransform: 'uppercase' }}>
               НАУЧНАЯ ДИАГНОСТИКА
             </div>
-            <div style={{ fontFamily: "'Syne', sans-serif", fontSize: 22, fontWeight: 800, color: T.textPrimary, lineHeight: 1.15, marginBottom: 8 }}>
+            <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 22, fontWeight: 800, color: T.textPrimary, lineHeight: 1.15, marginBottom: 8 }}>
               Раскрой<br/>свой потенциал
             </div>
             <div style={{ fontSize: 12, color: T.textSecondary, marginBottom: 18, lineHeight: 1.5 }}>
@@ -371,7 +371,7 @@ function QuickActionsGrid({ navigate }) {
           <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.textMuted, marginBottom: 3 }}>
             МОДУЛЬ
           </div>
-          <div style={{ fontFamily: "'Syne', sans-serif", fontSize: 16, fontWeight: 700, color: T.textPrimary, lineHeight: 1.2, marginBottom: 3 }}>
+          <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 16, fontWeight: 700, color: T.textPrimary, lineHeight: 1.2, marginBottom: 3 }}>
             {card.title}
           </div>
           <div style={{ fontSize: 12, color: T.textSecondary }}>{card.sub}</div>
@@ -427,7 +427,7 @@ function PersonalHeroBlock({ riasec, topProfession, lang, onResults, onRetake })
       <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', color: T.cyan, marginBottom: 4 }}>
         {isRu ? 'Твой тип' : 'Your type'}
       </div>
-      <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 22, fontWeight: 800, color: T.textPrimary, marginBottom: topProfession ? 6 : 16, lineHeight: 1.2 }}>
+      <div style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontSize: 22, fontWeight: 800, color: T.textPrimary, marginBottom: topProfession ? 6 : 16, lineHeight: 1.2 }}>
         {domLabel}
       </div>
       {topProfession && (

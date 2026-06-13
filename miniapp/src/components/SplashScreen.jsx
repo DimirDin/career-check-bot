@@ -1,5 +1,8 @@
 import { useEffect, useRef } from 'react';
 
+// Модульный флаг — живёт вне React, не сбрасывается при StrictMode remount
+let splashPlayed = false;
+
 export function SplashScreen({ onDone }) {
   const logoRef   = useRef(null);
   const typedRef  = useRef(null);
@@ -11,12 +14,19 @@ export function SplashScreen({ onDone }) {
   useEffect(() => { onDoneRef.current = onDone; }, [onDone]);
 
   useEffect(() => {
+    // Если анимация уже запущена (StrictMode double-invoke) — сразу завершаем
+    if (splashPlayed) {
+      onDoneRef.current?.();
+      return;
+    }
+    splashPlayed = true;
+
     const WORD       = 'CareerCheck';
     const LOGO_DUR   = 3200;
     const TYPE_START = 300;
     const TYPE_SPEED = 110;
-    const TYPE_END   = TYPE_START + WORD.length * TYPE_SPEED; // 1510ms
-    const SUB_DELAY  = TYPE_END + 350;                        // 1860ms
+    const TYPE_END   = TYPE_START + WORD.length * TYPE_SPEED;
+    const SUB_DELAY  = TYPE_END + 350;
     const COMPLETE   = 3800;
 
     function T(fn, ms) {
@@ -54,11 +64,6 @@ export function SplashScreen({ onDone }) {
       const v = r.slice(4).map(v => v.toFixed(1) + '%').join(' ');
       return `${h} / ${v}`;
     }
-
-    // Сброс состояния при повторном запуске (React StrictMode)
-    if (typedRef.current) typedRef.current.innerHTML = '';
-    if (cursorRef.current) cursorRef.current.classList.remove('splash-cursor-hide');
-    if (subRef.current) subRef.current.classList.remove('splash-sub-visible');
 
     // Морфинг логотипа
     let logoStart = null;

@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;700;800&display=swap');
+
 /* ── Variables ─────────────────────────────────────────────────── */
 :root {
   --bg:        #0d0d1a;
@@ -2090,11 +2092,11 @@ body::after {
 .splash-typed {
   font-size: 21px;
   font-weight: 800;
-  font-family: 'Syne', -apple-system, sans-serif;
+  font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
   line-height: 1;
   white-space: nowrap;
   display: inline-block;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
 }
 
 .splash-cursor {
@@ -2122,9 +2124,9 @@ body::after {
 .splash-sub {
   font-size: 12px;
   color: #94a3b8;
-  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
   font-weight: 400;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.04em;
   text-align: center;
   opacity: 0;
   transition: opacity 0.5s ease;

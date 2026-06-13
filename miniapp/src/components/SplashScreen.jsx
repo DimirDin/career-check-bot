@@ -53,6 +53,11 @@ export function SplashScreen({ onDone }) {
       return `${h} / ${v}`;
     }
 
+    // Сброс состояния при повторном запуске (React StrictMode)
+    if (typedRef.current) typedRef.current.innerHTML = '';
+    if (cursorRef.current) cursorRef.current.classList.remove('splash-cursor-hide');
+    if (subRef.current) subRef.current.classList.remove('splash-sub-visible');
+
     // Морфинг логотипа
     let logoStart = null;
     function animLogo(ts) {

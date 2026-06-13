@@ -18,7 +18,7 @@ from reportlab.lib.units import mm
 from services.pdf_generator import (
     FONT_REG, FONT_BOLD,
     BG, PANEL, PANEL2, PURPLE, BLUE, CYAN, GREEN, ORANGE,
-    WHITE, GRAY, DIM, GOLD, SILVER, BRONZE, MUTED, DARK_TEXT,
+    WHITE, GRAY, DIM, GOLD, SILVER, BRONZE, MUTED, DARK_TEXT, LIGHT_TEXT,
     RED_SOFT, GREEN_SOFT, TRAIT_COLORS, TRAIT_KEYS,
     W, H, M,
     rgb, srgb, filled_rect, stroked_rect, text, multiline,
@@ -288,93 +288,119 @@ def _get_fallback_ai_content(lang: str) -> dict:
 # ── Drawing helpers ────────────────────────────────────────────────────────────
 
 def _hdr(c, y, name, date, page_info):
-    text(c, M, y, "CAREER", FONT_BOLD, 14, WHITE)
-    ox = c.stringWidth("CAREER", FONT_BOLD, 14) + 3
-    text(c, M+ox, y, "CHECK", FONT_BOLD, 14, PURPLE)
-    cx2 = M+ox+c.stringWidth("CHECK", FONT_BOLD, 14)+8
-    text(c, cx2, y, "PREMIUM", FONT_BOLD, 8, GOLD)
-    text(c, W-M, y,    page_info, FONT_REG, 7, MUTED, align='right')
-    text(c, W-M, y-9,  name,      FONT_REG, 7, MUTED, align='right')
-    text(c, W-M, y-18, date,      FONT_REG, 7, MUTED, align='right')
-    y2 = y - 26
+    # Logo
+    text(c, M, y, "CAREER", FONT_BOLD, 13, WHITE)
+    ox = c.stringWidth("CAREER", FONT_BOLD, 13) + 3
+    text(c, M+ox, y, "CHECK", FONT_BOLD, 13, PURPLE)
+    cx2 = M+ox+c.stringWidth("CHECK", FONT_BOLD, 13)+7
+    filled_rect(c, cx2, y-8, c.stringWidth("PREMIUM", FONT_BOLD, 7)+10, 12,
+                tuple(p*0.22 for p in GOLD), r=3)
+    text(c, cx2+5, y-4, "PREMIUM", FONT_BOLD, 7, GOLD)
+    # Right: page info + name
+    text(c, W-M, y,    page_info, FONT_REG, 7, GRAY, align='right')
+    text(c, W-M, y-10, name,      FONT_REG, 7.5, WHITE, align='right')
+    text(c, W-M, y-21, date,      FONT_REG, 6.5, MUTED, align='right')
+    y2 = y - 28
     gradient_bar(c, M, y2, W-2*M, thickness=2)
-    return y2 - 10
+    return y2 - 12
 
 def _ftr(c, n, total):
     y = 13*mm
     srgb(c, DIM); c.setLineWidth(0.4); c.line(M, y, W-M, y)
-    y -= 8
-    text(c, M,   y, f"careercheck.app  ·  {SUPPORT_BOT}", FONT_REG, 6, MUTED)
-    text(c, W/2, y, "Premium Career Report", FONT_REG, 6, MUTED, align='center')
-    text(c, W-M, y, f"{n} / {total}", FONT_REG, 6, MUTED, align='right')
+    y -= 9
+    text(c, M,   y, f"careercheck.app  ·  {SUPPORT_BOT}", FONT_REG, 6.5, MUTED)
+    text(c, W/2, y, "Premium Career Report", FONT_BOLD, 6.5, MUTED, align='center')
+    text(c, W-M, y, f"{n} / {total}", FONT_REG, 6.5, MUTED, align='right')
 
 def _sec(c, y, title, col=None):
     col = col or PURPLE
-    filled_rect(c, M, y-10, 3, 12, col, r=1)
-    text(c, M+8, y, title, FONT_BOLD, 8.5, WHITE)
-    return y - 16
+    # Цветная полоска + фон секции
+    filled_rect(c, M, y-11, W-2*M, 14, tuple(p*0.10 for p in col), r=3)
+    filled_rect(c, M, y-11, 4, 14, col, r=2)
+    text(c, M+10, y-4, title, FONT_BOLD, 9, WHITE)
+    return y - 20
 
-def _blk(c, y, s, mw=None, fs=8.5, col=None, lh=12):
-    return multiline(c, M, y, s, FONT_REG, fs, col or DARK_TEXT, mw or (W-2*M), lh)
+def _blk(c, y, s, mw=None, fs=9, col=None, lh=13):
+    return multiline(c, M, y, s, FONT_REG, fs, col or LIGHT_TEXT, mw or (W-2*M), lh)
 
 def _hi(c, y, s, col=None):
+    """Выделенный блок — яркий фон, читаемый текст."""
     col = col or GOLD
-    bg  = tuple(p*0.12 for p in col)
+    bg  = tuple(p*0.18 for p in col)
+    border = tuple(p*0.55 for p in col)
     mw  = W-2*M-24
-    c.setFont(FONT_REG, 8.5)
-    bh  = measure_lines(c, s, FONT_REG, 8.5, mw)*12 + 22
+    c.setFont(FONT_REG, 9)
+    bh  = measure_lines(c, s, FONT_REG, 9, mw)*13 + 24
     filled_rect(c, M, y-bh, W-2*M, bh, bg, r=6)
-    stroked_rect(c, M, y-bh, W-2*M, bh, tuple(p*0.5 for p in col), lw=1.0, r=6)
-    multiline(c, M+12, y-11, s, FONT_REG, 8.5, WHITE, mw, 12)
-    return y - bh - 8
+    stroked_rect(c, M, y-bh, W-2*M, bh, border, lw=1.2, r=6)
+    filled_rect(c, M, y-bh, 4, bh, col, r=2)
+    multiline(c, M+14, y-12, s, FONT_REG, 9, WHITE, mw, 13)
+    return y - bh - 10
 
 def _num(c, y, items, col=None):
     col = col or GREEN
     for i, item in enumerate(items, 1):
-        filled_rect(c, M, y-12, 16, 16, tuple(p*0.15 for p in col), r=8)
-        text(c, M+8, y-6, str(i), FONT_BOLD, 7.5, col, align='center')
-        mw = W-2*M-22
-        multiline(c, M+22, y, str(item), FONT_REG, 8, DARK_TEXT, mw, 11)
-        y -= max(16, measure_lines(c, str(item), FONT_REG, 8, mw)*11 + 3)
-    return y - 4
+        # Кружок с цифрой
+        filled_rect(c, M, y-14, 18, 18, tuple(p*0.20 for p in col), r=9)
+        text(c, M+9, y-7, str(i), FONT_BOLD, 8, col, align='center')
+        mw = W-2*M-26
+        multiline(c, M+24, y, str(item), FONT_REG, 9, LIGHT_TEXT, mw, 13)
+        y -= max(18, measure_lines(c, str(item), FONT_REG, 9, mw)*13 + 4)
+    return y - 6
 
 def _bul(c, y, items, col=None):
     col = col or GRAY
     for item in items:
-        filled_rect(c, M, y-5, 5, 5, col, r=2)
-        mw = W-2*M-12
-        multiline(c, M+10, y, str(item), FONT_REG, 8, DARK_TEXT, mw, 11)
-        y -= max(12, measure_lines(c, str(item), FONT_REG, 8, mw)*11 + 2)
+        filled_rect(c, M+1, y-5, 6, 6, col, r=3)
+        mw = W-2*M-14
+        multiline(c, M+13, y, str(item), FONT_REG, 9, LIGHT_TEXT, mw, 13)
+        y -= max(14, measure_lines(c, str(item), FONT_REG, 9, mw)*13 + 3)
     return y - 4
 
 def _pills(c, y, items, col=None):
     col = col or CYAN
-    bg  = tuple(p*0.14 for p in col)
+    bg  = tuple(p*0.18 for p in col)
     x   = M
     for item in items:
         lbl = str(item)
-        tw  = c.stringWidth(lbl, FONT_REG, 7.5) + 14
-        if x + tw > W-M: x = M; y -= 16
-        filled_rect(c, x, y-12, tw, 13, bg, r=6)
-        text(c, x+7, y-6, lbl, FONT_REG, 7.5, col)
-        x += tw + 6
-    return y - 20
+        tw  = c.stringWidth(lbl, FONT_REG, 8) + 16
+        if x + tw > W-M: x = M; y -= 18
+        filled_rect(c, x, y-13, tw, 14, bg, r=7)
+        stroked_rect(c, x, y-13, tw, 14, tuple(p*0.4 for p in col), lw=0.6, r=7)
+        text(c, x+8, y-6, lbl, FONT_REG, 8, col)
+        x += tw + 7
+    return y - 22
 
 def _2col(c, y, la, ra, lc, rc, lt, rt):
-    cw = (W-2*M-12)/2
-    text(c, M,       y, lt, FONT_BOLD, 7.5, lc)
-    text(c, M+cw+12, y, rt, FONT_BOLD, 7.5, rc)
-    y -= 13; ly = ry = y
+    cw = (W-2*M-14)/2
+    # Заголовки колонок
+    filled_rect(c, M,        y-11, cw, 14, tuple(p*0.15 for p in lc), r=3)
+    filled_rect(c, M+cw+14,  y-11, cw, 14, tuple(p*0.15 for p in rc), r=3)
+    text(c, M+6,       y-4, lt, FONT_BOLD, 8, lc)
+    text(c, M+cw+20,   y-4, rt, FONT_BOLD, 8, rc)
+    y -= 20; ly = ry = y
     for item in la:
-        filled_rect(c, M, ly-5, 5, 5, lc, r=2)
-        ly = multiline(c, M+9, ly, str(item), FONT_REG, 7.5, DARK_TEXT, cw-9, 11) - 3
+        filled_rect(c, M+1, ly-5, 6, 6, lc, r=3)
+        ly = multiline(c, M+12, ly, str(item), FONT_REG, 8.5, LIGHT_TEXT, cw-12, 12) - 3
     for item in ra:
-        filled_rect(c, M+cw+12, ry-5, 5, 5, rc, r=2)
-        ry = multiline(c, M+cw+21, ry, str(item), FONT_REG, 7.5, DARK_TEXT, cw-9, 11) - 3
-    return min(ly, ry) - 6
+        filled_rect(c, M+cw+15, ry-5, 6, 6, rc, r=3)
+        ry = multiline(c, M+cw+26, ry, str(item), FONT_REG, 8.5, LIGHT_TEXT, cw-12, 12) - 3
+    return min(ly, ry) - 8
 
 
 # ── 6 страниц ─────────────────────────────────────────────────────────────────
+
+def _cover_accent(c):
+    """Декоративный акцент на обложке — градиентные дуги."""
+    import math
+    cx, cy, r0, r1 = W-M-10, H-M-30, 30, 55
+    for ri in range(r0, r1, 3):
+        t = (ri - r0) / (r1 - r0)
+        col = tuple(CYAN[j]*(1-t) + PURPLE[j]*t for j in range(3))
+        alpha = 0.3 + 0.5*t
+        srgb(c, tuple(p*alpha for p in col))
+        c.setLineWidth(2.5)
+        c.arc(cx-ri, cy-ri, cx+ri, cy+ri, startAng=200, extent=120)
 
 def _p1(c, ai, normalized, riasec, name, date, lang):
     draw_bg(c)
@@ -384,28 +410,41 @@ def _p1(c, ai, normalized, riasec, name, date, lang):
     dom = max(riasec, key=riasec.get)
     y   = _hdr(c, y, name, date, L["p1_subtitle"])
 
-    text(c, M, y, L["main_title"], FONT_BOLD, 15, WHITE)
-    y -= 8; gradient_bar(c, M, y, W-2*M, thickness=1); y -= 16
+    # Декоративный акцент в правом верхнем углу
+    _cover_accent(c)
 
-    bh = 42
-    filled_rect(c, M, y-bh, W-2*M, bh, PANEL, r=6)
-    stroked_rect(c, M, y-bh, W-2*M, bh, tuple(p*0.5 for p in PURPLE), lw=1.0, r=6)
-    filled_rect(c, M, y-bh, 5, bh, PURPLE, r=0)
-    text(c, M+14, y-13, rl.get(dom, dom), FONT_BOLD, 15, WHITE)
-    text(c, M+14, y-27, f"{L['dom_sub']}: {dom}  ·  {L['bio_note']}", FONT_REG, 7.5, GRAY)
-    text(c, W-M-8, y-13, str(riasec.get(dom)), FONT_BOLD, 22, PURPLE, align='right')
-    text(c, W-M-8, y-27, L["score_label"], FONT_REG, 7, MUTED, align='right')
-    y -= bh + 10
+    # Заголовок отчёта
+    text(c, M, y, L["main_title"], FONT_BOLD, 17, WHITE)
+    y -= 6; gradient_bar(c, M, y, W-2*M, thickness=1.5); y -= 14
+
+    # Имя пользователя крупно
+    text(c, M, y, name, FONT_BOLD, 13, CYAN)
+    y -= 18
+
+    # Доминирующий тип — большой блок
+    bh = 50
+    filled_rect(c, M, y-bh, W-2*M, bh, PANEL2, r=8)
+    stroked_rect(c, M, y-bh, W-2*M, bh, tuple(p*0.6 for p in PURPLE), lw=1.2, r=8)
+    filled_rect(c, M, y-bh, 6, bh, PURPLE, r=0)
+    # Большая буква типа
+    filled_rect(c, M+14, y-bh+8, 34, 34, tuple(p*0.22 for p in PURPLE), r=17)
+    text(c, M+31, y-bh+20, dom, FONT_BOLD, 18, PURPLE, align='center')
+    # Название типа
+    text(c, M+56, y-16, rl.get(dom, dom), FONT_BOLD, 15, WHITE)
+    text(c, M+56, y-30, f"{L['dom_sub']}  ·  {L['bio_note']}", FONT_REG, 7.5, GRAY)
+    text(c, W-M-10, y-13, str(riasec.get(dom)), FONT_BOLD, 26, PURPLE, align='right')
+    text(c, W-M-10, y-30, L["score_label"], FONT_REG, 8, MUTED, align='right')
+    y -= bh + 14
 
     y = _sec(c, y, L["sec_portrait"], CYAN)
     if ai.get("personality_portrait"): y = _hi(c, y, ai["personality_portrait"], CYAN)
 
     y = _sec(c, y, L["sec_superpower"], GOLD)
-    if ai.get("superpower"): y = _blk(c, y, ai["superpower"], fs=9, col=WHITE, lh=13)
+    if ai.get("superpower"): y = _blk(c, y, ai["superpower"], fs=9.5, col=WHITE, lh=14)
     y -= 8; divider(c, y); y -= 14
 
     y = _sec(c, y, L["sec_shadow"], ORANGE)
-    if ai.get("shadow_side"): y = _blk(c, y, ai["shadow_side"], col=GRAY)
+    if ai.get("shadow_side"): y = _blk(c, y, ai["shadow_side"])
     _ftr(c, 1, 6)
 
 
@@ -417,40 +456,49 @@ def _p2(c, normalized, riasec, name, date, lang):
     rl = RIASEC_LABELS.get(lang, RIASEC_LABELS["en"])
     y  = _hdr(c, y, name, date, L["p2_subtitle"])
     y  = _sec(c, y, L["sec_big5"], CYAN)
+    y += 4
 
-    lw=88; bx=M+lw+4; bw=W-2*M-lw-32; vx=bx+bw+6; rh=16
+    lw=95; bx=M+lw+6; bw=W-2*M-lw-44; vx=bx+bw+8; rh=19
     for i,(key,col) in enumerate(zip(TRAIT_KEYS, TRAIT_COLORS)):
         val=normalized.get(key,0); ry=y-i*rh
-        text(c, M, ry, tl[i] if i<len(tl) else key, FONT_REG, 8.5, GRAY)
-        filled_rect(c, bx, ry-6, bw, 8, DIM, r=4)
-        if val>0: filled_rect(c, bx, ry-6, bw*val/100, 8, col, r=4)
-        text(c, vx, ry-5, f"{val}%", FONT_BOLD, 8.5, col)
+        # Фоновый ряд
+        row_bg = tuple(p*0.06 for p in col)
+        filled_rect(c, M, ry-rh+3, W-2*M, rh-2, row_bg, r=3)
+        text(c, M+5, ry-5, tl[i] if i<len(tl) else key, FONT_REG, 9, LIGHT_TEXT)
+        filled_rect(c, bx, ry-9, bw, 9, DIM, r=4)
+        if val>0: filled_rect(c, bx, ry-9, bw*val/100, 9, col, r=4)
+        text(c, vx, ry-7, f"{val}%", FONT_BOLD, 9, col)
         if val>=70: lt,lc=L["level_high"],GREEN
         elif val>=40: lt,lc=L["level_mid"],GRAY
         else: lt,lc=L["level_low"],ORANGE
-        tw=c.stringWidth(lt,FONT_REG,6.5)+10
-        filled_rect(c, vx+24, ry-9, tw, 10, tuple(p*0.2 for p in lc), r=5)
-        text(c, vx+29, ry-5, lt, FONT_REG, 6.5, lc)
+        tw=c.stringWidth(lt,FONT_REG,7)+12
+        filled_rect(c, vx+28, ry-11, tw, 12, tuple(p*0.22 for p in lc), r=6)
+        text(c, vx+34, ry-6, lt, FONT_REG, 7, lc)
 
-    y -= len(TRAIT_KEYS)*rh+12; divider(c,y); y-=12
+    y -= len(TRAIT_KEYS)*rh+14; divider(c,y); y-=14
     y  = _sec(c, y, L["sec_riasec"], PURPLE)
+    y += 4
 
     rk=["R","I","A","S","E","C"]; rc=[GRAY,PURPLE,ORANGE,GREEN,BLUE,CYAN]
-    cols=3; cw=(W-2*M-(cols-1)*6)/cols; ch=46
+    cols=3; cw=(W-2*M-(cols-1)*7)/cols; ch=52
     dom=max(riasec,key=riasec.get)
     for i,(key,col) in enumerate(zip(rk,rc)):
         c_=i%cols; row=i//cols
-        cx=M+c_*(cw+6); cy=y-row*(ch+6)
+        cx=M+c_*(cw+7); cy=y-row*(ch+7)
         is_d=key==dom
-        filled_rect(c, cx, cy-ch, cw, ch, PANEL2 if is_d else PANEL, r=5)
-        stroked_rect(c, cx, cy-ch, cw, ch, tuple(p*0.6 for p in col) if is_d else DIM, lw=1.2 if is_d else 0.4, r=5)
+        bg_col = PANEL2 if is_d else PANEL
+        filled_rect(c, cx, cy-ch, cw, ch, bg_col, r=6)
+        stroked_rect(c, cx, cy-ch, cw, ch,
+                     tuple(p*0.7 for p in col) if is_d else tuple(p*0.3 for p in col),
+                     lw=1.5 if is_d else 0.5, r=6)
         val=riasec.get(key,0)
-        text(c, cx+cw/2, cy-14, key, FONT_BOLD, 14, col, align='center')
-        text(c, cx+cw/2, cy-25, trunc(rl.get(key,key),14), FONT_REG, 6, MUTED, align='center')
-        bxr=cx+8; bwr=cw-16
-        filled_rect(c, bxr, cy-ch+8, bwr, 4, DIM, r=2)
-        if val>0: filled_rect(c, bxr, cy-ch+8, bwr*val/100, 4, col, r=2)
-        text(c, cx+cw/2, cy-ch+15, str(val), FONT_REG, 6, MUTED, align='center')
+        # Большая буква
+        text(c, cx+cw/2, cy-16, key, FONT_BOLD, 16, col, align='center')
+        text(c, cx+cw/2, cy-28, trunc(rl.get(key,key),14), FONT_REG, 6.5, GRAY, align='center')
+        bxr=cx+9; bwr=cw-18
+        filled_rect(c, bxr, cy-ch+9, bwr, 5, DIM, r=2)
+        if val>0: filled_rect(c, bxr, cy-ch+9, bwr*val/100, 5, col, r=2)
+        text(c, cx+cw/2, cy-ch+17, str(val), FONT_BOLD, 7, LIGHT_TEXT, align='center')
     _ftr(c, 2, 6)
 
 
@@ -459,16 +507,16 @@ def _p3(c, ai, name, date, lang):
     L = _L(lang)
     y = _hdr(c, y, name, date, L["p3_subtitle"])
     y = _sec(c, y, L["sec_vision5"], PURPLE)
-    if ai.get("career_vision_5y"): y=_blk(c,y,ai["career_vision_5y"],fs=9,col=WHITE,lh=13)
-    y-=6
+    if ai.get("career_vision_5y"): y=_blk(c,y,ai["career_vision_5y"],fs=9.5,col=WHITE,lh=14)
+    y-=8
     y = _sec(c, y, L["sec_vision10"], BLUE)
-    if ai.get("career_vision_10y"): y=_blk(c,y,ai["career_vision_10y"],col=GRAY)
-    y-=6; divider(c,y); y-=12
+    if ai.get("career_vision_10y"): y=_blk(c,y,ai["career_vision_10y"])
+    y-=8; divider(c,y); y-=14
     y = _sec(c, y, L["sec_workenv"], GREEN)
     if ai.get("ideal_work_environment"): y=_hi(c,y,ai["ideal_work_environment"],GREEN)
     y = _sec(c, y, L["sec_comms"], CYAN)
     if ai.get("communication_style"): y=_blk(c,y,ai["communication_style"])
-    y-=6; divider(c,y); y-=12
+    y-=8; divider(c,y); y-=14
     y = _sec(c, y, L["sec_stress"], ORANGE)
     if ai.get("stress_and_burnout"): y=_blk(c,y,ai["stress_and_burnout"],col=GRAY)
     _ftr(c, 3, 6)
@@ -479,19 +527,24 @@ def _p4(c, ai, top1, name, date, lang):
     L  = _L(lang)
     t1 = top1.get("title","")
     y  = _hdr(c, y, name, date, f"{L['p4_subtitle']}: {trunc(t1,28)}")
-    bh = 38
-    filled_rect(c, M, y-bh, W-2*M, bh, PANEL, r=6)
-    filled_rect(c, M, y-bh, 5, bh, GOLD, r=0)
-    text(c, M+14, y-14, f"#1  {trunc(t1,42)}", FONT_BOLD, 13, WHITE)
-    text(c, M+14, y-27, f"{L['prof_match']}: {top1.get('match',0)}%  ·  {L['prof_type']}: {top1.get('riasec','')}", FONT_REG, 7.5, GRAY)
-    text(c, W-M-8, y-14, f"{top1.get('match',0)}%", FONT_BOLD, 20, GOLD, align='right')
-    y -= bh+10
+    # Hero-карточка профессии #1
+    bh = 52
+    filled_rect(c, M, y-bh, W-2*M, bh, PANEL2, r=8)
+    stroked_rect(c, M, y-bh, W-2*M, bh, tuple(p*0.6 for p in GOLD), lw=1.5, r=8)
+    filled_rect(c, M, y-bh, 6, bh, GOLD, r=0)
+    # "#1" медаль
+    filled_rect(c, M+14, y-bh+9, 30, 30, tuple(p*0.25 for p in GOLD), r=15)
+    text(c, M+29, y-bh+20, "#1", FONT_BOLD, 10, GOLD, align='center')
+    text(c, M+52, y-16, trunc(t1, 40), FONT_BOLD, 13, WHITE)
+    text(c, M+52, y-30, f"{L['prof_match']}: {top1.get('match',0)}%  ·  {L['prof_type']}: {top1.get('riasec','')}", FONT_REG, 8, GRAY)
+    text(c, W-M-10, y-13, f"{top1.get('match',0)}%", FONT_BOLD, 24, GOLD, align='right')
+    y -= bh+14
     y = _sec(c, y, L["sec_why"], GOLD)
-    if ai.get("top1_why_perfect"): y=_blk(c,y,ai["top1_why_perfect"],fs=9,col=WHITE,lh=13)
-    y-=6; divider(c,y); y-=12
+    if ai.get("top1_why_perfect"): y=_blk(c,y,ai["top1_why_perfect"],fs=9.5,col=WHITE,lh=14)
+    y-=8; divider(c,y); y-=14
     y = _sec(c, y, L["sec_daylife"], CYAN)
     if ai.get("top1_day_in_life"): y=_blk(c,y,ai["top1_day_in_life"])
-    y-=6; divider(c,y); y-=12
+    y-=8; divider(c,y); y-=14
     y = _sec(c, y, L["sec_salary"], GREEN)
     if ai.get("salary_trajectory"): y=_hi(c,y,ai["salary_trajectory"],GREEN)
     y = _sec(c, y, L["sec_network"], BLUE)
@@ -505,43 +558,54 @@ def _p5(c, ai, name, date, lang):
     y = _hdr(c, y, name, date, L["p5_subtitle"])
     y = _sec(c, y, L["sec_roadmap"], GREEN)
     if ai.get("top1_roadmap"): y=_num(c,y,ai["top1_roadmap"],GREEN)
-    divider(c,y); y-=12
+    divider(c,y); y-=14
     y = _2col(c, y,
               ai.get("top1_hard_skills",[]), ai.get("top1_soft_skills",[]),
               CYAN, PURPLE, L["sec_hard"], L["sec_soft"])
-    y-=4; divider(c,y); y-=12
+    y-=6; divider(c,y); y-=14
     y = _sec(c, y, L["sec_resources"], ORANGE)
     if ai.get("top1_resources"): y=_bul(c,y,ai["top1_resources"],ORANGE)
-    divider(c,y); y-=12
+    divider(c,y); y-=14
     y = _sec(c, y, L["sec_redflags"], RED_SOFT)
     if ai.get("red_flags"): y=_bul(c,y,ai["red_flags"],RED_SOFT)
     _ftr(c, 5, 6)
 
+
+def _prof_mini(c, y, prof, ai_key, ai, medal_col, L):
+    """Мини-карточка профессии #2 или #3."""
+    bh = 36
+    filled_rect(c, M, y-bh, W-2*M, bh, PANEL, r=6)
+    filled_rect(c, M, y-bh, 5, bh, medal_col, r=0)
+    title = prof.get('title','')
+    match = prof.get('match',0)
+    text(c, M+14, y-14, trunc(title, 42), FONT_BOLD, 11, WHITE)
+    text(c, M+14, y-27, f"{L['prof_match']}: {match}%  ·  {L['prof_type']}: {prof.get('riasec','')}", FONT_REG, 7.5, GRAY)
+    text(c, W-M-10, y-14, f"{match}%", FONT_BOLD, 16, medal_col, align='right')
+    y -= bh + 8
+    if ai.get(ai_key): y=_blk(c, y, ai[ai_key])
+    return y
 
 def _p6(c, ai, profs, name, date, lang):
     draw_bg(c); y=H-M
     L = _L(lang)
     y = _hdr(c, y, name, date, L["p6_subtitle"])
     if len(profs)>=2:
-        p2=profs[1]
-        y = _sec(c, y, f"#2  {trunc(p2.get('title',''),40)}  —  {p2.get('match',0)}%", SILVER)
-        if ai.get("top2_brief"): y=_blk(c,y,ai["top2_brief"])
-        y-=6
+        y = _prof_mini(c, y, profs[1], "top2_brief", ai, SILVER, L)
+        y -= 8
     if len(profs)>=3:
-        p3=profs[2]
-        y = _sec(c, y, f"#3  {trunc(p3.get('title',''),40)}  —  {p3.get('match',0)}%", BRONZE)
-        if ai.get("top3_brief"): y=_blk(c,y,ai["top3_brief"])
-        y-=6
-    divider(c,y); y-=12
+        y = _prof_mini(c, y, profs[2], "top3_brief", ai, BRONZE, L)
+        y -= 8
+    divider(c,y); y-=14
     y = _sec(c, y, L["sec_action"], GREEN)
     if ai.get("action_today"): y=_hi(c,y,ai["action_today"],GREEN)
-    divider(c,y); y-=12
+    divider(c,y); y-=14
     y = _sec(c, y, L["sec_message"], GOLD)
-    if ai.get("personal_message"): y=_blk(c,y,ai["personal_message"],fs=9,col=WHITE,lh=14)
-    y-=12; divider(c,y); y-=10
-    text(c, W/2, y, f"{L['questions']} {SUPPORT_BOT}", FONT_REG, 7.5, GRAY, align='center')
-    y-=10
-    text(c, W/2, y, "careercheck.app", FONT_BOLD, 8, PURPLE, align='center')
+    if ai.get("personal_message"): y=_blk(c,y,ai["personal_message"],fs=9.5,col=WHITE,lh=14)
+    y-=14; divider(c,y); y-=12
+    # Финальная строка
+    text(c, W/2, y, f"{L['questions']} {SUPPORT_BOT}", FONT_REG, 8, GRAY, align='center')
+    y-=12
+    text(c, W/2, y, "careercheck.app", FONT_BOLD, 9, PURPLE, align='center')
     _ftr(c, 6, 6)
 
 

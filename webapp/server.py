@@ -859,7 +859,10 @@ if DIST.exists():
     @app.get("/{full_path:path}")
     async def spa_fallback(full_path: str):
         index = DIST / "index.html"
-        return FileResponse(index)
+        return FileResponse(
+            index,
+            headers={"Cache-Control": "no-cache, no-store, must-revalidate"},
+        )
 else:
     @app.get("/")
     async def dev_notice():

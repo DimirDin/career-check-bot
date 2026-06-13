@@ -23,7 +23,7 @@ jobs:
             git pull origin main
             docker compose build --no-cache webapp bot
             docker compose run --rm bot alembic upgrade head
-            docker compose up -d webapp bot
+            docker compose up -d --force-recreate webapp bot
             echo "=== Deploy complete ==="
             docker compose ps
             curl -sf https://careercheck.app/api/health && echo "Health check OK" || echo "Health check failed"

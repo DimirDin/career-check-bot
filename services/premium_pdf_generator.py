@@ -285,10 +285,20 @@ def _get_fallback_ai_content(lang: str) -> dict:
     }
 
 
+# ── Layout constants ───────────────────────────────────────────────────────────
+from services.pdf_layout_constants import (
+    BODY_BOTTOM, SECTION_GAP, HEADER_TEXT_GAP,
+    HIGHLIGHT_PAD_TOP, HIGHLIGHT_PAD_BOTTOM, HIGHLIGHT_PAD_LEFT, HIGHLIGHT_PAD_RIGHT,
+    TRAIT_LABEL_WIDTH, BULLET_DOT_X, BULLET_TEXT_X,
+)
+
+_FS   = 10    # base body font size
+_LH   = 15   # base line height
+_SEC_H = 24  # section header total height (including gap to content)
+
 # ── Drawing helpers ────────────────────────────────────────────────────────────
 
 def _hdr(c, y, name, date, page_info):
-    # Logo
     text(c, M, y, "CAREER", FONT_BOLD, 13, WHITE)
     ox = c.stringWidth("CAREER", FONT_BOLD, 13) + 3
     text(c, M+ox, y, "CHECK", FONT_BOLD, 13, PURPLE)
@@ -296,7 +306,6 @@ def _hdr(c, y, name, date, page_info):
     filled_rect(c, cx2, y-8, c.stringWidth("PREMIUM", FONT_BOLD, 7)+10, 12,
                 tuple(p*0.22 for p in GOLD), r=3)
     text(c, cx2+5, y-4, "PREMIUM", FONT_BOLD, 7, GOLD)
-    # Right: page info + name
     text(c, W-M, y,    page_info, FONT_REG, 7, GRAY, align='right')
     text(c, W-M, y-10, name,      FONT_REG, 7.5, WHITE, align='right')
     text(c, W-M, y-21, date,      FONT_REG, 6.5, MUTED, align='right')
@@ -305,7 +314,10 @@ def _hdr(c, y, name, date, page_info):
     return y2 - 12
 
 def _ftr(c, n, total):
+    """Footer — всегда рисуется последним поверх всего (z-order fix)."""
     y = 13*mm
+    # Закрашиваем зону footer фоном, чтобы перекрыть возможный overflow текста
+    filled_rect(c, 0, 0, W, y+4, BG, r=0)
     srgb(c, DIM); c.setLineWidth(0.4); c.line(M, y, W-M, y)
     y -= 9
     text(c, M,   y, f"careercheck.app  ·  {SUPPORT_BOT}", FONT_REG, 6.5, MUTED)
@@ -317,42 +329,50 @@ def _sec(c, y, title, col=None):
     filled_rect(c, M, y-13, W-2*M, 17, tuple(p*0.12 for p in col), r=4)
     filled_rect(c, M, y-13, 5, 17, col, r=2)
     text(c, M+12, y-3, title, FONT_BOLD, 10, WHITE)
-    return y - 24
+    return y - _SEC_H
 
-def _blk(c, y, s, mw=None, fs=10, col=None, lh=15):
+def _blk(c, y, s, mw=None, fs=None, col=None, lh=None):
+    fs = fs or _FS; lh = lh or _LH
     return multiline(c, M+4, y, s, FONT_REG, fs, col or LIGHT_TEXT, mw or (W-2*M-8), lh)
 
 def _hi(c, y, s, col=None):
-    """Выделенный блок — яркий фон, читаемый текст."""
+    """Highlighted box — единые padding со всех сторон (баг 2)."""
     col = col or GOLD
     bg  = tuple(p*0.18 for p in col)
-    border = tuple(p*0.55 for p in col)
-    mw  = W-2*M-28
-    c.setFont(FONT_REG, 10)
-    bh  = measure_lines(c, s, FONT_REG, 10, mw)*15 + 28
+    mw  = W-2*M - HIGHLIGHT_PAD_LEFT - HIGHLIGHT_PAD_RIGHT
+    c.setFont(FONT_REG, _FS)
+    lines = measure_lines(c, s, FONT_REG, _FS, mw)
+    bh    = HIGHLIGHT_PAD_TOP + lines*_LH + HIGHLIGHT_PAD_BOTTOM
     filled_rect(c, M, y-bh, W-2*M, bh, bg, r=7)
-    stroked_rect(c, M, y-bh, W-2*M, bh, border, lw=1.3, r=7)
+    stroked_rect(c, M, y-bh, W-2*M, bh, tuple(p*0.55 for p in col), lw=1.3, r=7)
     filled_rect(c, M, y-bh, 5, bh, col, r=2)
-    multiline(c, M+16, y-14, s, FONT_REG, 10, WHITE, mw, 15)
+    multiline(c, M+HIGHLIGHT_PAD_LEFT, y-HIGHLIGHT_PAD_TOP, s, FONT_REG, _FS, WHITE, mw, _LH)
     return y - bh - 12
 
 def _num(c, y, items, col=None):
+    """Нумерованные шаги — кружок центрирован по тексту (баг 5)."""
     col = col or GREEN
+    mw  = W-2*M-28
     for i, item in enumerate(items, 1):
-        filled_rect(c, M, y-16, 20, 20, tuple(p*0.20 for p in col), r=10)
-        text(c, M+10, y-7, str(i), FONT_BOLD, 9, col, align='center')
-        mw = W-2*M-28
-        multiline(c, M+28, y, str(item), FONT_REG, 10, LIGHT_TEXT, mw, 15)
-        y -= max(22, measure_lines(c, str(item), FONT_REG, 10, mw)*15 + 6)
+        s   = str(item)
+        nlines = measure_lines(c, s, FONT_REG, _FS, mw)
+        block_h = nlines * _LH
+        # Центр кружка = середина блока текста
+        circle_cy = y - block_h/2
+        filled_rect(c, M, circle_cy-10, 20, 20, tuple(p*0.20 for p in col), r=10)
+        text(c, M+10, circle_cy-4, str(i), FONT_BOLD, 9, col, align='center')
+        multiline(c, M+28, y, s, FONT_REG, _FS, LIGHT_TEXT, mw, _LH)
+        y -= max(22, block_h + 6)
     return y - 8
 
 def _bul(c, y, items, col=None):
+    """Bullet list — фиксированный отступ текста от точки 10pt (баг 7)."""
     col = col or GRAY
+    mw  = W-2*M-BULLET_TEXT_X
     for item in items:
-        filled_rect(c, M+1, y-6, 7, 7, col, r=3)
-        mw = W-2*M-16
-        multiline(c, M+15, y, str(item), FONT_REG, 10, LIGHT_TEXT, mw, 15)
-        y -= max(16, measure_lines(c, str(item), FONT_REG, 10, mw)*15 + 4)
+        filled_rect(c, M+BULLET_DOT_X, y-6, 7, 7, col, r=3)
+        multiline(c, M+BULLET_TEXT_X, y, str(item), FONT_REG, _FS, LIGHT_TEXT, mw, _LH)
+        y -= max(16, measure_lines(c, str(item), FONT_REG, _FS, mw)*_LH + 4)
     return y - 6
 
 def _pills(c, y, items, col=None):
@@ -370,18 +390,24 @@ def _pills(c, y, items, col=None):
     return y - 24
 
 def _2col(c, y, la, ra, lc, rc, lt, rt):
-    cw = (W-2*M-14)/2
-    filled_rect(c, M,        y-13, cw, 16, tuple(p*0.15 for p in lc), r=4)
-    filled_rect(c, M+cw+14,  y-13, cw, 16, tuple(p*0.15 for p in rc), r=4)
-    text(c, M+7,       y-4, lt, FONT_BOLD, 9, lc)
-    text(c, M+cw+21,   y-4, rt, FONT_BOLD, 9, rc)
-    y -= 22; ly = ry = y
+    """Две колонки — оба заголовка и оба списка начинаются с одного y (баг 6)."""
+    cw  = (W-2*M-14)/2
+    col2_x = M + cw + 14
+    # Заголовки на одном y
+    filled_rect(c, M,       y-13, cw, 16, tuple(p*0.15 for p in lc), r=4)
+    filled_rect(c, col2_x,  y-13, cw, 16, tuple(p*0.15 for p in rc), r=4)
+    text(c, M+7,        y-4, lt, FONT_BOLD, 9, lc)
+    text(c, col2_x+7,   y-4, rt, FONT_BOLD, 9, rc)
+    # Одинаковый y_start для обоих списков
+    y_start = y - 22
+    ly = ry = y_start
+    mw_col = cw - BULLET_TEXT_X - 2
     for item in la:
-        filled_rect(c, M+2, ly-6, 7, 7, lc, r=3)
-        ly = multiline(c, M+14, ly, str(item), FONT_REG, 9, LIGHT_TEXT, cw-14, 13) - 4
+        filled_rect(c, M+BULLET_DOT_X, ly-6, 7, 7, lc, r=3)
+        ly = multiline(c, M+BULLET_TEXT_X, ly, str(item), FONT_REG, 9, LIGHT_TEXT, mw_col, 13) - 4
     for item in ra:
-        filled_rect(c, M+cw+16, ry-6, 7, 7, rc, r=3)
-        ry = multiline(c, M+cw+28, ry, str(item), FONT_REG, 9, LIGHT_TEXT, cw-14, 13) - 4
+        filled_rect(c, col2_x+BULLET_DOT_X, ry-6, 7, 7, rc, r=3)
+        ry = multiline(c, col2_x+BULLET_TEXT_X, ry, str(item), FONT_REG, 9, LIGHT_TEXT, mw_col, 13) - 4
     return min(ly, ry) - 10
 
 
@@ -418,19 +444,27 @@ def _p1(c, ai, normalized, riasec, name, date, lang):
     text(c, M, y, name, FONT_BOLD, 13, CYAN)
     y -= 18
 
-    # Доминирующий тип — большой блок
-    bh = 50
-    filled_rect(c, M, y-bh, W-2*M, bh, PANEL2, r=8)
-    stroked_rect(c, M, y-bh, W-2*M, bh, tuple(p*0.6 for p in PURPLE), lw=1.2, r=8)
-    filled_rect(c, M, y-bh, 6, bh, PURPLE, r=0)
-    # Большая буква типа
-    filled_rect(c, M+14, y-bh+8, 34, 34, tuple(p*0.22 for p in PURPLE), r=17)
-    text(c, M+31, y-bh+20, dom, FONT_BOLD, 18, PURPLE, align='center')
+    # Доминирующий тип — большой блок (баги 8, 9)
+    bh = 56
+    box_bottom = y - bh
+    filled_rect(c, M, box_bottom, W-2*M, bh, PANEL2, r=8)
+    stroked_rect(c, M, box_bottom, W-2*M, bh, tuple(p*0.6 for p in PURPLE), lw=1.2, r=8)
+    # Левая полоска без клипинга (не выходит за рамки — просто прямоугольник)
+    filled_rect(c, M, box_bottom, 6, bh, PURPLE, r=0)
+    # Круг с буквой типа — клипинг по боксу (баг 8)
+    c.saveState()
+    c.clipRect(M, box_bottom, W-2*M, bh, stroke=0, fill=0)
+    filled_rect(c, M+14, box_bottom+11, 34, 34, tuple(p*0.22 for p in PURPLE), r=17)
+    text(c, M+31, box_bottom+22, dom, FONT_BOLD, 18, PURPLE, align='center')
+    c.restoreState()
     # Название типа
-    text(c, M+56, y-16, rl.get(dom, dom), FONT_BOLD, 15, WHITE)
-    text(c, M+56, y-30, f"{L['dom_sub']}  ·  {L['bio_note']}", FONT_REG, 7.5, GRAY)
-    text(c, W-M-10, y-13, str(riasec.get(dom)), FONT_BOLD, 26, PURPLE, align='right')
-    text(c, W-M-10, y-30, L["score_label"], FONT_REG, 8, MUTED, align='right')
+    mid_y = box_bottom + bh/2
+    text(c, M+56, mid_y+8, rl.get(dom, dom), FONT_BOLD, 15, WHITE)
+    text(c, M+56, mid_y-6, f"{L['dom_sub']}  ·  {L['bio_note']}", FONT_REG, 7.5, GRAY)
+    # Число баллов вертикально центрировано (баг 9): score_y = box_bottom + bh*0.35
+    score_y = box_bottom + int(bh * 0.42)
+    text(c, W-M-10, score_y + 16, str(riasec.get(dom)), FONT_BOLD, 26, PURPLE, align='right')
+    text(c, W-M-10, score_y,      L["score_label"],       FONT_REG,  8, MUTED,   align='right')
     y -= bh + 14
 
     y = _sec(c, y, L["sec_portrait"], CYAN)
@@ -456,12 +490,16 @@ def _p2(c, normalized, riasec, name, date, lang):
     y  = _sec(c, y, L["sec_big5"], CYAN)
     y += 4
 
-    lw=105; bx=M+lw+8; bw=W-2*M-lw-52; vx=bx+bw+10; rh=23
+    # Баг 3: фиксированная ширина колонки метки = TRAIT_LABEL_WIDTH
+    bx=M+TRAIT_LABEL_WIDTH+8; bw=W-2*M-TRAIT_LABEL_WIDTH-52; vx=bx+bw+10; rh=23
     for i,(key,col) in enumerate(zip(TRAIT_KEYS, TRAIT_COLORS)):
         val=normalized.get(key,0); ry=y-i*rh
         row_bg = tuple(p*0.07 for p in col)
         filled_rect(c, M, ry-rh+4, W-2*M, rh-3, row_bg, r=4)
-        text(c, M+6, ry-6, tl[i] if i<len(tl) else key, FONT_REG, 10, LIGHT_TEXT)
+        lbl = tl[i] if i<len(tl) else key
+        # Уменьшаем шрифт если слово не влезает в ширину колонки (баг 3)
+        fs_lbl = 10 if c.stringWidth(lbl, FONT_REG, 10) <= TRAIT_LABEL_WIDTH-6 else 8
+        text(c, M+6, ry-6, lbl, FONT_REG, fs_lbl, LIGHT_TEXT)
         filled_rect(c, bx, ry-11, bw, 11, DIM, r=5)
         if val>0: filled_rect(c, bx, ry-11, bw*val/100, 11, col, r=5)
         text(c, vx, ry-8, f"{val}%", FONT_BOLD, 10, col)
@@ -524,17 +562,20 @@ def _p4(c, ai, top1, name, date, lang):
     L  = _L(lang)
     t1 = top1.get("title","")
     y  = _hdr(c, y, name, date, f"{L['p4_subtitle']}: {trunc(t1,28)}")
-    # Hero-карточка профессии #1
+    # Hero-карточка профессии #1 (баг 4: процент центрирован по боксу)
     bh = 52
-    filled_rect(c, M, y-bh, W-2*M, bh, PANEL2, r=8)
-    stroked_rect(c, M, y-bh, W-2*M, bh, tuple(p*0.6 for p in GOLD), lw=1.5, r=8)
-    filled_rect(c, M, y-bh, 6, bh, GOLD, r=0)
-    # "#1" медаль
-    filled_rect(c, M+14, y-bh+9, 30, 30, tuple(p*0.25 for p in GOLD), r=15)
-    text(c, M+29, y-bh+20, "#1", FONT_BOLD, 10, GOLD, align='center')
-    text(c, M+52, y-16, trunc(t1, 40), FONT_BOLD, 13, WHITE)
-    text(c, M+52, y-30, f"{L['prof_match']}: {top1.get('match',0)}%  ·  {L['prof_type']}: {top1.get('riasec','')}", FONT_REG, 8, GRAY)
-    text(c, W-M-10, y-13, f"{top1.get('match',0)}%", FONT_BOLD, 24, GOLD, align='right')
+    box_top = y; box_bot = y - bh
+    filled_rect(c, M, box_bot, W-2*M, bh, PANEL2, r=8)
+    stroked_rect(c, M, box_bot, W-2*M, bh, tuple(p*0.6 for p in GOLD), lw=1.5, r=8)
+    filled_rect(c, M, box_bot, 6, bh, GOLD, r=0)
+    mid_y = box_bot + bh/2
+    filled_rect(c, M+14, box_bot+11, 30, 30, tuple(p*0.25 for p in GOLD), r=15)
+    text(c, M+29, box_bot+22, "#1", FONT_BOLD, 10, GOLD, align='center')
+    text(c, M+52, mid_y+8, trunc(t1, 40), FONT_BOLD, 13, WHITE)
+    text(c, M+52, mid_y-6, f"{L['prof_match']}: {top1.get('match',0)}%  ·  {L['prof_type']}: {top1.get('riasec','')}", FONT_REG, 8, GRAY)
+    # Процент вертикально центрирован, минимум 12pt от правого края
+    pct_fs = 24
+    text(c, W-M-12, mid_y+pct_fs/2-4, f"{top1.get('match',0)}%", FONT_BOLD, pct_fs, GOLD, align='right')
     y -= bh+16
     y = _sec(c, y, L["sec_why"], GOLD)
     if ai.get("top1_why_perfect"): y=_blk(c,y,ai["top1_why_perfect"],fs=10.5,col=WHITE,lh=16)
@@ -570,16 +611,18 @@ def _p5(c, ai, name, date, lang):
 
 
 def _prof_mini(c, y, prof, ai_key, ai, medal_col, L):
-    """Мини-карточка профессии #2 или #3."""
+    """Мини-карточка профессии #2 или #3 (баг 4: процент центрирован)."""
     bh = 44
-    filled_rect(c, M, y-bh, W-2*M, bh, PANEL, r=7)
-    stroked_rect(c, M, y-bh, W-2*M, bh, tuple(p*0.4 for p in medal_col), lw=1.0, r=7)
-    filled_rect(c, M, y-bh, 6, bh, medal_col, r=0)
+    box_bot = y - bh
+    filled_rect(c, M, box_bot, W-2*M, bh, PANEL, r=7)
+    stroked_rect(c, M, box_bot, W-2*M, bh, tuple(p*0.4 for p in medal_col), lw=1.0, r=7)
+    filled_rect(c, M, box_bot, 6, bh, medal_col, r=0)
+    mid_y = box_bot + bh/2
     title = prof.get('title','')
     match = prof.get('match',0)
-    text(c, M+16, y-16, trunc(title, 42), FONT_BOLD, 12, WHITE)
-    text(c, M+16, y-30, f"{L['prof_match']}: {match}%  ·  {L['prof_type']}: {prof.get('riasec','')}", FONT_REG, 8, GRAY)
-    text(c, W-M-12, y-14, f"{match}%", FONT_BOLD, 18, medal_col, align='right')
+    text(c, M+16, mid_y+8, trunc(title, 42), FONT_BOLD, 12, WHITE)
+    text(c, M+16, mid_y-6, f"{L['prof_match']}: {match}%  ·  {L['prof_type']}: {prof.get('riasec','')}", FONT_REG, 8, GRAY)
+    text(c, W-M-12, mid_y+9, f"{match}%", FONT_BOLD, 18, medal_col, align='right')
     y -= bh + 10
     if ai.get(ai_key): y=_blk(c, y, ai[ai_key], fs=10, lh=15)
     return y

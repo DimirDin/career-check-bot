@@ -207,11 +207,25 @@ export function ResultsPage({ results, onBack }) {
   }
 
   // ── Referral claim — бесплатный PDF без оплаты ───────────────────────────
+  const [pdfGenSeconds, setPdfGenSeconds] = useState(0)
+  const pdfTimerRef = useRef(null)
+
+  const startPdfTimer = () => {
+    setPdfGenSeconds(0)
+    pdfTimerRef.current = setInterval(() => {
+      setPdfGenSeconds(s => s + 1)
+    }, 1000)
+  }
+  const stopPdfTimer = () => {
+    if (pdfTimerRef.current) { clearInterval(pdfTimerRef.current); pdfTimerRef.current = null }
+  }
+
   const handleReferralClaim = async () => {
     haptic.success?.()
     track('referral_claim_pdf')
     setPremiumLoading(true)
-    setPremiumMsg(isRuLang(tg) ? '⏳ Генерируем PDF… ~30 сек' : '⏳ Generating PDF… ~30 sec')
+    startPdfTimer()
+    setPremiumMsg(null)
     try {
       const res = await fetch('/api/premium/referral-claim', {
         method: 'POST',
@@ -224,12 +238,16 @@ export function ResultsPage({ results, onBack }) {
       }
       haptic.success?.()
       setPremiumMsg(isRuLang(tg)
-        ? '✅ PDF отправлен в Telegram!'
-        : '✅ PDF sent to Telegram!')
+        ? '✅ PDF отправлен! Проверь чат с ботом.'
+        : '✅ PDF sent! Check your bot chat.')
     } catch (e) {
-      setPremiumMsg(isRuLang(tg) ? '❌ Ошибка. Попробуй позже.' : '❌ Error. Try again later.')
       console.error('Referral claim error:', e)
+      // Если соединение прервалось — PDF всё равно придёт в бот
+      setPremiumMsg(isRuLang(tg)
+        ? '⏳ PDF генерируется — проверь чат с ботом через минуту!'
+        : '⏳ PDF is being generated — check your bot chat in a minute!')
     } finally {
+      stopPdfTimer()
       setPremiumLoading(false)
     }
   }
@@ -348,21 +366,48 @@ export function ResultsPage({ results, onBack }) {
             referralProgress.granted ? (
               /* Бонус выдан — показываем кнопку получить Premium бесплатно */
               <button onClick={handleReferralClaim} disabled={premiumLoading} style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '10px 16px',
-                background: 'linear-gradient(135deg, rgba(34,197,94,0.2), rgba(124,58,237,0.2))',
+                display: 'flex', flexDirection: 'column', alignItems: 'stretch',
+                padding: '12px 16px', gap: 6,
+                background: premiumLoading
+                  ? 'linear-gradient(135deg, rgba(34,197,94,0.12), rgba(124,58,237,0.12))'
+                  : 'linear-gradient(135deg, rgba(34,197,94,0.2), rgba(124,58,237,0.2))',
                 border: '1px solid rgba(34,197,94,0.5)',
-                borderRadius: 12, cursor: 'pointer', width: '100%',
+                borderRadius: 12, cursor: premiumLoading ? 'default' : 'pointer', width: '100%',
               }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontSize: 16 }}>🎁</span>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: '#22c55e' }}>
-                    {premiumLoading
-                      ? (isRuLang(tg) ? '⏳ Генерируем PDF…' : '⏳ Generating PDF…')
-                      : (isRuLang(tg) ? 'Получить Premium PDF — бесплатно!' : 'Get Premium PDF — Free!')}
-                  </span>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 16 }}>{premiumLoading ? '⚙️' : '🎁'}</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: '#22c55e' }}>
+                      {premiumLoading
+                        ? (isRuLang(tg) ? 'AI генерирует отчёт…' : 'AI generating report…')
+                        : (isRuLang(tg) ? 'Получить Premium PDF — бесплатно!' : 'Get Premium PDF — Free!')}
+                    </span>
+                  </div>
+                  <span style={{ fontSize: 12, color: 'rgba(34,197,94,0.8)', fontWeight: 700 }}>0 ★</span>
                 </div>
-                <span style={{ fontSize: 12, color: 'rgba(34,197,94,0.8)', fontWeight: 700 }}>0 ★</span>
+                {premiumLoading && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)' }}>
+                        {isRuLang(tg) ? 'AI анализирует профиль, обычно 60–90 сек' : 'AI is analyzing, usually 60–90 sec'}
+                      </span>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: '#a78bfa', fontVariantNumeric: 'tabular-nums' }}>
+                        {pdfGenSeconds}с
+                      </span>
+                    </div>
+                    <div style={{ height: 3, background: 'rgba(255,255,255,0.08)', borderRadius: 2, overflow: 'hidden' }}>
+                      <div style={{
+                        height: '100%', borderRadius: 2,
+                        background: 'linear-gradient(90deg, #22c55e, #a78bfa)',
+                        width: `${Math.min(100, (pdfGenSeconds / 90) * 100)}%`,
+                        transition: 'width 1s linear',
+                      }} />
+                    </div>
+                    <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', textAlign: 'center' }}>
+                      {isRuLang(tg) ? '📲 PDF придёт прямо в этот бот' : '📲 PDF will arrive in this bot chat'}
+                    </span>
+                  </div>
+                )}
               </button>
             ) : (
               /* Бонус не выдан — показываем прогресс */

@@ -281,26 +281,43 @@ export function ResultsPage({ results, onBack }) {
           {isRuLang(tg) ? 'Сильная черта: ' : 'Top trait: '}
           <strong>{TRAIT_LABELS[TRAIT_KEYS.indexOf(topTrait)]}</strong> — {norm[topTrait]}%
         </div>
-        {/* Compact share button */}
-        <button
-          onClick={handleShare}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 6,
-            padding: '8px 16px', marginTop: 12,
-            background: 'transparent',
-            border: '1px solid rgba(255,255,255,0.15)',
-            borderRadius: 20,
-            color: 'rgba(255,255,255,0.6)', fontSize: 13, cursor: 'pointer',
-            transition: 'all 0.2s',
-          }}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
-            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
-            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
-          </svg>
-          {isRuLang(tg) ? 'Поделиться результатом' : 'Share result'}
-        </button>
+        {/* Premium CTA — компактный, вверху результатов */}
+        <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <button onClick={handlePremium} disabled={premiumLoading} style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '10px 16px',
+            background: 'linear-gradient(135deg, rgba(251,191,36,0.18), rgba(124,58,237,0.22))',
+            border: '1px solid rgba(251,191,36,0.4)',
+            borderRadius: 12,
+            cursor: 'pointer', width: '100%',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 16 }}>⭐</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: '#fbbf24' }}>
+                {premiumLoading
+                  ? (isRuLang(tg) ? '⏳ Загрузка…' : '⏳ Loading…')
+                  : (isRuLang(tg) ? 'Получить Premium PDF' : 'Get Premium PDF')}
+              </span>
+            </div>
+            <span style={{ fontSize: 12, color: 'rgba(251,191,36,0.8)', fontWeight: 700 }}>99 ★</span>
+          </button>
+
+          {referralProgress && !referralProgress.granted && (
+            <button onClick={handleRefer} style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '8px 14px',
+              background: 'rgba(124,58,237,0.1)',
+              border: '1px solid rgba(124,58,237,0.25)',
+              borderRadius: 10,
+              cursor: 'pointer', width: '100%',
+            }}>
+              <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', fontWeight: 500 }}>
+                👥 {isRuLang(tg) ? `Пригласи 3 друзей → Premium бесплатно (${referralProgress.count}/3)` : `Invite 3 friends → Free Premium (${referralProgress.count}/3)`}
+              </span>
+              <span style={{ fontSize: 11, color: 'rgba(124,58,237,0.8)', fontWeight: 600, whiteSpace: 'nowrap', marginLeft: 8 }}>→</span>
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="tab-content">
@@ -457,7 +474,7 @@ export function ResultsPage({ results, onBack }) {
           </div>
         )}
 
-        {/* ── Premium (V4: shimmer on first view) ────────────────────────── */}
+        {/* ── Premium (большой блок внизу — якорь для ref/shimmer) ─────── */}
         <div ref={premiumRef} className="premium-block card-holo">
           <div className="premium-title">🌟 Хотите детальный отчёт?</div>
           <div className="premium-desc">
@@ -479,39 +496,14 @@ export function ResultsPage({ results, onBack }) {
         {/* ── Share Card (U4) ────────────────────────────────────────────── */}
         <ShareCard results={results} />
 
-        {/* AI Chat — временно скрыт (N4, будет добавлен позже) */}
-        {null}
-
-        {/* ── T7: Referral Premium widget ─────────────────────────────────── */}
-        {referralProgress && !referralProgress.granted && (
-          <div className="referral-widget">
-            <p className="referral-title">
-              {isRuLang(tg)
-                ? 'Пригласи 3 друзей → Premium бесплатно'
-                : 'Invite 3 friends → Free Premium'}
-            </p>
-            <div className="referral-dots">
-              {[0, 1, 2].map(i => (
-                <span key={i} className={`referral-dot ${i < referralProgress.count ? 'filled' : ''}`} />
-              ))}
-              <span className="referral-progress-text">
-                {referralProgress.count} из 3 прошли тест
-              </span>
-            </div>
-            <button className="btn-refer-cta" onClick={handleRefer}>
-              {isRuLang(tg) ? 'Пригласить друга →' : 'Invite a friend →'}
-            </button>
-          </div>
-        )}
-
-        {/* ── Поделиться с другом (Compare + Refer объединены — issue 1) ─── */}
-        <button className="btn-share-friend" onClick={handleRefer}>
+        {/* ── Поделиться с другом ────────────────────────────────────────── */}
+        <button className="btn-share-friend" onClick={handleShare}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
             <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
             <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
           </svg>
-          {isRuLang(tg) ? 'Поделиться с другом' : 'Share with a friend'}
+          {isRuLang(tg) ? 'Поделиться результатом' : 'Share result'}
         </button>
 
         {/* ── Кнопка Назад ───────────────────────────────────────────────── */}

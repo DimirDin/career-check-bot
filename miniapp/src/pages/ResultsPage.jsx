@@ -206,6 +206,38 @@ export function ResultsPage({ results, onBack }) {
     setTimeout(loadReferralProgress, 3000)
   }
 
+  // ── Referral claim — бесплатный PDF без оплаты ───────────────────────────
+  const handleReferralClaim = async () => {
+    haptic.success?.()
+    track('referral_claim_pdf')
+    setPremiumLoading(true)
+    setPremiumMsg(isRuLang(tg) ? '⏳ Генерируем PDF…' : '⏳ Generating PDF…')
+    try {
+      const res = await fetch('/api/premium/referral-claim', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ init_data: initData }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.detail || 'failed')
+      }
+      const blob = await res.blob()
+      const url  = URL.createObjectURL(blob)
+      const a    = document.createElement('a')
+      a.href     = url
+      a.download = 'CareerCheck_Premium.pdf'
+      a.click()
+      URL.revokeObjectURL(url)
+      setPremiumMsg(isRuLang(tg) ? '✅ PDF готов!' : '✅ PDF ready!')
+    } catch (e) {
+      setPremiumMsg(isRuLang(tg) ? '❌ Ошибка. Попробуй позже.' : '❌ Error. Try again later.')
+      logger.error?.('Referral claim error:', e)
+    } finally {
+      setPremiumLoading(false)
+    }
+  }
+
   // ── Premium — openInvoice в Mini App (issue 7) ────────────────────────────
   const handlePremium = async () => {
     haptic.medium?.()
@@ -318,8 +350,8 @@ export function ResultsPage({ results, onBack }) {
 
           {referralProgress && (
             referralProgress.granted ? (
-              /* Бонус выдан — показываем кнопку получить Premium */
-              <button onClick={handlePremium} disabled={premiumLoading} style={{
+              /* Бонус выдан — показываем кнопку получить Premium бесплатно */
+              <button onClick={handleReferralClaim} disabled={premiumLoading} style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 padding: '10px 16px',
                 background: 'linear-gradient(135deg, rgba(34,197,94,0.2), rgba(124,58,237,0.2))',

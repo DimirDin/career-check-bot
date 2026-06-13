@@ -33,6 +33,7 @@ import httpx
 import base64
 from services.ai_chat import ask_career_ai
 from services.circuit_breaker import anthropic_breaker
+from services.premium_pdf_generator import generate_premium_pdf
 from db.database import (
     get_last_result, save_result, create_user, get_user, get_professions,
     check_user_premium, get_referrer, count_referred_completions, grant_referral_premium,
@@ -443,6 +444,69 @@ async def premium_status(init_data: str, request: Request):
         raise HTTPException(status_code=403)
     key = await request.app.state.redis.get(f"premium_pdf:{user['id']}")
     return {"status": "ready" if key else "pending"}
+
+
+@app.post("/api/premium/referral-claim")
+async def referral_claim_pdf(body: CompareCreateRequest, request: Request):
+    """Бесплатный Premium PDF за реферальный бонус — генерируется напрямую."""
+    from fastapi.responses import Response
+    user = validate_init_data(body.init_data)
+    if not user:
+        raise HTTPException(status_code=403)
+
+    telegram_id = user["id"]
+    pool  = request.app.state.pool
+
+    # Проверяем что бонус действительно выдан
+    async with pool.acquire() as conn:
+        bonus = await conn.fetchval(
+            "SELECT COUNT(*) FROM purchases WHERE telegram_id=$1 AND payload='referral_bonus'",
+            telegram_id
+        )
+    if not bonus:
+        raise HTTPException(status_code=403, detail="No referral bonus available")
+
+    # Берём данные пользователя
+    db_user = await get_user(pool, telegram_id)
+    if not db_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    result = await get_last_result(pool, db_user["id"])
+    if not result:
+        raise HTTPException(status_code=404, detail="No test results")
+
+    def parse(v):
+        return json.loads(v) if isinstance(v, str) else v
+
+    normalized     = parse(result["normalized_scores"])
+    riasec         = parse(result["riasec_profile"])
+    top_professions = parse(result["top_professions"]) or []
+    lang           = db_user.get("lang", "ru") or "ru"
+    name           = db_user.get("full_name") or user.get("first_name", "")
+
+    # Получаем детали профессий
+    professions_db = await get_professions(pool, lang=lang)
+    prof_map       = {p["title"]: p for p in professions_db}
+    details_list   = [prof_map.get(p.get("title"), {}) for p in top_professions[:3]]
+
+    try:
+        pdf_bytes, _ = await generate_premium_pdf(
+            name=name,
+            normalized=normalized,
+            riasec=riasec,
+            top_professions=top_professions,
+            details_list=details_list,
+            lang=lang,
+            api_key="",  # используется PROMPTRA_API_KEY из settings
+        )
+    except Exception as e:
+        logger.error(f"Referral PDF generation error: {e}")
+        raise HTTPException(status_code=500, detail="PDF generation failed")
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": "attachment; filename=CareerCheck_Premium.pdf"},
+    )
 
 
 @app.post("/api/premium/download")

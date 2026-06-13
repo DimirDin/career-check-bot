@@ -313,6 +313,24 @@ export function SettingsPage({ onBack }) {
         </div>
       </div>
 
+      {[756303].includes(user?.id) && (
+        <div style={{ padding: '0 16px 8px' }}>
+          <button
+            onClick={() => navigate('/admin')}
+            style={{
+              width: '100%', padding: '11px 16px',
+              background: 'rgba(168,85,247,0.1)',
+              border: '1px solid rgba(168,85,247,0.25)',
+              borderRadius: 12, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            }}
+          >
+            <span style={{ fontSize: 13, fontWeight: 700, color: '#a855f7' }}>⚙ Admin панель</span>
+            <span style={{ fontSize: 12, color: 'rgba(168,85,247,0.6)' }}>→</span>
+          </button>
+        </div>
+      )}
+
       <div style={{ padding: '0 16px 16px' }}>
         <button className="btn-back-results" onClick={onBack}>{T.back}</button>
       </div>

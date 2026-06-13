@@ -845,6 +845,148 @@ async def referral_progress(init_data: str, request: Request):
     }
 
 
+# ── Admin stats ───────────────────────────────────────────────────────────────
+
+from config.settings import ADMIN_IDS
+
+@app.get("/api/admin/stats")
+async def admin_stats(init_data: str, request: Request):
+    user = validate_init_data(init_data)
+    if not user or user.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    pool = request.app.state.pool
+    async with pool.acquire() as conn:
+        # KPI
+        total_users     = await conn.fetchval("SELECT COUNT(*) FROM users")
+        users_today     = await conn.fetchval("SELECT COUNT(*) FROM users WHERE created_at >= NOW() - INTERVAL '1 day'")
+        users_7d        = await conn.fetchval("SELECT COUNT(*) FROM users WHERE created_at >= NOW() - INTERVAL '7 days'")
+        tests_completed = await conn.fetchval("SELECT COUNT(*) FROM test_results")
+        total_purchases = await conn.fetchval("SELECT COUNT(*) FROM purchases")
+        total_stars     = await conn.fetchval("SELECT COALESCE(SUM(stars),0) FROM purchases")
+        total_referrals = await conn.fetchval("SELECT COUNT(*) FROM referrals")
+        ref_with_bonus  = await conn.fetchval("SELECT COUNT(*) FROM referrals WHERE bonus_granted=TRUE")
+
+        # Регистрации по дням (30 дней)
+        reg_rows = await conn.fetch("""
+            SELECT DATE(created_at) AS d, COUNT(*) AS cnt
+            FROM users
+            WHERE created_at >= NOW() - INTERVAL '30 days'
+            GROUP BY d ORDER BY d
+        """)
+
+        # Тесты по дням (30 дней)
+        test_rows = await conn.fetch("""
+            SELECT DATE(completed_at) AS d, COUNT(*) AS cnt
+            FROM test_results
+            WHERE completed_at >= NOW() - INTERVAL '30 days'
+            GROUP BY d ORDER BY d
+        """)
+
+        # Покупки по дням (30 дней)
+        purch_rows = await conn.fetch("""
+            SELECT DATE(created_at) AS d, COUNT(*) AS cnt, SUM(stars) AS stars
+            FROM purchases
+            WHERE created_at >= NOW() - INTERVAL '30 days'
+            GROUP BY d ORDER BY d
+        """)
+
+        # Последние 20 покупок
+        last_purchases = await conn.fetch("""
+            SELECT p.telegram_id, u.full_name, u.username,
+                   p.stars, p.ab_group, p.created_at
+            FROM purchases p
+            LEFT JOIN users u ON u.telegram_id = p.telegram_id
+            ORDER BY p.created_at DESC
+            LIMIT 20
+        """)
+
+        # Топ профессий
+        top_profs = await conn.fetch("""
+            SELECT prof->>'title' AS title, COUNT(*) AS cnt
+            FROM test_results,
+                 jsonb_array_elements(top_professions) AS prof
+            WHERE top_professions IS NOT NULL
+              AND prof->>'rank' = '1'
+            GROUP BY title
+            ORDER BY cnt DESC
+            LIMIT 10
+        """)
+
+        # RIASEC распределение
+        riasec_rows = await conn.fetch("""
+            SELECT key, SUM(value::numeric) AS total
+            FROM test_results,
+                 jsonb_each_text(riasec_profile)
+            GROUP BY key
+            ORDER BY key
+        """)
+
+        # Языки
+        lang_rows = await conn.fetch("""
+            SELECT lang, COUNT(*) AS cnt
+            FROM users
+            GROUP BY lang
+            ORDER BY cnt DESC
+        """)
+
+        # A/B конверсия
+        ab_rows = await conn.fetch("""
+            SELECT ab_group, COUNT(*) AS purchases, SUM(stars) AS stars
+            FROM purchases
+            GROUP BY ab_group
+            ORDER BY ab_group
+        """)
+        ab_users = await conn.fetch("""
+            SELECT (id % 3) AS ab_group, COUNT(*) AS cnt
+            FROM users
+            GROUP BY ab_group
+        """)
+
+    def rows_to_list(rows):
+        return [dict(r) for r in rows]
+
+    def date_series(rows):
+        return [{"date": str(r["d"]), "count": int(r["cnt"])} for r in rows]
+
+    return {
+        "kpi": {
+            "total_users":     int(total_users),
+            "users_today":     int(users_today),
+            "users_7d":        int(users_7d),
+            "tests_completed": int(tests_completed),
+            "conversion_pct":  round(int(tests_completed) / max(int(total_users), 1) * 100, 1),
+            "total_purchases": int(total_purchases),
+            "total_stars":     int(total_stars),
+            "total_referrals": int(total_referrals),
+            "ref_bonus_granted": int(ref_with_bonus),
+        },
+        "registrations_30d": date_series(reg_rows),
+        "tests_30d":         date_series(test_rows),
+        "purchases_30d": [
+            {"date": str(r["d"]), "count": int(r["cnt"]), "stars": int(r["stars"])}
+            for r in purch_rows
+        ],
+        "last_purchases": [
+            {
+                "telegram_id": r["telegram_id"],
+                "name": r["full_name"] or f"@{r['username']}" if r["username"] else str(r["telegram_id"]),
+                "stars": r["stars"],
+                "ab_group": r["ab_group"],
+                "date": r["created_at"].strftime("%d.%m %H:%M"),
+            }
+            for r in last_purchases
+        ],
+        "top_professions": [{"title": r["title"], "count": int(r["cnt"])} for r in top_profs],
+        "riasec_distribution": {r["key"]: int(r["total"]) for r in riasec_rows},
+        "languages": [{"lang": r["lang"], "count": int(r["cnt"])} for r in lang_rows],
+        "ab_groups": {
+            "purchases": rows_to_list(ab_rows),
+            "users":     rows_to_list(ab_users),
+        },
+    }
+
+
 # ── Static files + SPA fallback ───────────────────────────────────────────────
 
 DIST = Path(__file__).parent / "dist"

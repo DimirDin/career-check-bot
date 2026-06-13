@@ -18,6 +18,7 @@ import { ProfessionsPage }      from './pages/ProfessionsPage'
 import { ProfessionDetailPage } from './pages/ProfessionDetailPage'
 import { PremiumPromoPage }     from './pages/PremiumPromoPage'
 import { ChallengesPage }       from './pages/ChallengesPage'
+import { AdminPage }            from './pages/AdminPage'
 import { StarField }            from './components/StarField'
 import { AuroraStreak }         from './components/AuroraStreak'
 import { BottomNav }            from './components/BottomNav/BottomNav'
@@ -44,6 +45,7 @@ const SCREEN = {
   CHALLENGES:     'challenges',
   COMING_SOON:    'coming_soon',
   PREMIUM_PROMO:  'premium_promo',
+  ADMIN:          'admin',
   TEST_HUB:       'test_hub',
   ERROR:        'error',
 }
@@ -81,6 +83,7 @@ const ROUTE_MAP = {
   '/challenges':  SCREEN.CHALLENGES,
   '/comparison':  SCREEN.COMPARISON,
   '/support':     SCREEN.COMING_SOON,
+  '/admin':       SCREEN.ADMIN,
 }
 
 export default function App() {
@@ -324,6 +327,8 @@ export default function App() {
         )
       case SCREEN.COMING_SOON:
         return <ComingSoonScreen route={route} onBack={() => navigate('/menu')} tg={tg} />
+      case SCREEN.ADMIN:
+        return <AdminPage onBack={() => navigate('/menu')} />
       default:
         return <LoadingScreen text="..." />
     }
@@ -335,7 +340,7 @@ export default function App() {
 
   // Экраны без BottomNav
   const NO_BOTTOM_NAV = [
-    SCREEN.SPLASH, SCREEN.LOADING, SCREEN.QUICK_TEST, SCREEN.ONBOARDING,
+    SCREEN.SPLASH, SCREEN.LOADING, SCREEN.QUICK_TEST, SCREEN.ONBOARDING, SCREEN.ADMIN,
   ]
   const showBottomNav = !NO_BOTTOM_NAV.includes(screen)
 

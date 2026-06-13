@@ -37,6 +37,7 @@ from services.premium_pdf_generator import generate_premium_pdf
 from db.database import (
     get_last_result, save_result, create_user, get_user, get_professions,
     check_user_premium, get_referrer, count_referred_completions, grant_referral_premium,
+    get_profession_details_by_title_lang,
 )
 from services.calculator import calculate_scores, calculate_riasec, match_professions
 
@@ -483,20 +484,23 @@ async def referral_claim_pdf(body: CompareCreateRequest, request: Request):
     lang           = db_user.get("lang", "ru") or "ru"
     name           = db_user.get("full_name") or user.get("first_name", "")
 
-    # Получаем детали профессий
-    professions_db = await get_professions(pool, lang=lang)
-    prof_map       = {p["title"]: p for p in professions_db}
-    details_list   = [prof_map.get(p.get("title"), {}) for p in top_professions[:3]]
+    # Получаем детали профессий (точно так же как в боте)
+    details_list = []
+    for prof in top_professions[:3]:
+        det = await get_profession_details_by_title_lang(pool, prof["title"], lang)
+        details_list.append(det or {})
 
     try:
+        from datetime import date as _date
+        user_data = {"full_name": name, "date": _date.today().strftime("%d.%m.%Y")}
         pdf_bytes, _ = await generate_premium_pdf(
-            name=name,
-            normalized=normalized,
+            user_data=user_data,
+            normalized_scores=normalized,
             riasec=riasec,
             top_professions=top_professions,
             details_list=details_list,
             lang=lang,
-            api_key="",  # используется PROMPTRA_API_KEY из settings
+            api_key="",
         )
     except Exception as e:
         logger.error(f"Referral PDF generation error: {e}")

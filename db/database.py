@@ -438,15 +438,14 @@ async def check_user_premium(pool: asyncpg.Pool, telegram_id: int) -> bool:
 
 
 async def count_referred_completions(pool: asyncpg.Pool, referrer_id: int) -> int:
-    """Сколько рефералов реферера завершили тест (бонус ещё не выдан)."""
+    """Сколько уникальных рефералов реферера завершили тест."""
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
-            """SELECT COUNT(*) AS cnt
+            """SELECT COUNT(DISTINCT r.referred_id) AS cnt
                FROM referrals r
                JOIN users u ON u.telegram_id = r.referred_id
                WHERE r.referrer_id = $1
-                 AND u.test_completed = TRUE
-                 AND r.bonus_granted = FALSE""",
+                 AND u.test_completed = TRUE""",
             referrer_id
         )
         return (row['cnt'] or 0)

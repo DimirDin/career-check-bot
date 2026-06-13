@@ -395,7 +395,7 @@ async def save_results_from_miniapp(body: SaveResultRequest, request: Request):
         referrer_id = await get_referrer(pool, telegram_id)
         if referrer_id:
             completions = await count_referred_completions(pool, referrer_id)
-            if completions >= 2:
+            if completions >= 3:
                 await grant_referral_premium(pool, referrer_id)
                 await _notify_referral_bonus(referrer_id)
     except Exception as e:
@@ -822,11 +822,15 @@ async def referral_progress(init_data: str, request: Request):
         raise HTTPException(status_code=403)
     pool = request.app.state.pool
     async with pool.acquire() as conn:
+        # Сколько уникальных друзей зарегистрировались по ссылке
         total = await conn.fetchval(
-            "SELECT COUNT(*) FROM referrals WHERE referrer_id = $1", user["id"]
+            "SELECT COUNT(DISTINCT referred_id) FROM referrals WHERE referrer_id = $1",
+            user["id"]
         ) or 0
+        # Сколько из них прошли тест (DISTINCT, без фильтра bonus_granted — иначе после выдачи сбрасывается)
         completed = await conn.fetchval(
-            """SELECT COUNT(*) FROM referrals r
+            """SELECT COUNT(DISTINCT r.referred_id)
+               FROM referrals r
                JOIN users u ON u.telegram_id = r.referred_id
                WHERE r.referrer_id = $1 AND u.test_completed = TRUE""",
             user["id"]
@@ -837,8 +841,8 @@ async def referral_progress(init_data: str, request: Request):
         ) or 0
     bot_username = os.getenv("BOT_USERNAME", "CareerCheck_Bot")
     return {
-        "count":   int(completed),
-        "total":   int(total),
+        "count":   int(completed),   # прошли тест
+        "total":   int(total),       # зарегистрировались
         "needed":  3,
         "granted": granted > 0,
         "link":    f"https://t.me/{bot_username}?start=ref_{user['id']}",

@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useRef } from 'react'
+import { useEffect, useState, useMemo, useRef, useCallback } from 'react'
 import { RadarChart }      from '../components/RadarChart'
 import { ShareCard }       from '../components/ShareCard'
 import { Confetti }        from '../components/Confetti'
@@ -92,14 +92,28 @@ export function ResultsPage({ results, onBack }) {
       .catch(() => {})
   }, [user, tg])
 
-  // T7: referral progress
-  useEffect(() => {
+  // T7: referral progress — грузим и обновляем раз в 30 сек пока бонус не выдан
+  const loadReferralProgress = useCallback(async () => {
     if (!initData) return
-    fetch(`/api/referral/progress?init_data=${encodeURIComponent(initData)}`)
-      .then(r => r.ok ? r.json() : null)
-      .then(d => d && setReferralProgress(d))
-      .catch(() => {})
+    try {
+      const r = await fetch(`/api/referral/progress?init_data=${encodeURIComponent(initData)}`)
+      if (!r.ok) return
+      const d = await r.json()
+      setReferralProgress(d)
+    } catch {}
   }, [initData])
+
+  useEffect(() => {
+    loadReferralProgress()
+    const interval = setInterval(() => {
+      setReferralProgress(prev => {
+        if (prev?.granted) return prev // бонус уже выдан — не опрашиваем
+        return prev
+      })
+      loadReferralProgress()
+    }, 30000)
+    return () => clearInterval(interval)
+  }, [loadReferralProgress])
 
   // Confetti если топ-матч ≥ 80%
   useEffect(() => {
@@ -181,15 +195,15 @@ export function ResultsPage({ results, onBack }) {
   const handleRefer = () => {
     haptic.medium?.()
     track('refer_click')
-    const uid  = user?.id || tg?.initDataUnsafe?.user?.id
-    const link = uid
-      ? `https://t.me/${BOT_USERNAME}?start=ref_${uid}`
-      : 'https://careercheck.app'
+    const link = referralProgress?.link
+      || `https://t.me/${BOT_USERNAME}?start=ref_${user?.id || tg?.initDataUnsafe?.user?.id}`
     const text = isRuLang(tg)
-      ? 'Пройди карьерный тест CareerCheck — 10 минут и узнаешь свой профиль!'
-      : 'Take the CareerCheck career test — 10 minutes to discover your profile!'
+      ? 'Пройди карьерный тест CareerCheck и узнай свой профиль — 10 минут, бесплатно!'
+      : 'Take the CareerCheck career test and discover your profile — 10 minutes, free!'
     const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(text)}`
     openLink(shareUrl)
+    // Обновляем прогресс через 3 секунды после отправки
+    setTimeout(loadReferralProgress, 3000)
   }
 
   // ── Premium — openInvoice в Mini App (issue 7) ────────────────────────────
@@ -302,20 +316,75 @@ export function ResultsPage({ results, onBack }) {
             <span style={{ fontSize: 12, color: 'rgba(251,191,36,0.8)', fontWeight: 700 }}>99 ★</span>
           </button>
 
-          {referralProgress && !referralProgress.granted && (
-            <button onClick={handleRefer} style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              padding: '8px 14px',
-              background: 'rgba(124,58,237,0.1)',
-              border: '1px solid rgba(124,58,237,0.25)',
-              borderRadius: 10,
-              cursor: 'pointer', width: '100%',
-            }}>
-              <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', fontWeight: 500 }}>
-                👥 {isRuLang(tg) ? `Пригласи 3 друзей → Premium бесплатно (${referralProgress.count}/3)` : `Invite 3 friends → Free Premium (${referralProgress.count}/3)`}
-              </span>
-              <span style={{ fontSize: 11, color: 'rgba(124,58,237,0.8)', fontWeight: 600, whiteSpace: 'nowrap', marginLeft: 8 }}>→</span>
-            </button>
+          {referralProgress && (
+            referralProgress.granted ? (
+              /* Бонус выдан — показываем кнопку получить Premium */
+              <button onClick={handlePremium} disabled={premiumLoading} style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '10px 16px',
+                background: 'linear-gradient(135deg, rgba(34,197,94,0.2), rgba(124,58,237,0.2))',
+                border: '1px solid rgba(34,197,94,0.5)',
+                borderRadius: 12, cursor: 'pointer', width: '100%',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 16 }}>🎁</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: '#22c55e' }}>
+                    {premiumLoading
+                      ? (isRuLang(tg) ? '⏳ Генерируем PDF…' : '⏳ Generating PDF…')
+                      : (isRuLang(tg) ? 'Получить Premium PDF — бесплатно!' : 'Get Premium PDF — Free!')}
+                  </span>
+                </div>
+                <span style={{ fontSize: 12, color: 'rgba(34,197,94,0.8)', fontWeight: 700 }}>0 ★</span>
+              </button>
+            ) : (
+              /* Бонус не выдан — показываем прогресс */
+              <div style={{
+                padding: '10px 14px',
+                background: 'rgba(124,58,237,0.08)',
+                border: '1px solid rgba(124,58,237,0.2)',
+                borderRadius: 10,
+                display: 'flex', flexDirection: 'column', gap: 8,
+              }}>
+                {/* Заголовок */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.8)' }}>
+                    👥 {isRuLang(tg) ? 'Premium за приглашения' : 'Free Premium via referrals'}
+                  </span>
+                  <span style={{ fontSize: 12, fontWeight: 800, color: '#a855f7' }}>
+                    {referralProgress.count}/3
+                  </span>
+                </div>
+                {/* Прогресс-бар */}
+                <div style={{ height: 6, background: 'rgba(255,255,255,0.08)', borderRadius: 4, overflow: 'hidden' }}>
+                  <div style={{
+                    height: '100%',
+                    width: `${Math.min(referralProgress.count / 3 * 100, 100)}%`,
+                    background: 'linear-gradient(90deg, #7c3aed, #a855f7)',
+                    borderRadius: 4,
+                    transition: 'width 0.5s ease',
+                  }} />
+                </div>
+                {/* Подсказка */}
+                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', lineHeight: 1.4 }}>
+                  {isRuLang(tg)
+                    ? `Друзья: ${referralProgress.total} зарегистрировалось, ${referralProgress.count} прошли тест. Нужно ещё ${Math.max(0, 3 - referralProgress.count)} тестов.`
+                    : `Friends: ${referralProgress.total} registered, ${referralProgress.count} completed test. Need ${Math.max(0, 3 - referralProgress.count)} more.`
+                  }
+                </div>
+                {/* Кнопка поделиться */}
+                <button onClick={handleRefer} style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                  padding: '8px 14px',
+                  background: 'rgba(168,85,247,0.15)',
+                  border: '1px solid rgba(168,85,247,0.35)',
+                  borderRadius: 8, cursor: 'pointer', width: '100%',
+                }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: '#a855f7' }}>
+                    {isRuLang(tg) ? '📤 Пригласить друзей (они должны пройти тест)' : '📤 Invite friends (they must complete the test)'}
+                  </span>
+                </button>
+              </div>
+            )
           )}
         </div>
       </div>

@@ -46,6 +46,9 @@ miniapp/node_modules/
 webapp/dist/
 .venv/
 
-# Контекст проекта (старые версии содержали токены — удалены)
+# Контекст проекта и служебные MD-файлы — не для репозитория
 PROJECT_CONTEXT.md
 PROJECT_CONTEXT2.md
+PROJECT_CONTEXT3.md
+DESIGN_PROMPT_CONTEXT.md
+AGENTS.md

@@ -451,10 +451,13 @@ def _p1(c, ai, normalized, riasec, name, date, lang):
     stroked_rect(c, M, box_bottom, W-2*M, bh, tuple(p*0.6 for p in PURPLE), lw=1.2, r=8)
     # Левая полоска без клипинга (не выходит за рамки — просто прямоугольник)
     filled_rect(c, M, box_bottom, 6, bh, PURPLE, r=0)
-    # Круг с буквой типа — клипинг по боксу (баг 8)
+    # Круг с буквой типа (баг 8: клипинг через PathObject)
     c.saveState()
-    c.clipRect(M, box_bottom, W-2*M, bh, stroke=0, fill=0)
-    filled_rect(c, M+14, box_bottom+11, 34, 34, tuple(p*0.22 for p in PURPLE), r=17)
+    from reportlab.lib.utils import simpleSplit
+    p = c.beginPath()
+    p.roundRect(M, box_bottom, W-2*M, bh, 8)
+    c.clipPath(p, stroke=0, fill=0)
+    filled_rect(c, M+14, box_bottom+11, 34, 34, tuple(p_*0.22 for p_ in PURPLE), r=17)
     text(c, M+31, box_bottom+22, dom, FONT_BOLD, 18, PURPLE, align='center')
     c.restoreState()
     # Название типа

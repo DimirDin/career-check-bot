@@ -4,10 +4,8 @@ services:
 
   # ── Telegram Bot (aiogram 3) ──────────────────────────────────────
   bot:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    command: python main.py
+    image: ghcr.io/dimirdin/career-check-bot:latest
+    command: sh -c "alembic upgrade head && python main.py"
     env_file: .env
     restart: unless-stopped
     depends_on:
@@ -20,9 +18,7 @@ services:
 
   # ── FastAPI Mini App ───────────────────────────────────────────────
   webapp:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ghcr.io/dimirdin/career-check-bot:latest
     command: uvicorn webapp.server:app --host 0.0.0.0 --port 8000 --workers 2
     env_file: .env
     restart: unless-stopped
@@ -41,7 +37,7 @@ services:
     image: postgres:16-alpine
     container_name: career_db
     restart: unless-stopped
-    env_file: .env                  # POSTGRES_DB / POSTGRES_USER / POSTGRES_PASSWORD
+    env_file: .env
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./db/migration:/docker-entrypoint-initdb.d:ro
@@ -65,20 +61,25 @@ services:
       driver: "json-file"
       options: { max-size: "5m", max-file: "2" }
 
-  # ── Watchtower — авто-обновление образов ──────────────────────────
+  # ── Watchtower — авто-обновление образов из ghcr.io ───────────────
   watchtower:
     image: containrrr/watchtower
     restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-    command: --interval 86400 --cleanup
+      - /root/.docker/config.json:/config.json:ro
+    environment:
+      - DOCKER_CONFIG=/
+      - WATCHTOWER_POLL_INTERVAL=60
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_INCLUDE_RESTARTING=true
     networks: [internal]
 
 volumes:
   pgdata:
 
 networks:
-  internal:            # закрытая сеть: бот ↔ webapp ↔ db ↔ redis
+  internal:
     driver: bridge
-  web:                 # открытая сеть: nginx → webapp
+  web:
     driver: bridge

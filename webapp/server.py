@@ -492,8 +492,10 @@ async def referral_claim_pdf(body: CompareCreateRequest, request: Request):
 
     try:
         from datetime import date as _date
+        import traceback
         user_data = {"full_name": name, "date": _date.today().strftime("%d.%m.%Y")}
-        pdf_bytes, _ = await generate_premium_pdf(
+        logger.info(f"Referral PDF start: user={telegram_id}, lang={lang}, name={name!r}")
+        pdf_bytes, ai_used = await generate_premium_pdf(
             user_data=user_data,
             normalized_scores=normalized,
             riasec=riasec,
@@ -502,9 +504,10 @@ async def referral_claim_pdf(body: CompareCreateRequest, request: Request):
             lang=lang,
             api_key="",
         )
+        logger.info(f"Referral PDF done: user={telegram_id}, {len(pdf_bytes)} bytes, ai_used={ai_used}")
     except Exception as e:
-        logger.error(f"Referral PDF generation error: {e}")
-        raise HTTPException(status_code=500, detail="PDF generation failed")
+        logger.error(f"Referral PDF generation error: {type(e).__name__}: {e}\n{traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"PDF generation failed: {type(e).__name__}: {e}")
 
     return Response(
         content=pdf_bytes,

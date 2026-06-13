@@ -1936,7 +1936,7 @@ body::after {
 .premium-promo-page {
   min-height: 100dvh;
   background: var(--bg);
-  padding: 16px 16px 0;
+  padding: var(--page-top) 16px 0;
   display: flex; flex-direction: column; gap: 20px;
 }
 .pp-hero {

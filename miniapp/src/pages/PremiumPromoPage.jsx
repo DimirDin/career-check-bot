@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useTelegram } from '../hooks/useTelegram'
 import { track } from '../hooks/useAnalytics'
+import { AppHeader } from '../components/AppHeader/AppHeader'
 
 const FEATURES = [
   { icon: '🧠', text: 'Психологический портрет личности' },
@@ -27,6 +28,7 @@ export function PremiumPromoPage({ onBack, onBuy }) {
 
   return (
     <div className="premium-promo-page">
+      <AppHeader />
       {/* Hero */}
       <div className="pp-hero card-holo">
         <div className="pp-hero-badge">⭐ Premium</div>

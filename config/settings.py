@@ -26,9 +26,13 @@ BOT_USERNAME        = os.getenv("BOT_USERNAME", "CareerCheck_Bot")
 ANTHROPIC_API_KEY   = os.getenv("ANTHROPIC_API_KEY", "")
 PREMIUM_PRICE_STARS = int(os.getenv("PREMIUM_PRICE_STARS", "99"))
 
-# Модели Claude — единое место для обновления версий
-CLAUDE_PREMIUM_MODEL = "claude-sonnet-4-20250514"   # Premium PDF (6 страниц)
-CLAUDE_CHAT_MODEL    = "claude-3-5-haiku-20241022"  # AI чат (дешевле)
+# Модели Claude — только для AI-чата
+CLAUDE_CHAT_MODEL = "claude-3-5-haiku-20241022"
+
+# Promptra — OpenAI-compatible агрегатор для Premium PDF
+PROMPTRA_API_KEY  = os.getenv("PROMPTRA_API_KEY", "")
+PROMPTRA_BASE_URL = os.getenv("PROMPTRA_BASE_URL", "https://api.promptra.ru/v1")
+PROMPTRA_MODEL    = os.getenv("PROMPTRA_MODEL", "openai/gpt-4o")
 
 # M2: A/B тест цены — пока все платят 99. Для включения A/B задай env-переменные:
 # PREMIUM_PRICE_A=49  PREMIUM_PRICE_B=99  PREMIUM_PRICE_C=149

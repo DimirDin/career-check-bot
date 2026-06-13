@@ -67,3 +67,6 @@ class CircuitBreaker:
 
 # Singleton для Anthropic API
 anthropic_breaker = CircuitBreaker(fail_max=5, reset_timeout=60, name="anthropic")
+
+# Singleton для Promptra API (Premium PDF)
+promptra_breaker = CircuitBreaker(fail_max=5, reset_timeout=60, name="promptra")

@@ -369,7 +369,7 @@ async def get_referrer(pool: asyncpg.Pool, referred_telegram_id: int):
 # ── Челленджи (N3) ────────────────────────────────────────────────────────────
 
 async def get_daily_challenge(pool: asyncpg.Pool, user_telegram_id: int, lang: str = "ru"):
-    """Выбирает следующий челлендж для пользователя (циклически)."""
+    """Выбирает следующий челлендж для пользователя (циклически) — для бот-рассылки."""
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
             'SELECT last_challenge_id FROM user_challenges WHERE user_telegram_id = $1',
@@ -387,6 +387,137 @@ async def get_daily_challenge(pool: asyncpg.Pool, user_telegram_id: int, lang: s
             )
 
         return dict(challenge) if challenge else None
+
+
+async def get_today_challenges(pool: asyncpg.Pool, user_telegram_id: int, normalized_scores: dict = None):
+    """Возвращает 3 персонализированных задания на сегодня + флаги выполнения."""
+    import datetime, hashlib
+    today = datetime.date.today()
+    date_str = today.strftime('%Y%m%d')
+
+    async with pool.acquire() as conn:
+        all_ch = await conn.fetch(
+            '''SELECT id, trait_target, category, difficulty, xp,
+                      title_ru, title_en, text_ru, text_en
+               FROM challenges
+               ORDER BY id'''
+        )
+        if not all_ch:
+            return []
+
+        all_ch = [dict(r) for r in all_ch]
+        n = len(all_ch)
+
+        # Определяем слабые трейты пользователя
+        weak_traits = []
+        if normalized_scores:
+            sorted_t = sorted(normalized_scores.items(), key=lambda x: x[1])
+            weak_traits = [t for t, _ in sorted_t[:2]]
+
+        # Seed: дата + user_id → детерминированный но уникальный выбор
+        seed_base = int(hashlib.md5(f"{date_str}{user_telegram_id}".encode()).hexdigest(), 16)
+
+        def pick(pool_ids, seed_extra=0):
+            return pool_ids[(seed_base + seed_extra) % len(pool_ids)]
+
+        # Пул 1: задания на слабый трейт 1
+        # Пул 2: задания на слабый трейт 2 или другую категорию
+        # Пул 3: случайное задание (другой категории)
+        chosen_ids = set()
+        result_ids = []
+
+        for i, trait in enumerate(weak_traits[:2]):
+            pool_t = [c['id'] for c in all_ch if c['trait_target'] == trait]
+            if pool_t:
+                cid = pick(pool_t, i * 7)
+                if cid not in chosen_ids:
+                    chosen_ids.add(cid)
+                    result_ids.append(cid)
+
+        # Третье задание — рандомное из оставшихся
+        remaining = [c['id'] for c in all_ch if c['id'] not in chosen_ids]
+        if remaining:
+            result_ids.append(pick(remaining, 13))
+
+        # Если не набрали 3 (нет профиля) — добираем
+        while len(result_ids) < 3:
+            remaining = [c['id'] for c in all_ch if c['id'] not in set(result_ids)]
+            if not remaining:
+                break
+            result_ids.append(pick(remaining, len(result_ids) * 5))
+
+        # Подгружаем выполненные сегодня
+        done_today = await conn.fetch(
+            '''SELECT challenge_id FROM challenge_completions
+               WHERE user_telegram_id = $1
+                 AND completed_at::date = $2''',
+            user_telegram_id, today
+        )
+        done_set = {r['challenge_id'] for r in done_today}
+
+        ch_map = {c['id']: c for c in all_ch}
+        return [
+            {**ch_map[cid], 'completed': cid in done_set}
+            for cid in result_ids
+            if cid in ch_map
+        ]
+
+
+async def complete_challenge(pool: asyncpg.Pool, user_telegram_id: int, challenge_id: int) -> dict:
+    """Отмечает задание выполненным, начисляет XP. Возвращает {'xp': n, 'total_xp': n, 'streak': n, 'already_done': bool}."""
+    import datetime
+    today = datetime.date.today()
+
+    async with pool.acquire() as conn:
+        # Проверяем не выполнено ли уже сегодня
+        existing = await conn.fetchrow(
+            '''SELECT id FROM challenge_completions
+               WHERE user_telegram_id = $1 AND challenge_id = $2
+                 AND completed_at::date = $3''',
+            user_telegram_id, challenge_id, today
+        )
+        if existing:
+            row = await conn.fetchrow(
+                'SELECT total_xp, streak FROM user_challenges WHERE user_telegram_id = $1',
+                user_telegram_id
+            )
+            return {'xp': 0, 'total_xp': row['total_xp'] if row else 0,
+                    'streak': row['streak'] if row else 0, 'already_done': True}
+
+        ch = await conn.fetchrow('SELECT xp FROM challenges WHERE id = $1', challenge_id)
+        xp = ch['xp'] if ch else 20
+
+        await conn.execute(
+            '''INSERT INTO challenge_completions (user_telegram_id, challenge_id, xp_earned)
+               VALUES ($1, $2, $3)''',
+            user_telegram_id, challenge_id, xp
+        )
+
+        # Обновляем streak и total_xp
+        uc = await conn.fetchrow(
+            'SELECT streak, last_completed_date, total_xp FROM user_challenges WHERE user_telegram_id = $1',
+            user_telegram_id
+        )
+        if uc:
+            yesterday = today - datetime.timedelta(days=1)
+            new_streak = (uc['streak'] or 0) + 1 if uc.get('last_completed_date') in (today, yesterday) else 1
+            new_total = (uc['total_xp'] or 0) + xp
+            await conn.execute(
+                '''UPDATE user_challenges
+                   SET streak = $2, total_xp = $3, last_completed_date = $4
+                   WHERE user_telegram_id = $1''',
+                user_telegram_id, new_streak, new_total, today
+            )
+        else:
+            new_streak = 1
+            new_total = xp
+            await conn.execute(
+                '''INSERT INTO user_challenges (user_telegram_id, subscribed, streak, total_xp, last_completed_date)
+                   VALUES ($1, FALSE, 1, $2, $3)''',
+                user_telegram_id, xp, today
+            )
+
+        return {'xp': xp, 'total_xp': new_total, 'streak': new_streak, 'already_done': False}
 
 async def get_challenge_subscribers(pool: asyncpg.Pool):
     async with pool.acquire() as conn:

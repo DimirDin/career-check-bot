@@ -862,13 +862,49 @@ async def challenges_status(init_data: str, request: Request):
     pool = request.app.state.pool
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
-            "SELECT subscribed, streak FROM user_challenges WHERE user_telegram_id = $1",
+            "SELECT subscribed, streak, total_xp FROM user_challenges WHERE user_telegram_id = $1",
             user["id"]
         )
     return {
         "subscribed": row["subscribed"] if row else False,
         "streak":     row["streak"]     if row else 0,
+        "total_xp":   row["total_xp"]   if row else 0,
     }
+
+
+@app.get("/api/challenges/today")
+async def challenges_today(init_data: str, request: Request):
+    user = validate_init_data(init_data)
+    if not user:
+        raise HTTPException(status_code=403)
+    pool = request.app.state.pool
+    from db.database import get_today_challenges, get_last_result
+    from db.database import get_user as _get_user
+    import json as _json
+
+    db_user = await _get_user(pool, user["id"])
+    normalized = {}
+    if db_user:
+        result = await get_last_result(pool, db_user["id"])
+        if result:
+            v = result["normalized_scores"]
+            normalized = _json.loads(v) if isinstance(v, str) else (v or {})
+
+    challenges = await get_today_challenges(pool, user["id"], normalized)
+    return {"challenges": challenges}
+
+
+@app.post("/api/challenges/complete")
+async def challenges_complete(body: dict, request: Request):
+    init_data   = body.get("init_data", "")
+    challenge_id = body.get("challenge_id")
+    user = validate_init_data(init_data)
+    if not user or not challenge_id:
+        raise HTTPException(status_code=403)
+    pool = request.app.state.pool
+    from db.database import complete_challenge
+    result = await complete_challenge(pool, user["id"], int(challenge_id))
+    return result
 
 
 @app.post("/api/challenges/toggle")

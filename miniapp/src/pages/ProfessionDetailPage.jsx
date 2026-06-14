@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useTelegram } from '../hooks/useTelegram'
 import { useSwipeToDismiss } from '../hooks/useSwipeToDismiss'
+import { AppHeader } from '../components/AppHeader/AppHeader'
 
 const TRAITS    = ['O','C','E','A','S']
 const TRAIT_RU  = { O:'Открытость', C:'Сознательность', E:'Экстраверсия', A:'Доброжелательность', S:'Стабильность' }
@@ -50,15 +51,21 @@ export function ProfessionDetailPage({ professionTitle, userResults, onBack }) {
   if (loading) {
     return (
       <div className="prof-detail-page">
-        <div className="loading-screen"><div className="loading-spinner" /><p className="loading-text">{T.loading}</p></div>
+        <AppHeader />
+        <div style={{ paddingTop: 'var(--page-top)' }}>
+          <div className="loading-screen"><div className="loading-spinner" /><p className="loading-text">{T.loading}</p></div>
+        </div>
       </div>
     )
   }
   if (!prof) {
     return (
       <div className="prof-detail-page">
-        <div style={{ padding: 24, color: 'rgba(255,255,255,0.5)' }}>{T.notfound}</div>
-        <button className="btn-back-results" style={{ margin: '0 16px' }} onClick={onBack}>{T.back}</button>
+        <AppHeader />
+        <div style={{ paddingTop: 'var(--page-top)', padding: 24, color: 'rgba(255,255,255,0.5)' }}>
+          <p>{T.notfound}</p>
+          <button className="btn-back-results" onClick={onBack}>{T.back}</button>
+        </div>
       </div>
     )
   }
@@ -71,6 +78,8 @@ export function ProfessionDetailPage({ professionTitle, userResults, onBack }) {
 
   return (
     <div className="prof-detail-page swipe-page" ref={swipeRef} {...swipeHandlers}>
+      <AppHeader />
+      <div style={{ paddingTop: 'var(--page-top)' }}>
       {/* Hero */}
       <div className="prof-detail-hero">
         <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>
@@ -220,6 +229,7 @@ export function ProfessionDetailPage({ professionTitle, userResults, onBack }) {
         )}
 
         <button className="btn-back-results" onClick={onBack}>{T.back}</button>
+      </div>
       </div>
     </div>
   )

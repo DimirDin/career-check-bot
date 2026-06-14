@@ -120,9 +120,9 @@ def upgrade() -> None:
          'Update one section of your LinkedIn or resume: add a new project, improve a role description, or write "About" from scratch.'),
 
         ('C','I','portfolio','hard',45,
-         'GitHub зелёный','GitHub Green',
-         'Сделай один коммит в любой проект (или создай новый репозиторий). Даже README считается. Начни streak.',
-         'Make one commit to any project (or create a new repository). Even a README counts. Start a streak.'),
+         'Профессиональный профиль','Professional Profile',
+         'Обнови свой профиль на любой профессиональной платформе (LinkedIn, hh.ru, портфолио-сайт): добавь последний проект, улучши описание или фото.',
+         'Update your profile on any professional platform (LinkedIn, portfolio site): add your latest project, improve your description or photo.'),
 
         ('C','C','action','medium',25,
          'Inbox Zero','Inbox Zero',

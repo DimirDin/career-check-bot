@@ -222,7 +222,7 @@ export function ChallengesPage({ onBack }) {
               const diff   = c.difficulty || 'easy'
               const isComp = c.completed
               const isBusy = completing === c.id
-              const title  = isRu ? (c.title_ru || c.text_ru?.slice(0, 30)) : (c.title_en || c.text_en?.slice(0, 30))
+              const title  = isRu ? c.title_ru : c.title_en
               const body   = isRu ? c.text_ru : c.text_en
               const isXpThis = xpToast?.id === c.id
 
@@ -256,9 +256,11 @@ export function ChallengesPage({ onBack }) {
                           {T[diff]}
                         </span>
                       </div>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: isComp ? 'rgba(255,255,255,0.5)' : '#f0eeff', textDecoration: isComp ? 'line-through' : 'none', lineHeight: 1.3 }}>
-                        {isComp ? '✓ ' : ''}{title}
-                      </div>
+                      {title && (
+                        <div style={{ fontSize: 14, fontWeight: 700, color: isComp ? 'rgba(255,255,255,0.5)' : '#f0eeff', textDecoration: isComp ? 'line-through' : 'none', lineHeight: 1.3 }}>
+                          {isComp ? '✓ ' : ''}{title}
+                        </div>
+                      )}
                     </div>
                     <div style={{ fontSize: 11, fontWeight: 700, color: isComp ? '#22d3a5' : '#f43f5e', background: isComp ? 'rgba(34,211,165,0.12)' : 'rgba(244,63,94,0.12)', border: `1px solid ${isComp ? 'rgba(34,211,165,0.3)' : 'rgba(244,63,94,0.25)'}`, borderRadius: 6, padding: '3px 8px', flexShrink: 0 }}>
                       +{c.xp} {T.xpLabel}
@@ -266,7 +268,7 @@ export function ChallengesPage({ onBack }) {
                   </div>
 
                   {/* Body text */}
-                  <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', lineHeight: 1.55, margin: '0 0 12px', paddingLeft: 32 }}>
+                  <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', lineHeight: 1.55, margin: '0 0 12px', paddingLeft: title ? 32 : 0 }}>
                     {body}
                   </p>
 

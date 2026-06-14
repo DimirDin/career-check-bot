@@ -32,7 +32,8 @@ from config.settings import BOT_TOKEN, DB_CONFIG, REDIS_CONFIG, get_ab_price, AN
 import httpx
 import base64
 from services.ai_chat import ask_career_ai
-from services.circuit_breaker import anthropic_breaker
+from services.circuit_breaker import anthropic_breaker, promptra_breaker
+from services.ai_chat import MAX_HISTORY_PAIRS
 from services.premium_pdf_generator import generate_premium_pdf
 from db.database import (
     get_last_result, save_result, create_user, get_user, get_professions,
@@ -560,11 +561,15 @@ async def download_premium_pdf(body: CompareCreateRequest, request: Request):
 
 # ── AI Chat (N4) ──────────────────────────────────────────────────────────────
 
-FREE_QUESTIONS = 3
+FREE_QUESTIONS    = 10           # бесплатных вопросов
+QUOTA_TTL_DAYS    = 30           # сброс раз в 30 дней
+CHAT_INPUT_LIMIT  = 400          # символов от пользователя
+CHAT_QUOTA_TTL    = 60 * 60 * 24 * QUOTA_TTL_DAYS
+
 
 @app.post("/api/chat")
 async def ai_chat(body: ChatRequest, request: Request):
-    """AI-консультант карьеры. 3 бесплатных вопроса, далее — Premium."""
+    """AI-консультант карьеры. 10 бесплатных вопросов / 30 дней, затем — Premium."""
     user = validate_init_data(body.init_data)
     if not user:
         raise HTTPException(status_code=403, detail="Invalid init data")
@@ -573,20 +578,22 @@ async def ai_chat(body: ChatRequest, request: Request):
     redis       = request.app.state.redis
     quota_key   = f"chat:free:{telegram_id}"
 
-    # Проверяем квоту
-    raw = await redis.get(quota_key)
-    if raw is None:
-        await redis.set(quota_key, FREE_QUESTIONS)
-        remaining = FREE_QUESTIONS
+    # Атомарный decr: сначала уменьшаем, потом проверяем
+    # Если ключа нет — SET NX + EXPIRE, потом decr
+    current = await redis.get(quota_key)
+    if current is None:
+        # Новый пользователь — выставляем квоту с TTL
+        await redis.set(quota_key, FREE_QUESTIONS, ex=CHAT_QUOTA_TTL)
+        current = FREE_QUESTIONS
     else:
-        remaining = int(raw)
+        current = int(current)
 
-    if remaining <= 0:
+    if current <= 0:
         return JSONResponse({"error": "quota_exceeded", "remaining": 0}, status_code=402)
 
     # Circuit breaker check
-    if anthropic_breaker.is_open:
-        return JSONResponse({"error": "ai_unavailable", "remaining": remaining}, status_code=503)
+    if promptra_breaker.is_open:
+        return JSONResponse({"error": "ai_unavailable", "remaining": current}, status_code=503)
 
     # Берём профиль пользователя
     pool    = request.app.state.pool
@@ -601,27 +608,32 @@ async def ai_chat(body: ChatRequest, request: Request):
     def parse(v):
         return json.loads(v) if isinstance(v, str) else v
 
-    norm  = parse(result["normalized_scores"])
+    norm   = parse(result["normalized_scores"])
     riasec = parse(result["riasec_profile"])
     profs  = parse(result["top_professions"])
 
+    # Списываем ПЕРЕД запросом к AI — предотвращает race condition
+    new_remaining = await redis.decr(quota_key)
+    if new_remaining < 0:
+        # Параллельный запрос обогнал нас — восстанавливаем и отказываем
+        await redis.incr(quota_key)
+        return JSONResponse({"error": "quota_exceeded", "remaining": 0}, status_code=402)
+
     reply = await ask_career_ai(
-        question       = body.message.strip()[:500],
-        history        = body.history[-6:],   # последние 3 пары
-        normalized     = norm,
-        riasec         = riasec,
-        top_professions= profs,
-        lang           = body.lang,
-        api_key        = ANTHROPIC_API_KEY,
+        question        = body.message.strip()[:CHAT_INPUT_LIMIT],
+        history         = body.history[-(MAX_HISTORY_PAIRS * 2):],
+        normalized      = norm,
+        riasec          = riasec,
+        top_professions = profs,
+        lang            = body.lang,
     )
 
     if reply is None:
-        return JSONResponse({"error": "ai_error", "remaining": remaining}, status_code=503)
+        # Возвращаем квоту при ошибке AI
+        await redis.incr(quota_key)
+        return JSONResponse({"error": "ai_error", "remaining": current}, status_code=503)
 
-    # Списываем вопрос
-    new_remaining = await redis.decr(quota_key)
     logger.info(f"AI chat: user={telegram_id}, remaining={new_remaining}")
-
     return {"reply": reply, "remaining": max(0, new_remaining)}
 
 
@@ -632,7 +644,8 @@ async def chat_quota(init_data: str, request: Request):
     if not user:
         raise HTTPException(status_code=403)
     raw = await request.app.state.redis.get(f"chat:free:{user['id']}")
-    return {"remaining": int(raw) if raw is not None else FREE_QUESTIONS}
+    remaining = int(raw) if raw is not None else FREE_QUESTIONS
+    return {"remaining": max(0, remaining), "total": FREE_QUESTIONS}
 
 
 @app.get("/api/health/circuit-breaker")

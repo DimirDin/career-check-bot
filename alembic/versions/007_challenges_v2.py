@@ -30,9 +30,12 @@ def upgrade() -> None:
             user_telegram_id BIGINT NOT NULL,
             challenge_id     INTEGER NOT NULL,
             completed_at     TIMESTAMP DEFAULT NOW(),
-            xp_earned        INTEGER DEFAULT 0,
-            UNIQUE (user_telegram_id, challenge_id, completed_at::date)
+            xp_earned        INTEGER DEFAULT 0
         )
+    """)
+    op.execute("""
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_challenge_completion_per_day
+        ON challenge_completions (user_telegram_id, challenge_id, (completed_at::date))
     """)
 
     # Add total_xp to user_challenges

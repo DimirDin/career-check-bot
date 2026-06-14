@@ -232,6 +232,14 @@ export function ResultsPage({ results, onBack }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ init_data: initData }),
       })
+      if (res.status === 409) {
+        // PDF уже был отправлен ранее
+        haptic.success?.()
+        setPremiumMsg(isRuLang(tg)
+          ? '✅ PDF уже был отправлен ранее. Найди его в чате с ботом!'
+          : '✅ PDF was already sent. Find it in your bot chat!')
+        return
+      }
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
         throw new Error(err.detail || 'failed')

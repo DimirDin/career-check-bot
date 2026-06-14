@@ -458,14 +458,16 @@ async def referral_claim_pdf(body: CompareCreateRequest, request: Request):
     telegram_id = user["id"]
     pool  = request.app.state.pool
 
-    # Проверяем что бонус действительно выдан
+    # Проверяем что бонус выдан и PDF ещё НЕ был отправлен (атомарно)
     async with pool.acquire() as conn:
-        bonus = await conn.fetchval(
-            "SELECT COUNT(*) FROM purchases WHERE telegram_id=$1 AND payload='referral_bonus'",
+        purchase_row = await conn.fetchrow(
+            "SELECT id, pdf_sent_at FROM purchases WHERE telegram_id=$1 AND payload='referral_bonus' LIMIT 1",
             telegram_id
         )
-    if not bonus:
+    if not purchase_row:
         raise HTTPException(status_code=403, detail="No referral bonus available")
+    if purchase_row["pdf_sent_at"] is not None:
+        raise HTTPException(status_code=409, detail="PDF already sent for this bonus")
 
     # Берём данные пользователя
     db_user = await get_user(pool, telegram_id)
@@ -526,6 +528,13 @@ async def referral_claim_pdf(body: CompareCreateRequest, request: Request):
             )
         if not resp.json().get("ok"):
             logger.error(f"Bot sendDocument failed: {resp.text}")
+        else:
+            # Помечаем бонус как использованный — блокируем повторную генерацию
+            async with pool.acquire() as conn:
+                await conn.execute(
+                    "UPDATE purchases SET pdf_sent_at = NOW() WHERE id = $1",
+                    purchase_row["id"]
+                )
     except Exception as e:
         logger.error(f"Bot sendDocument error: {e}")
 

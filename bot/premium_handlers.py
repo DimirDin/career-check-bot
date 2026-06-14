@@ -183,12 +183,14 @@ async def payment_success(message: Message, pool, redis: aioredis.Redis = None):
         }
 
         # Сохраняем запись в БД ДО генерации — гарантирует идемпотентность
+        purchase_id = None
         try:
-            await pool.execute(
+            purchase_id = await pool.fetchval(
                 """INSERT INTO purchases
                    (user_id, product, amount, telegram_payment_charge_id, created_at)
                    VALUES ($1, $2, $3, $4, NOW())
-                   ON CONFLICT (telegram_payment_charge_id) DO NOTHING""",
+                   ON CONFLICT (telegram_payment_charge_id) DO NOTHING
+                   RETURNING id""",
                 db_user["id"],
                 PAYLOAD,
                 message.successful_payment.total_amount,
@@ -229,6 +231,16 @@ async def payment_success(message: Message, pool, redis: aioredis.Redis = None):
             document = types.BufferedInputFile(pdf_bytes, filename="CareerCheck_Premium.pdf"),
             caption  = caption,
         )
+
+        # Помечаем покупку как использованную (pdf_sent_at)
+        if purchase_id:
+            try:
+                await pool.execute(
+                    "UPDATE purchases SET pdf_sent_at = NOW() WHERE id = $1",
+                    purchase_id,
+                )
+            except Exception as e:
+                logger.warning(f"pdf_sent_at update error: {e}")
 
         # Если AI был недоступен — предупреждаем пользователя
         if not ai_used:

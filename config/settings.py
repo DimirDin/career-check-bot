@@ -31,7 +31,7 @@ PROMPTRA_API_KEY      = os.getenv("PROMPTRA_API_KEY", "")       # для Premium
 PROMPTRA_CHAT_API_KEY = os.getenv("PROMPTRA_CHAT_API_KEY", "")  # отдельный токен для AI-чата
 PROMPTRA_BASE_URL     = os.getenv("PROMPTRA_BASE_URL", "https://api.promptra.ru/v1")
 PROMPTRA_MODEL        = os.getenv("PROMPTRA_MODEL", "anthropic/claude-sonnet-4.6")
-PROMPTRA_CHAT_MODEL   = os.getenv("PROMPTRA_CHAT_MODEL", "anthropic/claude-haiku-4-5-20251001")
+PROMPTRA_CHAT_MODEL   = os.getenv("PROMPTRA_CHAT_MODEL", "deepseek/deepseek-v4-flash")
 
 # M2: A/B тест цены — пока все платят 99. Для включения A/B задай env-переменные:
 # PREMIUM_PRICE_A=49  PREMIUM_PRICE_B=99  PREMIUM_PRICE_C=149

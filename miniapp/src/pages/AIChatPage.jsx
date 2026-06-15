@@ -9,7 +9,7 @@ import { AppHeader }   from '../components/AppHeader/AppHeader'
 
 const BOT_LINK       = 'https://t.me/CareerCheck_Bot?start=premium'
 const MAX_INPUT      = 400
-const SEND_TIMEOUT   = 30000   // 30 секунд до показа ошибки таймаута
+const SEND_TIMEOUT   = 55000   // 55 секунд до показа ошибки таймаута
 const STORAGE_KEY    = 'cc_chat_history_v2'
 const MAX_STORED_MSG = 30      // сколько сообщений хранить в localStorage
 
@@ -120,8 +120,9 @@ export function AIChatPage({ onBack }) {
     setLoading(true)
     track('ai_chat_question')
 
-    // Таймаут
+    // Таймаут — при срабатывании обнуляет ref чтобы fetch знал что опоздал
     timerRef.current = setTimeout(() => {
+      timerRef.current = null
       setLoading(false)
       setMessages(prev => [...prev, {
         role: 'assistant', content: T.timeout, id: Date.now() + 1, isError: true
@@ -140,9 +141,11 @@ export function AIChatPage({ onBack }) {
         body:    JSON.stringify({ init_data: initData, message: text, history, lang }),
       })
       clearTimeout(timerRef.current)
+      const timedOut = timerRef.current === null  // таймер уже сработал
+      timerRef.current = null
 
-      // Таймер уже сработал — не добавляем ответ
-      if (!timerRef.current) return
+      // Таймер уже сработал — ответ опоздал, не дублируем сообщение
+      if (timedOut) return
 
       const data = await res.json()
 
@@ -163,13 +166,16 @@ export function AIChatPage({ onBack }) {
         }])
       }
     } catch {
+      const alreadyTimedOut = timerRef.current === null
       clearTimeout(timerRef.current)
-      setMessages(prev => [...prev, {
-        role: 'assistant', content: T.error, id: Date.now(), isError: true
-      }])
+      timerRef.current = null
+      if (!alreadyTimedOut) {
+        setMessages(prev => [...prev, {
+          role: 'assistant', content: T.error, id: Date.now(), isError: true
+        }])
+      }
     }
 
-    timerRef.current = null
     setLoading(false)
   }
 

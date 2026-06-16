@@ -169,27 +169,21 @@ async def show_main_hub(message: Message, pool: asyncpg.Pool, lang: str, user: d
         text = (
             f"👋 <b>С возвращением, {first_name}!</b>\n\n"
             + (f"Твой лучший результат: <b>{top_prof_text}</b>\n\n" if top_prof_text else "")
-            + "Что хочешь сделать?"
+            + "Открой приложение — там твои результаты, профессии и AI-консультант."
         )
         kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="📋 Мой результат",       callback_data="my_result"),
-             InlineKeyboardButton(text="🔄 Пройти снова",        callback_data="start_test_fresh")],
-            [InlineKeyboardButton(text="🎯 Задания",             callback_data="show_challenges"),
-             InlineKeyboardButton(text="👥 Пригласить друга",    callback_data="show_referral")],
             [InlineKeyboardButton(text="🚀 Открыть CareerCheck", web_app=WAppInfo(url=miniapp_url))],
+            [InlineKeyboardButton(text="👥 Пригласить друга",    callback_data="show_referral")],
         ])
     else:
         text = (
             f"👋 <b>Welcome back, {first_name}!</b>\n\n"
             + (f"Your best result: <b>{top_prof_text}</b>\n\n" if top_prof_text else "")
-            + "What would you like to do?"
+            + "Open the app — your results, careers and AI coach are there."
         )
         kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="📋 My Result",           callback_data="my_result"),
-             InlineKeyboardButton(text="🔄 Retake Test",         callback_data="start_test_fresh")],
-            [InlineKeyboardButton(text="🎯 Challenges",          callback_data="show_challenges"),
-             InlineKeyboardButton(text="👥 Invite a Friend",     callback_data="show_referral")],
             [InlineKeyboardButton(text="🚀 Open CareerCheck",    web_app=WAppInfo(url=miniapp_url))],
+            [InlineKeyboardButton(text="👥 Invite a Friend",     callback_data="show_referral")],
         ])
 
     await message.answer(text, reply_markup=kb)
@@ -206,36 +200,26 @@ async def show_onboarding(message: Message, lang: str) -> None:
     if lang == "ru":
         text = (
             f"🧠 <b>Привет, {first_name}!</b>\n\n"
-            f"Я помогу тебе найти профессию, которая тебе действительно подходит.\n\n"
-            f"<b>CareerCheck</b> использует научную модель <b>Big Five</b> — "
-            f"ту же, что применяют HR-специалисты и психологи.\n\n"
-            f"<b>Что ты получишь:</b>\n"
-            f"📊 Психологический профиль личности\n"
+            f"<b>CareerCheck</b> поможет найти профессию, которая тебе действительно подходит.\n\n"
+            f"📊 Психологический профиль — Big Five\n"
             f"💼 Топ профессий с % совпадения\n"
-            f"📚 Каталог из 160+ профессий\n\n"
-            f"⚡️ <b>Быстрый тест</b> — 2 минуты, 10 вопросов\n"
-            f"🎯 <b>Полный тест</b> — 15 минут, 60 вопросов"
+            f"🤖 AI-консультант по карьере\n\n"
+            f"Открой приложение — пройди тест и получи результат за 2–15 минут."
         )
         kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="🚀 Начать тест",          callback_data="start_test_fresh")],
-            [InlineKeyboardButton(text="💼 Посмотреть профессии", web_app=WAppInfo(url=f"{miniapp_url}"))],
+            [InlineKeyboardButton(text="🚀 Открыть CareerCheck", web_app=WAppInfo(url=miniapp_url))],
         ])
     else:
         text = (
             f"🧠 <b>Hey, {first_name}!</b>\n\n"
-            f"I'll help you find a career that truly fits you.\n\n"
-            f"<b>CareerCheck</b> uses the scientific <b>Big Five</b> model — "
-            f"the same one used by HR professionals and psychologists.\n\n"
-            f"<b>What you'll get:</b>\n"
-            f"📊 Personality profile\n"
+            f"<b>CareerCheck</b> helps you find a career that truly fits you.\n\n"
+            f"📊 Personality profile — Big Five\n"
             f"💼 Top careers with % match\n"
-            f"📚 Catalog of 160+ professions\n\n"
-            f"⚡️ <b>Quick test</b> — 2 minutes, 10 questions\n"
-            f"🎯 <b>Full test</b> — 15 minutes, 60 questions"
+            f"🤖 AI career coach\n\n"
+            f"Open the app — take the test and get your result in 2–15 minutes."
         )
         kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="🚀 Start Test",           callback_data="start_test_fresh")],
-            [InlineKeyboardButton(text="💼 Browse Professions",   web_app=WAppInfo(url=f"{miniapp_url}"))],
+            [InlineKeyboardButton(text="🚀 Open CareerCheck", web_app=WAppInfo(url=miniapp_url))],
         ])
 
     await message.answer(text, reply_markup=kb)
@@ -372,25 +356,28 @@ async def cmd_start(message: Message, state: FSMContext, pool: asyncpg.Pool):
     except Exception as e:
         logger.error(f"DB create_user error: {e}")
 
-    # ── Проверяем незавершённый тест ──────────────────────────────────────────
+    # ── Проверяем незавершённый тест — перенаправляем в мини-апп ────────────
     if user:
         progress = await get_progress(pool, user['id'])
         if progress and 0 < progress['current_question'] < 60:
-            t = lambda key, **kw: get_text(key, lang, **kw)
-            completed    = progress['current_question']
-            percent      = round(completed / 60 * 100)
-            minutes_left = max(1, (60 - completed) * 15 // 60)
-
-            builder = InlineKeyboardBuilder()
-            builder.button(text=t("btn_resume"),      callback_data='resume_test')
-            builder.button(text=t("btn_start_fresh"), callback_data='start_test_fresh')
-            builder.button(text=t("btn_about_test"),  callback_data='about_test')
-            builder.adjust(1)
-
-            await message.answer(
-                t("resume_found", completed=completed, percent=percent, minutes_left=minutes_left),
-                reply_markup=builder.as_markup()
-            )
+            completed = progress['current_question']
+            percent   = round(completed / 60 * 100)
+            miniapp_url = f"https://{os.getenv('DOMAIN', 'careercheck.app')}"
+            if lang == 'ru':
+                text = (
+                    f"⏸ <b>У тебя есть незавершённый тест</b> — {completed}/60 вопросов ({percent}%).\n\n"
+                    f"Открой приложение, чтобы продолжить или начать заново."
+                )
+            else:
+                text = (
+                    f"⏸ <b>You have an unfinished test</b> — {completed}/60 questions ({percent}%).\n\n"
+                    f"Open the app to continue or start over."
+                )
+            kb = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="🚀 Открыть CareerCheck" if lang == 'ru' else "🚀 Open CareerCheck",
+                                      web_app=WAppInfo(url=miniapp_url))],
+            ])
+            await message.answer(text, reply_markup=kb)
             return
 
     # ── Умный /start: хаб для вернувшихся, онбординг для новых ─────────────

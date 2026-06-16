@@ -326,7 +326,7 @@ export function AIChatPage({ onBack }) {
                 flex: 1, padding: '11px 14px',
                 background: 'rgba(255,255,255,0.07)',
                 border: '1px solid rgba(255,255,255,0.1)',
-                borderRadius: 12, color: '#f0eeff', fontSize: 14,
+                borderRadius: 12, color: '#f0eeff', fontSize: 16,
                 outline: 'none', resize: 'none', lineHeight: 1.5,
                 fontFamily: 'inherit', maxHeight: 100, overflowY: 'auto',
               }}

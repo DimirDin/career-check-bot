@@ -15,6 +15,6 @@ jobs:
           cd /srv/apps/career-check-bot
           docker compose build webapp bot
           docker compose run --rm bot alembic upgrade head
-          docker compose up -d
+          docker compose up -d --remove-orphans
           docker compose ps
           curl -sf https://careercheck.botyard.site/api/health && echo "Health check OK" || echo "Health check failed"

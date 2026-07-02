@@ -193,7 +193,7 @@ This starts three containers:
 | Container | Role | Port |
 |---|---|---|
 | `bot` | aiogram polling | — |
-| `webapp` | FastAPI + Mini App | 8000 (internal) |
+| `webapp` | FastAPI + Mini App | 3014 (internal) |
 | `db` | PostgreSQL 16 | 5432 (internal) |
 
 ### 3. Apply migrations
@@ -396,10 +396,10 @@ python main.py
 
 # Run Mini App dev server (with hot reload)
 cd miniapp && npm install && npm run dev
-# Proxies /api/* to localhost:8000 automatically
+# Proxies /api/* to localhost:3014 automatically
 
 # Run FastAPI backend
-cd webapp && uvicorn server:app --reload --port 8000
+cd webapp && uvicorn server:app --reload --port 3014
 ```
 
 ---

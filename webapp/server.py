@@ -28,16 +28,11 @@ import asyncpg
 # Подключаем существующие модули бота
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from config.settings import BOT_TOKEN, DB_CONFIG, REDIS_CONFIG, get_ab_price, ANTHROPIC_API_KEY
+from config.settings import BOT_TOKEN, DB_CONFIG, REDIS_CONFIG
 import httpx
-import base64
-from services.ai_chat import ask_career_ai
-from services.circuit_breaker import anthropic_breaker, promptra_breaker
-from services.ai_chat import MAX_HISTORY_PAIRS
-from services.premium_pdf_generator import generate_premium_pdf
+from services.pdf_generator import generate_pdf
 from db.database import (
     get_last_result, save_result, create_user, get_user, get_professions,
-    check_user_premium, get_referrer, count_referred_completions, grant_referral_premium,
     get_profession_details_by_title_lang,
 )
 from services.calculator import calculate_scores, calculate_riasec, match_professions
@@ -131,16 +126,36 @@ class EventRequest(BaseModel):
 class CompareCreateRequest(BaseModel):
     init_data: str
 
-class ChatRequest(BaseModel):
+class FeedbackRequest(BaseModel):
     init_data: str
-    message: str
-    history: list = []
-    lang: str = "ru"
+    text: str
 
 
 @app.get("/api/health")
 async def health():
     return {"status": "ok"}
+
+
+@app.get("/api/gate/check")
+async def gate_check(init_data: str, request: Request):
+    """Проверяет подписку на GATE_CHANNEL_USERNAME — доступ к тесту только подписчикам."""
+    from services.gate import check_subscription
+    user = validate_init_data(init_data)
+    if not user:
+        raise HTTPException(status_code=403, detail="Invalid init data")
+    subscribed = await check_subscription(request.app.state.redis, user["id"])
+    return {"subscribed": subscribed, "channel": os.getenv("GATE_CHANNEL_USERNAME", "@claudedry")}
+
+
+@app.post("/api/gate/recheck")
+async def gate_recheck(body: CompareCreateRequest, request: Request):
+    """Форс-перепроверка подписки (кнопка «Я подписался»)."""
+    from services.gate import check_subscription
+    user = validate_init_data(body.init_data)
+    if not user:
+        raise HTTPException(status_code=403, detail="Invalid init data")
+    subscribed = await check_subscription(request.app.state.redis, user["id"], force=True)
+    return {"subscribed": subscribed}
 
 
 @app.post("/api/event")
@@ -199,11 +214,9 @@ async def get_user_state(init_data: str, request: Request):
     tg_lang     = (user.get("language_code") or "en")[:2]
 
     db_user = await get_user(pool, telegram_id)
-    has_premium = await check_user_premium(pool, telegram_id)
     if not db_user:
         return {
             "hasResults":      False,
-            "hasPremium":      False,
             "testInProgress":  False,
             "currentQuestion": 0,
             "lastResultDate":  None,
@@ -255,7 +268,6 @@ async def get_user_state(init_data: str, request: Request):
 
     return {
         "hasResults":      bool(result),
-        "hasPremium":      has_premium,
         "testInProgress":  test_in_progress,
         "currentQuestion": current_question,
         "lastResultDate":  last_result_date,
@@ -263,7 +275,6 @@ async def get_user_state(init_data: str, request: Request):
         "historyCount":    int(history_count),
         "language":        lang,
         "topProfession":   top_profession,
-        "premiumPrice":    get_ab_price(telegram_id),  # M2: A/B test
     }
 
 
@@ -368,9 +379,12 @@ async def get_percentiles(tg_id: int, request: Request):
 @app.post("/api/results/save")
 async def save_results_from_miniapp(body: SaveResultRequest, request: Request):
     """Принимает ответы из Mini App, считает результаты и сохраняет."""
+    from services.gate import check_subscription
     user = validate_init_data(body.init_data)
     if not user:
         raise HTTPException(status_code=403, detail="Invalid init data")
+    if not await check_subscription(request.app.state.redis, user["id"]):
+        raise HTTPException(status_code=403, detail="subscription_required")
 
     telegram_id = user["id"]
     pool = request.app.state.pool
@@ -393,16 +407,29 @@ async def save_results_from_miniapp(body: SaveResultRequest, request: Request):
 
     await save_result(pool, db_user["id"], raw, normalized, riasec, top)
 
-    # T7: проверяем реферальный бонус
+    # Бесплатный PDF-отчёт — генерируем и отправляем через бота сразу после теста
     try:
-        referrer_id = await get_referrer(pool, telegram_id)
-        if referrer_id:
-            completions = await count_referred_completions(pool, referrer_id)
-            if completions >= 3:
-                await grant_referral_premium(pool, referrer_id)
-                await _notify_referral_bonus(referrer_id)
+        details_list = []
+        for prof in top[:3]:
+            det = await get_profession_details_by_title_lang(pool, prof["title"], body.lang)
+            details_list.append(det or {})
+        from datetime import date as _date
+        user_data = {
+            "full_name": f"{user.get('first_name', '')} {user.get('last_name', '')}".strip() or "User",
+            "date": _date.today().strftime("%d.%m.%Y"),
+        }
+        pdf_bytes = generate_pdf(user_data, normalized, riasec, top, details_list, lang=body.lang)
+        caption = "🎉 Твой отчёт готов!" if body.lang == "ru" else "🎉 Your report is ready!"
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.post(
+                f"https://api.telegram.org/bot{BOT_TOKEN}/sendDocument",
+                data={"chat_id": telegram_id, "caption": caption},
+                files={"document": ("CareerCheck_Report.pdf", pdf_bytes, "application/pdf")},
+            )
+        if not resp.json().get("ok"):
+            logger.error(f"Bot sendDocument failed: {resp.text}")
     except Exception as e:
-        logger.warning(f"Referral bonus check error: {e}")
+        logger.error(f"Free PDF generation/send error: {e}")
 
     return {
         "normalized_scores": normalized,
@@ -411,247 +438,35 @@ async def save_results_from_miniapp(body: SaveResultRequest, request: Request):
     }
 
 
-# ── Premium in Mini App (issue 7) ────────────────────────────────────────────
+# ── Написать разработчику ────────────────────────────────────────────────────
 
-@app.post("/api/premium/invoice")
-async def create_premium_invoice(body: CompareCreateRequest, request: Request):
-    """Создаёт invoice link через Telegram Bot API для tg.openInvoice()."""
+@app.post("/api/feedback")
+async def send_feedback(body: FeedbackRequest, request: Request):
+    """Пересылает сообщение пользователя разработчику через Bot API — без хранения в БД."""
     user = validate_init_data(body.init_data)
     if not user:
         raise HTTPException(status_code=403, detail="Invalid init data")
 
-    price = get_ab_price(user["id"])
+    text = body.text.strip()[:2000]
+    if not text:
+        raise HTTPException(status_code=400, detail="Empty message")
+
+    admin_ids = [a.strip() for a in os.getenv("ADMIN_IDS", "").split(",") if a.strip()]
+    if not admin_ids:
+        raise HTTPException(status_code=503, detail="Feedback recipient not configured")
+
+    username = user.get("username")
+    who = f"@{username}" if username else user.get("first_name", "User")
+    message_text = f"📩 Фидбэк от {who} (id {user['id']}):\n\n{text}"
+
     async with httpx.AsyncClient(timeout=10) as client:
-        resp = await client.post(
-            f"https://api.telegram.org/bot{BOT_TOKEN}/createInvoiceLink",
-            json={
-                "title":       "Premium Career Report",
-                "description": "6 страниц персонального AI-анализа карьеры",
-                "payload":     "premium_pdf_v1",
-                "currency":    "XTR",
-                "prices":      [{"label": "Premium PDF", "amount": price}],
-            },
-        )
-    data = resp.json()
-    if not data.get("ok"):
-        raise HTTPException(status_code=502, detail=f"Telegram API error: {data}")
-    return {"invoice_link": data["result"], "price": price}
-
-
-@app.get("/api/premium/status")
-async def premium_status(init_data: str, request: Request):
-    """Проверяет готов ли PDF (бот пишет в Redis после successful_payment)."""
-    user = validate_init_data(init_data)
-    if not user:
-        raise HTTPException(status_code=403)
-    key = await request.app.state.redis.get(f"premium_pdf:{user['id']}")
-    return {"status": "ready" if key else "pending"}
-
-
-@app.post("/api/premium/referral-claim")
-async def referral_claim_pdf(body: CompareCreateRequest, request: Request):
-    """Бесплатный Premium PDF за реферальный бонус — генерируется напрямую."""
-    from fastapi.responses import Response
-    user = validate_init_data(body.init_data)
-    if not user:
-        raise HTTPException(status_code=403)
-
-    telegram_id = user["id"]
-    pool  = request.app.state.pool
-
-    # Проверяем что бонус выдан и PDF ещё НЕ был отправлен (атомарно)
-    async with pool.acquire() as conn:
-        purchase_row = await conn.fetchrow(
-            "SELECT id, pdf_sent_at FROM purchases WHERE telegram_id=$1 AND payload='referral_bonus' LIMIT 1",
-            telegram_id
-        )
-    if not purchase_row:
-        raise HTTPException(status_code=403, detail="No referral bonus available")
-    if purchase_row["pdf_sent_at"] is not None:
-        raise HTTPException(status_code=409, detail="PDF already sent for this bonus")
-
-    # Берём данные пользователя
-    db_user = await get_user(pool, telegram_id)
-    if not db_user:
-        raise HTTPException(status_code=404, detail="User not found")
-    result = await get_last_result(pool, db_user["id"])
-    if not result:
-        raise HTTPException(status_code=404, detail="No test results")
-
-    def parse(v):
-        return json.loads(v) if isinstance(v, str) else v
-
-    normalized     = parse(result["normalized_scores"])
-    riasec         = parse(result["riasec_profile"])
-    top_professions = parse(result["top_professions"]) or []
-    lang           = db_user.get("lang", "ru") or "ru"
-    name           = db_user.get("full_name") or user.get("first_name", "")
-
-    # Получаем детали профессий (точно так же как в боте)
-    details_list = []
-    for prof in top_professions[:3]:
-        det = await get_profession_details_by_title_lang(pool, prof["title"], lang)
-        details_list.append(det or {})
-
-    try:
-        from datetime import date as _date
-        import traceback
-        user_data = {"full_name": name, "date": _date.today().strftime("%d.%m.%Y")}
-        logger.info(f"Referral PDF start: user={telegram_id}, lang={lang}, name={name!r}")
-        pdf_bytes, ai_used = await generate_premium_pdf(
-            user_data=user_data,
-            normalized_scores=normalized,
-            riasec=riasec,
-            top_professions=top_professions,
-            details_list=details_list,
-            lang=lang,
-            api_key="",
-        )
-        logger.info(f"Referral PDF done: user={telegram_id}, {len(pdf_bytes)} bytes, ai_used={ai_used}")
-    except Exception as e:
-        logger.error(f"Referral PDF generation error: {type(e).__name__}: {e}\n{traceback.format_exc()}")
-        raise HTTPException(status_code=500, detail=f"PDF generation failed: {type(e).__name__}: {e}")
-
-    # Отправляем PDF через Bot API прямо в чат пользователя
-    caption = (
-        "🎁 Твой бесплатный Premium Career Report готов!\n\n"
-        "Получен за приглашение друзей в CareerCheck. Спасибо! 🙌"
-        if lang == "ru" else
-        "🎁 Your free Premium Career Report is ready!\n\n"
-        "Earned by inviting friends to CareerCheck. Thank you! 🙌"
-    )
-    try:
-        async with httpx.AsyncClient(timeout=30) as client:
-            resp = await client.post(
-                f"https://api.telegram.org/bot{BOT_TOKEN}/sendDocument",
-                data={"chat_id": telegram_id, "caption": caption},
-                files={"document": ("CareerCheck_Premium.pdf", pdf_bytes, "application/pdf")},
+        for admin_id in admin_ids:
+            await client.post(
+                f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
+                json={"chat_id": admin_id, "text": message_text},
             )
-        if not resp.json().get("ok"):
-            logger.error(f"Bot sendDocument failed: {resp.text}")
-        else:
-            # Помечаем бонус как использованный — блокируем повторную генерацию
-            async with pool.acquire() as conn:
-                await conn.execute(
-                    "UPDATE purchases SET pdf_sent_at = NOW() WHERE id = $1",
-                    purchase_row["id"]
-                )
-    except Exception as e:
-        logger.error(f"Bot sendDocument error: {e}")
 
-    return {"status": "sent", "ai_used": ai_used}
-
-
-@app.post("/api/premium/download")
-async def download_premium_pdf(body: CompareCreateRequest, request: Request):
-    """Отдаёт сгенерированный PDF (base64 → bytes). Ключ в Redis ставится ботом."""
-    user = validate_init_data(body.init_data)
-    if not user:
-        raise HTTPException(status_code=403)
-    redis = request.app.state.redis
-    b64   = await redis.get(f"premium_pdf:{user['id']}")
-    if not b64:
-        raise HTTPException(status_code=404, detail="PDF not ready")
-    pdf_bytes = base64.b64decode(b64)
-    await redis.delete(f"premium_pdf:{user['id']}")
-    from fastapi.responses import Response
-    return Response(content=pdf_bytes, media_type="application/pdf",
-                    headers={"Content-Disposition": "attachment; filename=CareerCheck_Premium.pdf"})
-
-
-# ── AI Chat (N4) ──────────────────────────────────────────────────────────────
-
-FREE_QUESTIONS    = 10           # бесплатных вопросов
-QUOTA_TTL_DAYS    = 30           # сброс раз в 30 дней
-CHAT_INPUT_LIMIT  = 400          # символов от пользователя
-CHAT_QUOTA_TTL    = 60 * 60 * 24 * QUOTA_TTL_DAYS
-
-
-@app.post("/api/chat")
-async def ai_chat(body: ChatRequest, request: Request):
-    """AI-консультант карьеры. 10 бесплатных вопросов / 30 дней, затем — Premium."""
-    user = validate_init_data(body.init_data)
-    if not user:
-        raise HTTPException(status_code=403, detail="Invalid init data")
-
-    telegram_id = user["id"]
-    redis       = request.app.state.redis
-    quota_key   = f"chat:free:{telegram_id}"
-
-    # Атомарный decr: сначала уменьшаем, потом проверяем
-    # Если ключа нет — SET NX + EXPIRE, потом decr
-    current = await redis.get(quota_key)
-    if current is None:
-        # Новый пользователь — выставляем квоту с TTL
-        await redis.set(quota_key, FREE_QUESTIONS, ex=CHAT_QUOTA_TTL)
-        current = FREE_QUESTIONS
-    else:
-        current = int(current)
-
-    if current <= 0:
-        return JSONResponse({"error": "quota_exceeded", "remaining": 0}, status_code=402)
-
-    # Circuit breaker check
-    if promptra_breaker.is_open:
-        return JSONResponse({"error": "ai_unavailable", "remaining": current}, status_code=503)
-
-    # Берём профиль пользователя
-    pool    = request.app.state.pool
-    db_user = await get_user(pool, telegram_id)
-    if not db_user:
-        raise HTTPException(status_code=404, detail="User not found — complete the test first")
-
-    result = await get_last_result(pool, db_user["id"])
-    if not result:
-        raise HTTPException(status_code=404, detail="No test results — complete the test first")
-
-    def parse(v):
-        return json.loads(v) if isinstance(v, str) else v
-
-    norm   = parse(result["normalized_scores"])
-    riasec = parse(result["riasec_profile"])
-    profs  = parse(result["top_professions"])
-
-    # Списываем ПЕРЕД запросом к AI — предотвращает race condition
-    new_remaining = await redis.decr(quota_key)
-    if new_remaining < 0:
-        # Параллельный запрос обогнал нас — восстанавливаем и отказываем
-        await redis.incr(quota_key)
-        return JSONResponse({"error": "quota_exceeded", "remaining": 0}, status_code=402)
-
-    reply = await ask_career_ai(
-        question        = body.message.strip()[:CHAT_INPUT_LIMIT],
-        history         = body.history[-(MAX_HISTORY_PAIRS * 2):],
-        normalized      = norm,
-        riasec          = riasec,
-        top_professions = profs,
-        lang            = body.lang,
-    )
-
-    if reply is None:
-        # Возвращаем квоту при ошибке AI
-        await redis.incr(quota_key)
-        return JSONResponse({"error": "ai_error", "remaining": current}, status_code=503)
-
-    logger.info(f"AI chat: user={telegram_id}, remaining={new_remaining}")
-    return {"reply": reply, "remaining": max(0, new_remaining)}
-
-
-@app.get("/api/chat/quota")
-async def chat_quota(init_data: str, request: Request):
-    """Возвращает количество оставшихся бесплатных вопросов."""
-    user = validate_init_data(init_data)
-    if not user:
-        raise HTTPException(status_code=403)
-    raw = await request.app.state.redis.get(f"chat:free:{user['id']}")
-    remaining = int(raw) if raw is not None else FREE_QUESTIONS
-    return {"remaining": max(0, remaining), "total": FREE_QUESTIONS}
-
-
-@app.get("/api/health/circuit-breaker")
-async def cb_health():
-    """Состояние circuit breaker для Anthropic API."""
-    return anthropic_breaker.stats()
+    return {"ok": True}
 
 
 # ── Quick test (N1) ───────────────────────────────────────────────────────────
@@ -863,135 +678,6 @@ async def get_profession_detail(title: str, lang: str = "ru", request: Request =
     if details:
         result["details"] = details
     return result
-
-
-# ── Challenges status ─────────────────────────────────────────────────────────
-
-@app.get("/api/challenges/status")
-async def challenges_status(init_data: str, request: Request):
-    user = validate_init_data(init_data)
-    if not user:
-        raise HTTPException(status_code=403)
-    pool = request.app.state.pool
-    async with pool.acquire() as conn:
-        row = await conn.fetchrow(
-            "SELECT subscribed, streak, total_xp FROM user_challenges WHERE user_telegram_id = $1",
-            user["id"]
-        )
-    return {
-        "subscribed": row["subscribed"] if row else False,
-        "streak":     row["streak"]     if row else 0,
-        "total_xp":   row["total_xp"]   if row else 0,
-    }
-
-
-@app.get("/api/challenges/today")
-async def challenges_today(init_data: str, request: Request):
-    user = validate_init_data(init_data)
-    if not user:
-        raise HTTPException(status_code=403)
-    pool = request.app.state.pool
-    from db.database import get_today_challenges, get_last_result
-    from db.database import get_user as _get_user
-    import json as _json
-
-    db_user = await _get_user(pool, user["id"])
-    normalized = {}
-    if db_user:
-        result = await get_last_result(pool, db_user["id"])
-        if result:
-            v = result["normalized_scores"]
-            normalized = _json.loads(v) if isinstance(v, str) else (v or {})
-
-    challenges = await get_today_challenges(pool, user["id"], normalized)
-    return {"challenges": challenges}
-
-
-@app.post("/api/challenges/complete")
-async def challenges_complete(body: dict, request: Request):
-    init_data   = body.get("init_data", "")
-    challenge_id = body.get("challenge_id")
-    user = validate_init_data(init_data)
-    if not user or not challenge_id:
-        raise HTTPException(status_code=403)
-    pool = request.app.state.pool
-    from db.database import complete_challenge
-    result = await complete_challenge(pool, user["id"], int(challenge_id))
-    return result
-
-
-@app.post("/api/challenges/toggle")
-async def challenges_toggle(body: CompareCreateRequest, request: Request):
-    user = validate_init_data(body.init_data)
-    if not user:
-        raise HTTPException(status_code=403)
-    pool = request.app.state.pool
-    from db.database import subscribe_challenges, unsubscribe_challenges
-    row = None
-    async with pool.acquire() as conn:
-        row = await conn.fetchrow(
-            "SELECT subscribed FROM user_challenges WHERE user_telegram_id = $1", user["id"]
-        )
-    if row and row["subscribed"]:
-        await unsubscribe_challenges(pool, user["id"])
-        return {"subscribed": False}
-    else:
-        await subscribe_challenges(pool, user["id"])
-        return {"subscribed": True}
-
-
-async def _notify_referral_bonus(tg_id: int):
-    """Уведомляет реферера о бесплатном Premium через Bot API."""
-    try:
-        async with httpx.AsyncClient(timeout=10) as client:
-            await client.post(
-                f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
-                json={
-                    "chat_id": tg_id,
-                    "text": (
-                        "🎉 Поздравляем! 3 твоих друга прошли тест — "
-                        "тебе начислен бесплатный Premium PDF!\n\n"
-                        "Открой приложение чтобы получить."
-                    ),
-                },
-            )
-    except Exception as e:
-        logger.warning(f"Referral bonus notify error: {e}")
-
-
-@app.get("/api/referral/progress")
-async def referral_progress(init_data: str, request: Request):
-    """Прогресс реферальной программы: сколько друзей завершили тест."""
-    user = validate_init_data(init_data)
-    if not user:
-        raise HTTPException(status_code=403)
-    pool = request.app.state.pool
-    async with pool.acquire() as conn:
-        # Сколько уникальных друзей зарегистрировались по ссылке
-        total = await conn.fetchval(
-            "SELECT COUNT(DISTINCT referred_id) FROM referrals WHERE referrer_id = $1",
-            user["id"]
-        ) or 0
-        # Сколько из них прошли тест (DISTINCT, без фильтра bonus_granted — иначе после выдачи сбрасывается)
-        completed = await conn.fetchval(
-            """SELECT COUNT(DISTINCT r.referred_id)
-               FROM referrals r
-               JOIN users u ON u.telegram_id = r.referred_id
-               WHERE r.referrer_id = $1 AND u.test_completed = TRUE""",
-            user["id"]
-        ) or 0
-        granted = await conn.fetchval(
-            "SELECT COUNT(*) FROM purchases WHERE telegram_id = $1 AND payload = 'referral_bonus'",
-            user["id"]
-        ) or 0
-    bot_username = os.getenv("BOT_USERNAME", "CareerCheck_Bot")
-    return {
-        "count":   int(completed),   # прошли тест
-        "total":   int(total),       # зарегистрировались
-        "needed":  3,
-        "granted": granted > 0,
-        "link":    f"https://t.me/{bot_username}?start=ref_{user['id']}",
-    }
 
 
 # ── Admin stats ───────────────────────────────────────────────────────────────

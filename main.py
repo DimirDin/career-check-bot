@@ -17,10 +17,8 @@ from aiogram.fsm.storage.redis import RedisStorage, DefaultKeyBuilder
 
 from config.settings import BOT_TOKEN, DB_CONFIG, REDIS_CONFIG
 from bot.handlers import router
-from bot.premium_handlers import premium_router
 from db.database import cleanup_old_progress
 from middlewares.rate_limit import RateLimitMiddleware
-from services.challenge_service import challenge_scheduler
 
 logger = logging.getLogger(__name__)
 
@@ -125,7 +123,6 @@ async def main() -> None:
     logger.info("Rate limit middleware registered")
 
     dp.include_router(router)
-    dp.include_router(premium_router)
 
     # Пул + Redis + bot_username доступны во всех хендлерах
     dp["pool"]  = pool
@@ -145,8 +142,6 @@ async def main() -> None:
         # Команды меню
         await bot.set_my_commands([
             BotCommand(command="start",      description="🏠 Главное меню"),
-            BotCommand(command="challenges", description="🎯 Ежедневные задания"),
-            BotCommand(command="refer",      description="👥 Пригласить друга (+бонус)"),
             BotCommand(command="help",       description="❓ Помощь и FAQ"),
         ])
 
@@ -164,8 +159,7 @@ async def main() -> None:
                 "🧠 CareerCheck — карьерное тестирование на основе научной модели Big Five.\n\n"
                 "Пройди тест из 60 вопросов и узнай:\n"
                 "• Твой психологический профиль\n"
-                "• Топ профессий с % совпадения\n"
-                "• Персональный AI-анализ (Premium)\n\n"
+                "• Топ профессий с % совпадения\n\n"
                 "Более 160 профессий в каталоге 🎯"
             )
         )
@@ -179,10 +173,6 @@ async def main() -> None:
     # ── Heartbeat ────────────────────────────────────────────────
     heartbeat_task = asyncio.create_task(heartbeat_loop(redis_client))
     logger.info("Heartbeat task started")
-
-    # ── Daily challenges scheduler (N3) ──────────────────────────
-    challenges_task = asyncio.create_task(challenge_scheduler(bot, pool))
-    logger.info("Challenge scheduler started")
 
     # ── Polling c graceful stop ───────────────────────────────────
     logger.info("Bot started, polling…")
@@ -206,7 +196,6 @@ async def main() -> None:
         await pool.close()
 
         heartbeat_task.cancel()
-        challenges_task.cancel()
 
         logger.info("Closing Redis client…")
         await redis_client.aclose()

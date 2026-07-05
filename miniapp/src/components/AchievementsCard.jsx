@@ -4,10 +4,6 @@
 
 const ACHIEVEMENTS = [
   { id: 'first_test', icon: '🎯', label: 'Первый тест',    labelEn: 'First test',     condition: u => u?.testCompleted  },
-  { id: 'five_tasks', icon: '⚡', label: '5 заданий',      labelEn: '5 challenges',   condition: u => (u?.totalXP || 0) >= 50 },
-  { id: 'streak_3',   icon: '🔥', label: '3 дня подряд',   labelEn: '3-day streak',   condition: u => (u?.streak || 0) >= 3 },
-  { id: 'premium',    icon: '🌟', label: 'Premium отчёт',  labelEn: 'Premium report', condition: u => u?.hasPremium },
-  { id: 'referral',   icon: '👥', label: 'Первый реферал', labelEn: 'First referral', condition: u => (u?.referralCount || 0) >= 1 },
   { id: 'catalog',    icon: '📚', label: 'Изучил каталог', labelEn: 'Explored catalog', condition: u => u?.catalogViewed },
 ]
 

@@ -13,9 +13,6 @@ const T = {
     doneTitle:      (d) => `Тест пройден: ${d}`,
     doneSub:        'Результаты готовы',
     doneBtn:        'Посмотреть результаты',
-    premiumTitle:   '⭐ Premium активен',
-    premiumSub:     'Ваш персональный AI-отчёт готов',
-    premiumBtn:     'Открыть PDF',
   },
   en: {
     newTitle:       'Welcome! 👋',
@@ -27,9 +24,6 @@ const T = {
     doneTitle:      (d) => `Test completed: ${d}`,
     doneSub:        'Your results are ready',
     doneBtn:        'View Results',
-    premiumTitle:   '⭐ Premium active',
-    premiumSub:     'Your personal AI report is ready',
-    premiumBtn:     'Open PDF',
   },
   hi: {
     newTitle:       'स्वागत है! 👋',
@@ -41,9 +35,6 @@ const T = {
     doneTitle:      (d) => `परीक्षण पूर्ण: ${d}`,
     doneSub:        'परिणाम तैयार हैं',
     doneBtn:        'परिणाम देखें',
-    premiumTitle:   '⭐ Premium सक्रिय',
-    premiumSub:     'आपकी AI रिपोर्ट तैयार है',
-    premiumBtn:     'PDF खोलें',
   },
   es: {
     newTitle:       '¡Bienvenido! 👋',
@@ -55,9 +46,6 @@ const T = {
     doneTitle:      (d) => `Test completado: ${d}`,
     doneSub:        'Tus resultados están listos',
     doneBtn:        'Ver resultados',
-    premiumTitle:   '⭐ Premium activo',
-    premiumSub:     'Tu informe AI personal está listo',
-    premiumBtn:     'Abrir PDF',
   },
   pt: {
     newTitle:       'Bem-vindo! 👋',
@@ -69,32 +57,24 @@ const T = {
     doneTitle:      (d) => `Teste concluído: ${d}`,
     doneSub:        'Seus resultados estão prontos',
     doneBtn:        'Ver resultados',
-    premiumTitle:   '⭐ Premium ativo',
-    premiumSub:     'Seu relatório AI pessoal está pronto',
-    premiumBtn:     'Abrir PDF',
   },
 }
 
 /**
- * @param {{ userState: import('../hooks/useUserState').UserState, onStartTest:()=>void, onContinueTest:()=>void, onViewResults:()=>void, onOpenPremium:()=>void }} props
+ * @param {{ userState: import('../hooks/useUserState').UserState, onStartTest:()=>void, onContinueTest:()=>void, onViewResults:()=>void }} props
  */
-export function HeroBanner({ userState, onStartTest, onContinueTest, onViewResults, onOpenPremium }) {
+export function HeroBanner({ userState, onStartTest, onContinueTest, onViewResults }) {
   const t   = T[userState.language] || T.ru
   const date = formatDate(userState.lastResultDate, userState.language)
 
   let title, subtitle, btnText, onClick
 
-  // Тест пройден и нет Premium — баннер не нужен (есть кнопка в QuickActionsGrid)
-  if (userState.hasResults && !userState.hasPremium && !userState.testInProgress) {
+  // Тест пройден — баннер не нужен (есть кнопка в QuickActionsGrid)
+  if (userState.hasResults && !userState.testInProgress) {
     return null
   }
 
-  if (userState.hasPremium) {
-    title    = t.premiumTitle
-    subtitle = t.premiumSub
-    btnText  = t.premiumBtn
-    onClick  = onOpenPremium
-  } else if (userState.testInProgress) {
+  if (userState.testInProgress) {
     title    = t.progressTitle(userState.currentQuestion)
     subtitle = t.progressSub
     btnText  = t.progressBtn

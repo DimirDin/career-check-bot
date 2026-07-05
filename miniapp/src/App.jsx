@@ -12,12 +12,9 @@ import { QuickTestPage }     from './pages/QuickTestPage'
 import { QuickResultsPage }  from './pages/QuickResultsPage'
 import { ComparisonPage }    from './pages/ComparisonPage'
 import { QuizLoadingSkeleton, ResultsLoadingSkeleton } from './components/Skeleton'
-import { AIChatPage }           from './pages/AIChatPage'
 import { SettingsPage }         from './pages/SettingsPage'
 import { ProfessionsPage }      from './pages/ProfessionsPage'
 import { ProfessionDetailPage } from './pages/ProfessionDetailPage'
-import { PremiumPromoPage }     from './pages/PremiumPromoPage'
-import { ChallengesPage }       from './pages/ChallengesPage'
 import { AdminPage }            from './pages/AdminPage'
 import { StarField }            from './components/StarField'
 import { AuroraStreak }         from './components/AuroraStreak'
@@ -38,13 +35,10 @@ const SCREEN = {
   QUICK_TEST:   'quick_test',
   QUICK_RESULTS:'quick_results',
   COMPARISON:   'comparison',
-  AI_CHAT:        'ai_chat',
   SETTINGS:       'settings',
   PROFESSIONS:    'professions',
   PROF_DETAIL:    'prof_detail',
-  CHALLENGES:     'challenges',
   COMING_SOON:    'coming_soon',
-  PREMIUM_PROMO:  'premium_promo',
   ADMIN:          'admin',
   TEST_HUB:       'test_hub',
   ERROR:        'error',
@@ -75,14 +69,10 @@ const ROUTE_MAP = {
   '/test-hub':    SCREEN.TEST_HUB,
   '/results':     SCREEN.RESULTS,
   '/welcome':     SCREEN.WELCOME,
-  '/premium':     SCREEN.PREMIUM_PROMO,
   '/professions': SCREEN.PROFESSIONS,
   '/history':     SCREEN.HISTORY,
-  '/ai-chat':     SCREEN.AI_CHAT,
   '/settings':    SCREEN.SETTINGS,
-  '/challenges':  SCREEN.CHALLENGES,
   '/comparison':  SCREEN.COMPARISON,
-  '/support':     SCREEN.COMING_SOON,
   '/admin':       SCREEN.ADMIN,
 }
 
@@ -97,6 +87,9 @@ export default function App() {
   const [results,   setResults]   = useState(null)
   const [error,     setError]     = useState(null)
   const [liquidActive, setLiquidActive] = useState(false)
+  const [gateState, setGateState] = useState('checking') // checking | blocked | ok | error
+  const [gateChannel, setGateChannel] = useState('@claudedry')
+  const [gateRechecking, setGateRechecking] = useState(false)
   const lang = tg?.initDataUnsafe?.user?.language_code?.slice(0, 2) || 'ru'
   const targetScreenRef = useRef(SCREEN.MENU)
 
@@ -166,7 +159,39 @@ export default function App() {
   }, [user, initData, lang])
 
   useEffect(() => { track('app_open') }, [])
-  useEffect(() => { initApp() }, [initApp])
+
+  // ── Гейт по подписке — доступ только у подписчиков gateChannel ────────────
+  useEffect(() => {
+    if (!user || !initData) {
+      // Нет Telegram-контекста (локальная разработка) — не блокируем
+      const t = setTimeout(() => setGateState(prev => prev === 'checking' ? 'ok' : prev), 3000)
+      return () => clearTimeout(t)
+    }
+    fetch(`/api/gate/check?init_data=${encodeURIComponent(initData)}`)
+      .then(r => r.ok ? r.json() : Promise.reject())
+      .then(d => {
+        setGateChannel(d.channel || '@claudedry')
+        setGateState(d.subscribed ? 'ok' : 'blocked')
+      })
+      .catch(() => setGateState('error'))
+  }, [user, initData])
+
+  const recheckGate = useCallback(async () => {
+    if (!initData || gateRechecking) return
+    setGateRechecking(true)
+    try {
+      const res = await fetch('/api/gate/recheck', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ init_data: initData }),
+      })
+      const d = await res.json()
+      setGateState(d.subscribed ? 'ok' : 'blocked')
+    } catch {}
+    setGateRechecking(false)
+  }, [initData, gateRechecking])
+
+  useEffect(() => { if (gateState === 'ok') initApp() }, [gateState]) // eslint-disable-line
 
   // ── Сохранение результатов теста ─────────────────────────────────────────
   async function handleFinish(answers) {
@@ -224,7 +249,6 @@ export default function App() {
             results={results}
             onViewResults={() => navigate('/results')}
             onRetake={() => navigate('/test', { fresh: true })}
-            onPremium={() => navigate('/premium')}
             onBack={() => navigate('/menu')}
             tg={tg}
           />
@@ -284,8 +308,6 @@ export default function App() {
             onBack={() => navigate('/menu')}
           />
         )
-      case SCREEN.AI_CHAT:
-        return <AIChatPage onBack={() => navigate('/menu')} />
       case SCREEN.SETTINGS:
         return <SettingsPage onBack={() => navigate('/menu')} />
       case SCREEN.PROFESSIONS:
@@ -316,15 +338,6 @@ export default function App() {
             onStartTest={() => navigate('/test')}
           />
         )
-      case SCREEN.CHALLENGES:
-        return <ChallengesPage onBack={() => navigate('/menu')} />
-      case SCREEN.PREMIUM_PROMO:
-        return (
-          <PremiumPromoPage
-            onBack={() => navigate('/menu')}
-            onBuy={() => navigate('/results')}
-          />
-        )
       case SCREEN.COMING_SOON:
         return <ComingSoonScreen route={route} onBack={() => navigate('/menu')} tg={tg} />
       case SCREEN.ADMIN:
@@ -343,6 +356,23 @@ export default function App() {
     SCREEN.SPLASH, SCREEN.LOADING, SCREEN.QUICK_TEST, SCREEN.ONBOARDING, SCREEN.ADMIN,
   ]
   const showBottomNav = !NO_BOTTOM_NAV.includes(screen)
+
+  if (gateState === 'checking') {
+    return <SplashScreen onDone={() => {}} />
+  }
+  if (gateState === 'blocked' || gateState === 'error') {
+    const isRu = lang === 'ru'
+    return (
+      <GateScreen
+        isRu={isRu}
+        error={gateState === 'error'}
+        channel={gateChannel}
+        rechecking={gateRechecking}
+        onRecheck={recheckGate}
+        tg={tg}
+      />
+    )
+  }
 
   return (
     <NavigationContext.Provider value={{ navigate, current: route }}>
@@ -393,15 +423,60 @@ function ErrorScreen({ message, onRetry }) {
   )
 }
 
+function GateScreen({ isRu, error, channel, rechecking, onRecheck, tg }) {
+  const openChannel = () => {
+    const url = `https://t.me/${channel.replace('@', '')}`
+    if (tg?.openTelegramLink) tg.openTelegramLink(url)
+    else window.open(url, '_blank')
+  }
+  return (
+    <div style={{
+      minHeight: '100dvh',
+      background: 'linear-gradient(160deg, #05050b 0%, #0c0c1e 60%, #08081a 100%)',
+      color: '#f0eeff',
+      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+      padding: '24px 20px', gap: 16, textAlign: 'center',
+    }}>
+      <div style={{ fontSize: 52 }}>{error ? '📡' : '🔒'}</div>
+      <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800 }}>
+        {error
+          ? (isRu ? 'Не удалось проверить доступ' : 'Could not verify access')
+          : (isRu ? 'Доступ по подписке' : 'Subscribers only')}
+      </h2>
+      <p style={{ margin: 0, fontSize: 14, color: 'rgba(255,255,255,0.6)', maxWidth: 300, lineHeight: 1.6 }}>
+        {error
+          ? (isRu ? 'Проверь интернет и попробуй снова' : 'Check your connection and try again')
+          : (isRu
+              ? `Тест CareerCheck доступен подписчикам ${channel}. Подпишись и нажми «Проверить подписку».`
+              : `The CareerCheck test is available to subscribers of ${channel}. Subscribe and tap "Check subscription".`)}
+      </p>
+      {!error && (
+        <button onClick={openChannel} style={{
+          background: 'linear-gradient(135deg, #7c3aed, #06b6d4)',
+          border: 'none', borderRadius: 14, padding: '13px 28px',
+          color: '#fff', fontSize: 15, fontWeight: 700, cursor: 'pointer',
+        }}>
+          {isRu ? `Подписаться на ${channel}` : `Subscribe to ${channel}`}
+        </button>
+      )}
+      <button onClick={onRecheck} disabled={rechecking} style={{
+        background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
+        borderRadius: 14, padding: '11px 24px', color: '#f0eeff', fontSize: 14, fontWeight: 600,
+        cursor: rechecking ? 'default' : 'pointer', opacity: rechecking ? 0.6 : 1,
+      }}>
+        {rechecking ? (isRu ? 'Проверяю…' : 'Checking…') : (isRu ? 'Проверить подписку' : 'Check subscription')}
+      </button>
+    </div>
+  )
+}
+
 const COMING_LABELS = {
-  '/premium':     { emoji: '⭐', title: 'Premium PDF', sub: 'Сначала пройдите тест — Premium PDF строится на ваших результатах' },
   '/professions': { emoji: '📚', title: 'Каталог профессий', sub: 'Скоро — 30+ профессий с детальным описанием' },
   '/history':     { emoji: '🔄', title: 'История тестов', sub: 'Скоро — все ваши прохождения в одном месте' },
   '/settings':    { emoji: '⚙️', title: 'Настройки', sub: 'Скоро — язык, уведомления, профиль' },
-  '/support':     { emoji: '❓', title: 'Помощь', sub: 'По всем вопросам: @CareerCheckSupport' },
 }
 
-function TestHubScreen({ results, onViewResults, onRetake, onPremium, onBack, tg }) {
+function TestHubScreen({ results, onViewResults, onRetake, onBack, tg }) {
   useEffect(() => {
     if (!tg) return
     tg.BackButton.show()
@@ -454,15 +529,6 @@ function TestHubScreen({ results, onViewResults, onRetake, onPremium, onBack, tg
             boxShadow: '0 4px 20px rgba(124,58,237,0.4)',
           }}>
             📊 Мои результаты
-          </button>
-        )}
-        {hasResult && (
-          <button onClick={onPremium} style={{
-            background: 'rgba(251,191,36,0.1)',
-            border: '1px solid rgba(251,191,36,0.35)', borderRadius: 14, padding: '13px',
-            color: '#fbbf24', fontSize: 15, fontWeight: 600, cursor: 'pointer',
-          }}>
-            ⭐ Получить Premium PDF
           </button>
         )}
         <button onClick={onRetake} style={{

@@ -1,18 +1,29 @@
-# CareerCheck — Полный контекст проекта (v7.0, 2026-06-09)
+# CareerCheck — Полный контекст проекта (v8.0, 2026-07-05)
 
 > Этот файл — единственный источник правды о проекте. Передавай его другому ИИ целиком.
 > PROJECT_CONTEXT.md скомпрометирован (токен), PROJECT_CONTEXT2.md — устарел.
+
+## v8.0 — платные фичи убраны, гейт по подписке (2026-07-05)
+
+- **Убрано полностью из UI и бэкенда**: Premium PDF за Stars (openInvoice/invoice/status/download), AI-эксперт/чат (`/api/chat`, AIChatPage — код на диске остался, из нав скрыт), Челленджи/Задания (BottomNav, ChallengesPage, `/api/challenges/*`, `services/challenge_service.py` — удалён), Пригласить друга/реферальная программа (SettingsPage, ResultsPage, `/api/referral/progress`, deep-link `ref_ID`)
+- **BottomNav теперь 4 таба**: Главная / Тест / Каталог / Профиль
+- **Бесплатный PDF восстановлен**: после прохождения теста (и в боте, и в Mini App через `/api/results/save`) `services/pdf_generator.generate_pdf()` генерирует базовый PDF и бот отправляет его пользователю через `sendDocument` — без всякой оплаты
+- **Поддержка → Написать разработчику**: в Профиле вместо ссылки на @CareerCheckSupport — текстовое поле + кнопка, шлёт `POST /api/feedback` → `sendMessage` напрямую в Telegram ADMIN_IDS (без хранения в БД), паттерн зеркалит `botyard-hub`
+- **Гейт по подписке** (`services/gate.py`, зеркалит `botyard-baza/backend/app/gate.py`): тест доступен только подписчикам `@claudedry` (env `GATE_CHANNEL_USERNAME`). Miniapp: `GET/POST /api/gate/check`, `/api/gate/recheck`, блокирующий экран в `App.jsx` (`GateScreen`). Бот: `start_test_fresh`/`resume_test` проверяют подписку через `_gate_or_notify()`. Redis-кэш `gate:sub:{tg_id}`, TTL 6ч/60с (подписан/не подписан), fail-open при сбое Telegram API.
+- Удалены файлы: `bot/premium_handlers.py`, `services/challenge_service.py`, `services/ai_chat.py`, `services/ai_analyst.py`, `services/premium_pdf_generator.py`, `services/circuit_breaker.py`, `services/pdf_layout_constants.py`
+- **TODO**: таблицы `purchases`, `referrals`, `challenges`, `user_challenges`, `challenge_completions` в БД остались (не удалены схемой), но ничего в них больше не пишет — можно дропнуть отдельной миграцией, если не понадобятся
+- **TODO**: данные о прохождениях (test_results, test_progress, purchases, referrals, challenge_subscriptions/user_challenges) на проде (31.76.18.54) нужно обнулить вручную по SSH — агент не имел рабочего доступа на момент этой правки
 
 ---
 
 ## 1. Что такое CareerCheck
 
-**CareerCheck** — Telegram Mini App + Bot для карьерного тестирования на основе научной модели **Big Five (OCEAN)**. Пользователь проходит тест прямо в Telegram (60 вопросов, ~15 минут), получает:
+**CareerCheck** — Telegram Mini App + Bot для карьерного тестирования на основе научной модели **Big Five (OCEAN)**. Пользователь проходит тест прямо в Telegram (60 вопросов, ~15 минут), доступен только подписчикам `@claudedry`, получает:
 
 - Психологический профиль по 5 чертам (OCEAN)
 - RIASEC-тип карьеры (6 типов по Holland)
 - Топ совпадающих профессий из каталога 160+
-- Premium: 6-страничный PDF-отчёт с AI-анализом (Claude Sonnet 4)
+- Бесплатный PDF-отчёт, присылается ботом сразу после теста
 
 **Бот:** @CareerCheck_Bot  
 **Домен:** https://careercheck.app  

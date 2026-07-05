@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useRef, useCallback } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { RadarChart }      from '../components/RadarChart'
 import { ShareCard }       from '../components/ShareCard'
 import { Confetti }        from '../components/Confetti'
@@ -13,8 +13,6 @@ import { getBadges }       from '../utils/calculator'
 import { getTraitInterpretation } from '../utils/traitInterpretations'
 
 const isRuLang = (tg) => tg?.initDataUnsafe?.user?.language_code?.startsWith('ru')
-
-const BOT_USERNAME = 'CareerCheck_Bot'
 
 const TRAIT_LABELS = ['Открытость', 'Сознательность', 'Экстраверсия', 'Доброжелательность', 'Стабильность']
 const TRAIT_KEYS   = ['O', 'C', 'E', 'A', 'S']
@@ -41,10 +39,6 @@ export function ResultsPage({ results, onBack }) {
   const [percentiles,     setPercentiles]     = useState(null)
   const [confetti,        setConfetti]        = useState(false)
   const [compareLink,     setCompareLink]     = useState(null)
-  const [premiumLoading,  setPremiumLoading]  = useState(false)
-  const [premiumMsg,      setPremiumMsg]      = useState(null)
-  const [referralProgress, setReferralProgress] = useState(null)
-  const premiumRef = useRef(null)
 
   const norm   = results?.normalized_scores || {}
   const riasec = results?.riasec_profile    || {}
@@ -92,29 +86,6 @@ export function ResultsPage({ results, onBack }) {
       .catch(() => {})
   }, [user, tg])
 
-  // T7: referral progress — грузим и обновляем раз в 30 сек пока бонус не выдан
-  const loadReferralProgress = useCallback(async () => {
-    if (!initData) return
-    try {
-      const r = await fetch(`/api/referral/progress?init_data=${encodeURIComponent(initData)}`)
-      if (!r.ok) return
-      const d = await r.json()
-      setReferralProgress(d)
-    } catch {}
-  }, [initData])
-
-  useEffect(() => {
-    loadReferralProgress()
-    const interval = setInterval(() => {
-      setReferralProgress(prev => {
-        if (prev?.granted) return prev // бонус уже выдан — не опрашиваем
-        return prev
-      })
-      loadReferralProgress()
-    }, 30000)
-    return () => clearInterval(interval)
-  }, [loadReferralProgress])
-
   // Confetti если топ-матч ≥ 80%
   useEffect(() => {
     haptic.success?.()
@@ -123,21 +94,6 @@ export function ResultsPage({ results, onBack }) {
       return () => clearTimeout(t)
     }
   }, []) // eslint-disable-line
-
-  // V4: IntersectionObserver — premium shimmer при появлении
-  useEffect(() => {
-    const el = premiumRef.current
-    if (!el) return
-    const obs = new IntersectionObserver(([entry]) => {
-      if (entry.isIntersecting) {
-        el.classList.add('premium-shimmer-active')
-        track('view_premium')
-        obs.disconnect()
-      }
-    }, { threshold: 0.5 })
-    obs.observe(el)
-    return () => obs.disconnect()
-  }, [])
 
   // ── Шаринг ────────────────────────────────────────────────────────────────
   const handleShare = () => {
@@ -191,149 +147,6 @@ export function ResultsPage({ results, onBack }) {
     }
   }
 
-  // ── Refer (M3) ────────────────────────────────────────────────────────────
-  const handleRefer = () => {
-    haptic.medium?.()
-    track('refer_click')
-    const link = referralProgress?.link
-      || `https://t.me/${BOT_USERNAME}?start=ref_${user?.id || tg?.initDataUnsafe?.user?.id}`
-    const text = isRuLang(tg)
-      ? 'Пройди карьерный тест CareerCheck и узнай свой профиль — 10 минут, бесплатно!'
-      : 'Take the CareerCheck career test and discover your profile — 10 minutes, free!'
-    const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(text)}`
-    openLink(shareUrl)
-    // Обновляем прогресс через 3 секунды после отправки
-    setTimeout(loadReferralProgress, 3000)
-  }
-
-  // ── Referral claim — бесплатный PDF без оплаты ───────────────────────────
-  const [pdfGenSeconds, setPdfGenSeconds] = useState(0)
-  const pdfTimerRef = useRef(null)
-
-  const startPdfTimer = () => {
-    setPdfGenSeconds(0)
-    pdfTimerRef.current = setInterval(() => {
-      setPdfGenSeconds(s => s + 1)
-    }, 1000)
-  }
-  const stopPdfTimer = () => {
-    if (pdfTimerRef.current) { clearInterval(pdfTimerRef.current); pdfTimerRef.current = null }
-  }
-
-  const handleReferralClaim = async () => {
-    haptic.success?.()
-    track('referral_claim_pdf')
-    setPremiumLoading(true)
-    startPdfTimer()
-    setPremiumMsg(null)
-    try {
-      const res = await fetch('/api/premium/referral-claim', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ init_data: initData }),
-      })
-      if (res.status === 409) {
-        // PDF уже был отправлен ранее
-        haptic.success?.()
-        setPremiumMsg(isRuLang(tg)
-          ? '✅ PDF уже был отправлен ранее. Найди его в чате с ботом!'
-          : '✅ PDF was already sent. Find it in your bot chat!')
-        return
-      }
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error(err.detail || 'failed')
-      }
-      haptic.success?.()
-      setPremiumMsg(isRuLang(tg)
-        ? '✅ PDF отправлен! Проверь чат с ботом.'
-        : '✅ PDF sent! Check your bot chat.')
-    } catch (e) {
-      console.error('Referral claim error:', e)
-      // Если соединение прервалось — PDF всё равно придёт в бот
-      setPremiumMsg(isRuLang(tg)
-        ? '⏳ PDF генерируется — проверь чат с ботом через минуту!'
-        : '⏳ PDF is being generated — check your bot chat in a minute!')
-    } finally {
-      stopPdfTimer()
-      setPremiumLoading(false)
-    }
-  }
-
-  // ── Premium — openInvoice в Mini App (issue 7) ────────────────────────────
-  const handlePremium = async () => {
-    haptic.medium?.()
-    track('view_premium_click')
-
-    // Если нет tg.openInvoice — открываем бота как fallback
-    if (!tg?.openInvoice) {
-      openLink('https://t.me/CareerCheck_Bot?start=premium')
-      return
-    }
-
-    setPremiumLoading(true)
-    setPremiumMsg(null)
-    try {
-      const res  = await fetch('/api/premium/invoice', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ init_data: initData }),
-      })
-      if (!res.ok) throw new Error('invoice_failed')
-      const { invoice_link } = await res.json()
-
-      // Сбрасываем loading ДО openInvoice — React должен завершить re-render
-      // перед тем как Telegram откроет нативный payment sheet
-      setPremiumLoading(false)
-      await new Promise(r => setTimeout(r, 80))
-
-      tg.openInvoice(invoice_link, async (status) => {
-        if (status === 'paid') {
-          haptic.success?.()
-          setPremiumMsg(isRuLang(tg) ? '⏳ Генерируем PDF…' : '⏳ Generating PDF…')
-          // Полируем статус, пока бот не обработает платёж
-          let ready = false
-          for (let i = 0; i < 20; i++) {
-            await new Promise(r => setTimeout(r, 2000))
-            try {
-              const s = await fetch(`/api/premium/status?init_data=${encodeURIComponent(initData)}`)
-              const d = await s.json()
-              if (d.status === 'ready') { ready = true; break }
-            } catch {}
-          }
-          if (ready) {
-            // Скачиваем PDF
-            const dlRes = await fetch('/api/premium/download', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ init_data: initData }),
-            })
-            const blob = await dlRes.blob()
-            const url  = URL.createObjectURL(blob)
-            const a    = document.createElement('a')
-            a.href     = url
-            a.download = 'CareerCheck_Premium.pdf'
-            a.click()
-            URL.revokeObjectURL(url)
-            setPremiumMsg(isRuLang(tg) ? '✅ PDF скачан!' : '✅ PDF downloaded!')
-          } else {
-            setPremiumMsg(isRuLang(tg)
-              ? '✅ Оплата получена! PDF придёт в бот @CareerCheck_Bot'
-              : '✅ Payment received! PDF will arrive in @CareerCheck_Bot')
-          }
-        } else if (status === 'cancelled') {
-          setPremiumMsg(null)
-        } else {
-          setPremiumMsg(isRuLang(tg) ? '❌ Ошибка оплаты. Попробуй снова.' : '❌ Payment failed.')
-        }
-      })
-    } catch (e) {
-      console.error('Premium invoice error:', e)
-      setPremiumLoading(false)
-      openLink('https://t.me/CareerCheck_Bot?start=premium')
-    }
-  }
-
   return (
     <div className="results-page">
       <Confetti active={confetti} />
@@ -348,125 +161,6 @@ export function ResultsPage({ results, onBack }) {
         <div className="results-top-trait">
           {isRuLang(tg) ? 'Сильная черта: ' : 'Top trait: '}
           <strong>{TRAIT_LABELS[TRAIT_KEYS.indexOf(topTrait)]}</strong> — {norm[topTrait]}%
-        </div>
-        {/* Premium CTA — компактный, вверху результатов */}
-        <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <button onClick={handlePremium} disabled={premiumLoading} style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            padding: '10px 16px',
-            background: 'linear-gradient(135deg, rgba(251,191,36,0.18), rgba(124,58,237,0.22))',
-            border: '1px solid rgba(251,191,36,0.4)',
-            borderRadius: 12,
-            cursor: 'pointer', width: '100%',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 16 }}>⭐</span>
-              <span style={{ fontSize: 13, fontWeight: 700, color: '#fbbf24' }}>
-                {premiumLoading
-                  ? (isRuLang(tg) ? '⏳ Загрузка…' : '⏳ Loading…')
-                  : (isRuLang(tg) ? 'Получить Premium PDF' : 'Get Premium PDF')}
-              </span>
-            </div>
-            <span style={{ fontSize: 12, color: 'rgba(251,191,36,0.8)', fontWeight: 700 }}>99 ★</span>
-          </button>
-
-          {referralProgress && (
-            referralProgress.granted ? (
-              /* Бонус выдан — показываем кнопку получить Premium бесплатно */
-              <button onClick={handleReferralClaim} disabled={premiumLoading} style={{
-                display: 'flex', flexDirection: 'column', alignItems: 'stretch',
-                padding: '12px 16px', gap: 6,
-                background: premiumLoading
-                  ? 'linear-gradient(135deg, rgba(34,197,94,0.12), rgba(124,58,237,0.12))'
-                  : 'linear-gradient(135deg, rgba(34,197,94,0.2), rgba(124,58,237,0.2))',
-                border: '1px solid rgba(34,197,94,0.5)',
-                borderRadius: 12, cursor: premiumLoading ? 'default' : 'pointer', width: '100%',
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontSize: 16 }}>{premiumLoading ? '⚙️' : '🎁'}</span>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: '#22c55e' }}>
-                      {premiumLoading
-                        ? (isRuLang(tg) ? 'AI генерирует отчёт…' : 'AI generating report…')
-                        : (isRuLang(tg) ? 'Получить Premium PDF — бесплатно!' : 'Get Premium PDF — Free!')}
-                    </span>
-                  </div>
-                  <span style={{ fontSize: 12, color: 'rgba(34,197,94,0.8)', fontWeight: 700 }}>0 ★</span>
-                </div>
-                {premiumLoading && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)' }}>
-                        {isRuLang(tg) ? 'AI анализирует профиль, обычно 60–90 сек' : 'AI is analyzing, usually 60–90 sec'}
-                      </span>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: '#a78bfa', fontVariantNumeric: 'tabular-nums' }}>
-                        {pdfGenSeconds}с
-                      </span>
-                    </div>
-                    <div style={{ height: 3, background: 'rgba(255,255,255,0.08)', borderRadius: 2, overflow: 'hidden' }}>
-                      <div style={{
-                        height: '100%', borderRadius: 2,
-                        background: 'linear-gradient(90deg, #22c55e, #a78bfa)',
-                        width: `${Math.min(100, (pdfGenSeconds / 90) * 100)}%`,
-                        transition: 'width 1s linear',
-                      }} />
-                    </div>
-                    <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', textAlign: 'center' }}>
-                      {isRuLang(tg) ? '📲 PDF придёт прямо в этот бот' : '📲 PDF will arrive in this bot chat'}
-                    </span>
-                  </div>
-                )}
-              </button>
-            ) : (
-              /* Бонус не выдан — показываем прогресс */
-              <div style={{
-                padding: '10px 14px',
-                background: 'rgba(124,58,237,0.08)',
-                border: '1px solid rgba(124,58,237,0.2)',
-                borderRadius: 10,
-                display: 'flex', flexDirection: 'column', gap: 8,
-              }}>
-                {/* Заголовок */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.8)' }}>
-                    👥 {isRuLang(tg) ? 'Premium за приглашения' : 'Free Premium via referrals'}
-                  </span>
-                  <span style={{ fontSize: 12, fontWeight: 800, color: '#a855f7' }}>
-                    {referralProgress.count}/3
-                  </span>
-                </div>
-                {/* Прогресс-бар */}
-                <div style={{ height: 6, background: 'rgba(255,255,255,0.08)', borderRadius: 4, overflow: 'hidden' }}>
-                  <div style={{
-                    height: '100%',
-                    width: `${Math.min(referralProgress.count / 3 * 100, 100)}%`,
-                    background: 'linear-gradient(90deg, #7c3aed, #a855f7)',
-                    borderRadius: 4,
-                    transition: 'width 0.5s ease',
-                  }} />
-                </div>
-                {/* Подсказка */}
-                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', lineHeight: 1.4 }}>
-                  {isRuLang(tg)
-                    ? `Друзья: ${referralProgress.total} зарегистрировалось, ${referralProgress.count} прошли тест. Нужно ещё ${Math.max(0, 3 - referralProgress.count)} тестов.`
-                    : `Friends: ${referralProgress.total} registered, ${referralProgress.count} completed test. Need ${Math.max(0, 3 - referralProgress.count)} more.`
-                  }
-                </div>
-                {/* Кнопка поделиться */}
-                <button onClick={handleRefer} style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                  padding: '8px 14px',
-                  background: 'rgba(168,85,247,0.15)',
-                  border: '1px solid rgba(168,85,247,0.35)',
-                  borderRadius: 8, cursor: 'pointer', width: '100%',
-                }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: '#a855f7' }}>
-                    {isRuLang(tg) ? '📤 Пригласить друзей (они должны пройти тест)' : '📤 Invite friends (they must complete the test)'}
-                  </span>
-                </button>
-              </div>
-            )
-          )}
         </div>
       </div>
 
@@ -624,25 +318,6 @@ export function ResultsPage({ results, onBack }) {
           </div>
         )}
 
-        {/* ── Premium (большой блок внизу — якорь для ref/shimmer) ─────── */}
-        <div ref={premiumRef} className="premium-block card-holo">
-          <div className="premium-title">🌟 Хотите детальный отчёт?</div>
-          <div className="premium-desc">
-            Premium PDF — 6 страниц с персональным AI‑анализом:<br />
-            психологический портрет, карьерное видение, роадмап
-          </div>
-          <button className="btn-premium" onClick={handlePremium} disabled={premiumLoading}>
-            {premiumLoading
-              ? (isRuLang(tg) ? '⏳ Загрузка…' : '⏳ Loading…')
-              : `🌟 ${isRuLang(tg) ? 'Получить Premium PDF' : 'Get Premium PDF'}`}
-          </button>
-          {premiumMsg && (
-            <p style={{ marginTop: 8, fontSize: 13, color: 'rgba(255,255,255,0.7)', textAlign: 'center' }}>
-              {premiumMsg}
-            </p>
-          )}
-        </div>
-
         {/* ── Share Card (U4) ────────────────────────────────────────────── */}
         <ShareCard results={results} />
 
@@ -661,7 +336,7 @@ export function ResultsPage({ results, onBack }) {
           ← {isRuLang(tg) ? 'Назад в меню' : 'Back to menu'}
         </button>
 
-        <p className="results-footer">CareerCheck · @CareerCheckSupport</p>
+        <p className="results-footer">CareerCheck</p>
 
       </div>
     </div>

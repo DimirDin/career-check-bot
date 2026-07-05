@@ -19,18 +19,33 @@ from db.database import (
     get_professions, get_profession_details, get_profession_details_by_title_lang,
     get_stats, get_last_result,
     save_progress, get_progress, clear_progress,
-    save_referral, get_referral_count, get_referrer,
-    subscribe_challenges, unsubscribe_challenges,
 )
 from services.calculator import calculate_scores, calculate_riasec, match_professions
 from services.pdf_generator import generate_pdf
-from bot.premium_handlers import premium_keyboard
+from aiogram.types import BufferedInputFile
 from services.card_generator import generate_share_card
-from config.settings import ADMIN_IDS
+from services.gate import check_subscription
+from config.settings import ADMIN_IDS, GATE_CHANNEL_USERNAME
 from locales import get_text, resolve_lang
 
 router = Router()
 logger = logging.getLogger(__name__)
+
+
+async def _gate_or_notify(callback: CallbackQuery, redis, lang: str) -> bool:
+    """Возвращает True если пользователь подписан. Иначе показывает сообщение с призывом подписаться."""
+    if await check_subscription(redis, callback.from_user.id):
+        return True
+    await callback.answer()
+    text = (
+        f"🔒 Тест CareerCheck доступен подписчикам {GATE_CHANNEL_USERNAME}.\n\n"
+        f"Подпишись и нажми /start ещё раз."
+        if lang == 'ru' else
+        f"🔒 The CareerCheck test is available to subscribers of {GATE_CHANNEL_USERNAME}.\n\n"
+        f"Subscribe and press /start again."
+    )
+    await callback.message.answer(text)
+    return False
 
 
 # ── Динамическая кнопка меню ──────────────────────────────────────────────────
@@ -173,7 +188,6 @@ async def show_main_hub(message: Message, pool: asyncpg.Pool, lang: str, user: d
         )
         kb = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="🚀 Открыть CareerCheck", web_app=WAppInfo(url=miniapp_url))],
-            [InlineKeyboardButton(text="👥 Пригласить друга",    callback_data="show_referral")],
         ])
     else:
         text = (
@@ -183,7 +197,6 @@ async def show_main_hub(message: Message, pool: asyncpg.Pool, lang: str, user: d
         )
         kb = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="🚀 Open CareerCheck",    web_app=WAppInfo(url=miniapp_url))],
-            [InlineKeyboardButton(text="👥 Invite a Friend",     callback_data="show_referral")],
         ])
 
     await message.answer(text, reply_markup=kb)
@@ -225,54 +238,6 @@ async def show_onboarding(message: Message, lang: str) -> None:
     await message.answer(text, reply_markup=kb)
 
 
-async def show_referral_screen(message: Message, pool: asyncpg.Pool, tg_id: int) -> None:
-    user   = await get_user(pool, tg_id)
-    lang   = user['lang'] if user and user.get('lang') else 'ru'
-    count  = await get_referral_count(pool, tg_id)
-    bot_username = (await message.bot.me()).username
-    link   = f"https://t.me/{bot_username}?start=ref_{tg_id}"
-
-    if lang == 'ru':
-        text = (
-            f"🔗 <b>Твоя реферальная ссылка</b>\n\n"
-            f"<code>{link}</code>\n\n"
-            f"👥 Приглашено друзей: <b>{count}</b>\n\n"
-            f"За каждого друга, который пройдёт тест — получишь уведомление.\n"
-            f"Когда друг купит Premium — ты получишь скидку 50%!"
-        )
-    else:
-        text = (
-            f"🔗 <b>Your referral link</b>\n\n"
-            f"<code>{link}</code>\n\n"
-            f"👥 Friends invited: <b>{count}</b>\n\n"
-            f"For every friend who completes the test — you'll get a notification.\n"
-            f"When your friend buys Premium — you'll get 50% off!"
-        )
-    await message.answer(text)
-
-
-async def show_challenges_screen(message: Message, pool: asyncpg.Pool, tg_id: int) -> None:
-    user = await get_user(pool, tg_id)
-    lang = user['lang'] if user and user.get('lang') else 'ru'
-    await subscribe_challenges(pool, tg_id)
-
-    if lang == 'ru':
-        text = (
-            "🎯 <b>Карьерные челленджи</b>\n\n"
-            "Ты подписан! Каждый день в 9:00 я буду присылать тебе короткое карьерное задание.\n\n"
-            "30 уникальных заданий, основанных на твоём профиле Big Five.\n\n"
-            "Чтобы отписаться: /stop_challenges"
-        )
-    else:
-        text = (
-            "🎯 <b>Career Challenges</b>\n\n"
-            "You're subscribed! Every day at 9:00 I'll send you a short career challenge.\n\n"
-            "30 unique challenges based on your Big Five profile.\n\n"
-            "To unsubscribe: /stop_challenges"
-        )
-    await message.answer(text)
-
-
 # ── /start ────────────────────────────────────────────────────────────────────
 
 @router.message(Command('start'))
@@ -295,49 +260,6 @@ async def cmd_start(message: Message, state: FSMContext, pool: asyncpg.Pool):
 
     tg_lang = message.from_user.language_code if message.from_user else None
     lang    = resolve_lang(tg_lang)
-
-    command_args = message.text.split(maxsplit=1)[1] if message.text and ' ' in message.text else ''
-
-    # Deep link: ref_USERID — реферальная программа
-    if command_args.startswith('ref_'):
-        try:
-            referrer_id = int(command_args[4:])
-            if referrer_id != message.from_user.id:
-                await save_referral(pool, referrer_id, message.from_user.id)
-                ref_count = await get_referral_count(pool, referrer_id)
-                try:
-                    if lang == 'ru':
-                        await message.bot.send_message(
-                            referrer_id,
-                            f"🎉 Твой друг зарегистрировался по твоей ссылке!\n"
-                            f"Всего приглашено: <b>{ref_count}</b>\n\n"
-                            f"Когда друг пройдёт тест — ты получишь скидку 50% на Premium!"
-                        )
-                    else:
-                        await message.bot.send_message(
-                            referrer_id,
-                            f"🎉 Your friend joined via your referral link!\n"
-                            f"Total invited: <b>{ref_count}</b>\n\n"
-                            f"When your friend completes the test — you'll get 50% off Premium!"
-                        )
-                except Exception:
-                    pass
-        except (ValueError, Exception) as e:
-            logger.warning(f"Referral processing error: {e}")
-
-    # Deep link: premium — из Mini App
-    if command_args == 'premium':
-        from bot.premium_handlers import premium_keyboard
-        await message.answer(
-            "🌟 <b>Premium Career Report</b>\n\n"
-            "Персональный AI-анализ — 6 страниц:\n"
-            "• Психологический портрет\n"
-            "• Карьерное видение на 5 и 10 лет\n"
-            "• Роадмап и конкретные шаги\n\n"
-            "Всего <b>99 Stars</b> (~$1)",
-            reply_markup=premium_keyboard(lang),
-        )
-        return
 
     user = None
     try:
@@ -412,29 +334,18 @@ async def cb_main_menu(callback: CallbackQuery, state: FSMContext, pool: asyncpg
     await callback.answer()
 
 
-# ── show_challenges / show_referral callbacks ─────────────────────────────────
-
-@router.callback_query(F.data == "show_challenges")
-async def cb_show_challenges(callback: CallbackQuery, pool: asyncpg.Pool):
-    await show_challenges_screen(callback.message, pool, callback.from_user.id)
-    await callback.answer()
-
-
-@router.callback_query(F.data == "show_referral")
-async def cb_show_referral(callback: CallbackQuery, pool: asyncpg.Pool):
-    await show_referral_screen(callback.message, pool, callback.from_user.id)
-    await callback.answer()
-
-
 # ── Возобновление теста ───────────────────────────────────────────────────────
 
 @router.callback_query(F.data == 'resume_test')
-async def resume_test(callback: CallbackQuery, state: FSMContext, pool: asyncpg.Pool):
+async def resume_test(callback: CallbackQuery, state: FSMContext, pool: asyncpg.Pool, redis):
     await callback.answer()
 
     user = await get_user(pool, callback.from_user.id)
     lang = user['lang'] if user and user.get('lang') else resolve_lang(callback.from_user.language_code)
     t    = lambda key, **kw: get_text(key, lang, **kw)
+
+    if not await _gate_or_notify(callback, redis, lang):
+        return
 
     if not user:
         await callback.message.edit_text(t("err_generic"))
@@ -468,10 +379,13 @@ async def resume_test(callback: CallbackQuery, state: FSMContext, pool: asyncpg.
 # ── Начать тест с чистого листа ───────────────────────────────────────────────
 
 @router.callback_query(F.data == 'start_test_fresh')
-async def start_test_fresh(callback: CallbackQuery, state: FSMContext, pool: asyncpg.Pool):
+async def start_test_fresh(callback: CallbackQuery, state: FSMContext, pool: asyncpg.Pool, redis):
     user = await get_user(pool, callback.from_user.id)
     lang = user['lang'] if user and user.get('lang') else resolve_lang(callback.from_user.language_code)
     t    = lambda key, **kw: get_text(key, lang, **kw)
+
+    if not await _gate_or_notify(callback, redis, lang):
+        return
 
     if user:
         await clear_progress(pool, user['id'])
@@ -733,8 +647,10 @@ async def finish_test(
             'S': (t("trait_S"), 'stay resilient',      'decide under stress'),
         }
 
+        details_list = []
         for i, prof in enumerate(top_professions[:3], 1):
             details = await get_profession_details_by_title_lang(pool, prof['title'], lang)
+            details_list.append(details)
             req = prof.get('required_traits', {})
             if isinstance(req, str):
                 import json as _json
@@ -783,16 +699,21 @@ async def finish_test(
 
             await message.answer(prof_text)
 
-        # Premium PDF offer
-        await message.answer(
-            "🌟 <b>Хотите детальный отчёт?</b>\n\n"
-            "Premium PDF — 6 страниц с персональным AI-анализом:\n"
-            "• Психологический портрет\n"
-            "• Карьерное видение на 5 и 10 лет\n"
-            "• Роадмап и конкретные шаги\n\n"
-            "Всего <b>99 Stars</b> (~$1)",
-            reply_markup=premium_keyboard(lang),
-        )
+        # Бесплатный PDF-отчёт — отправляем сразу после теста
+        try:
+            user_data = {
+                'full_name': (telegram_user.full_name if telegram_user else message.chat.full_name) or 'User',
+                'date': datetime.now().strftime('%d.%m.%Y'),
+            }
+            pdf_bytes = generate_pdf(
+                user_data, normalized, riasec, top_professions, details_list, lang=lang,
+            )
+            await message.answer_document(
+                BufferedInputFile(pdf_bytes, filename="CareerCheck_Report.pdf"),
+                caption="🎉 Твой отчёт готов!" if lang == "ru" else "🎉 Your report is ready!",
+            )
+        except Exception as e:
+            logger.error(f"Free PDF generation/send error: {e}", exc_info=True)
 
         builder = InlineKeyboardBuilder()
         builder.button(text=t("btn_home"),    callback_data='main_menu')
@@ -996,23 +917,18 @@ async def _show_myresult(message: Message, telegram_id: int, pool: asyncpg.Pool)
 
         await message.answer(text, reply_markup=builder.as_markup())
 
-        # Premium PDF offer
-        from bot.premium_handlers import premium_keyboard
-        await message.answer(
-            "🌟 <b>Хотите детальный AI-отчёт?</b>\n\n"
-            "Premium PDF — 6 страниц:\n"
-            "• Психологический портрет\n"
-            "• Карьерное видение на 5 и 10 лет\n"
-            "• Роадмап и конкретные шаги\n\n"
-            "Всего <b>99 Stars</b> (~$1)" if lang == "ru" else
-            "🌟 <b>Want a detailed AI report?</b>\n\n"
-            "Premium PDF — 6 pages:\n"
-            "• Psychological portrait\n"
-            "• Career vision for 5 and 10 years\n"
-            "• Roadmap and concrete steps\n\n"
-            "Only <b>99 Stars</b> (~$1)",
-            reply_markup=premium_keyboard(lang),
-        )
+        # Пересылаем PDF-отчёт по последнему результату
+        try:
+            details_list = []
+            for prof in top[:3]:
+                details_list.append(await get_profession_details_by_title_lang(pool, prof['title'], lang))
+            user_data = {'full_name': message.from_user.full_name or 'User', 'date': date_str}
+            pdf_bytes = generate_pdf(user_data, normalized, riasec, top, details_list, lang=lang)
+            await message.answer_document(
+                BufferedInputFile(pdf_bytes, filename="CareerCheck_Report.pdf"),
+            )
+        except Exception as e:
+            logger.error(f"myresult PDF error: {e}", exc_info=True)
 
     except Exception as e:
         logger.error(f"myresult error: {e}")
@@ -1089,30 +1005,6 @@ async def cmd_help(message: Message, pool: asyncpg.Pool):
     user = await get_user(pool, message.from_user.id)
     lang = user['lang'] if user and user.get('lang') else resolve_lang(message.from_user.language_code)
     await message.answer(get_text("help_text", lang))
-
-
-# ── /refer — реферальная ссылка (M3) ─────────────────────────────────────────
-
-@router.message(Command('refer'))
-async def cmd_refer(message: Message, pool: asyncpg.Pool):
-    await show_referral_screen(message, pool, message.from_user.id)
-
-
-# ── /challenges — ежедневные карьерные задания (N3) ───────────────────────────
-
-@router.message(Command('challenges'))
-async def cmd_challenges(message: Message, pool: asyncpg.Pool):
-    await show_challenges_screen(message, pool, message.from_user.id)
-
-
-@router.message(Command('stop_challenges'))
-async def cmd_stop_challenges(message: Message, pool: asyncpg.Pool):
-    await unsubscribe_challenges(pool, message.from_user.id)
-    tg_id  = message.from_user.id
-    user   = await get_user(pool, tg_id)
-    lang   = user['lang'] if user and user.get('lang') else 'ru'
-    msg = "✅ Ты отписан от ежедневных челленджей." if lang == 'ru' else "✅ You've unsubscribed from daily challenges."
-    await message.answer(msg)
 
 
 # ── Inline mode — поделиться результатом ─────────────────────────────────────

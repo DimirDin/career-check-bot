@@ -22,25 +22,9 @@ REDIS_CONFIG = {
 # Админы бота (telegram_id)
 ADMIN_IDS = [756303]  # замени на свои ID
 
-BOT_USERNAME        = os.getenv("BOT_USERNAME", "CareerCheck_Bot")
-ANTHROPIC_API_KEY   = os.getenv("ANTHROPIC_API_KEY", "")
-PREMIUM_PRICE_STARS = int(os.getenv("PREMIUM_PRICE_STARS", "99"))
+BOT_USERNAME = os.getenv("BOT_USERNAME", "CareerCheck_Bot")
 
-# Promptra — OpenAI-compatible агрегатор (PDF + чат)
-PROMPTRA_API_KEY      = os.getenv("PROMPTRA_API_KEY", "")       # для Premium PDF
-PROMPTRA_CHAT_API_KEY = os.getenv("PROMPTRA_CHAT_API_KEY", "")  # отдельный токен для AI-чата
-PROMPTRA_BASE_URL     = os.getenv("PROMPTRA_BASE_URL", "https://api.promptra.ru/v1")
-PROMPTRA_MODEL        = os.getenv("PROMPTRA_MODEL", "anthropic/claude-sonnet-4.6")
-PROMPTRA_CHAT_MODEL   = os.getenv("PROMPTRA_CHAT_MODEL", "deepseek/deepseek-v4-flash")
-
-# M2: A/B тест цены — пока все платят 99. Для включения A/B задай env-переменные:
-# PREMIUM_PRICE_A=49  PREMIUM_PRICE_B=99  PREMIUM_PRICE_C=149
-PREMIUM_PRICES_AB = [
-    int(os.getenv("PREMIUM_PRICE_A", "99")),
-    int(os.getenv("PREMIUM_PRICE_B", "99")),
-    int(os.getenv("PREMIUM_PRICE_C", "99")),
-]
-
-def get_ab_price(telegram_id: int) -> int:
-    """Возвращает цену для пользователя. По умолчанию все в группе B (99 Stars)."""
-    return PREMIUM_PRICES_AB[int(telegram_id) % 3]
+# Гейт по подписке — тест доступен только подписчикам этого канала/бота
+GATE_CHANNEL_USERNAME       = os.getenv("GATE_CHANNEL_USERNAME", "@claudedry")
+GATE_TTL_SUBSCRIBED         = int(os.getenv("GATE_TTL_SUBSCRIBED", str(6 * 3600)))   # 6ч
+GATE_TTL_NOT_SUBSCRIBED     = int(os.getenv("GATE_TTL_NOT_SUBSCRIBED", "60"))         # 60с

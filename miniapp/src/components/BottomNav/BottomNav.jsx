@@ -58,22 +58,6 @@ const TABS = [
     ),
   },
   {
-    id: 'challenges',
-    label: 'Задания',
-    path: '/challenges',
-    icon: (active) => (
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-        <path
-          d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6L12 2z"
-          stroke={active ? '#f43f5e' : '#8B8FA8'}
-          strokeWidth="2"
-          strokeLinejoin="round"
-          fill={active ? 'rgba(244,63,94,0.12)' : 'none'}
-        />
-      </svg>
-    ),
-  },
-  {
     id: 'profile',
     label: 'Профиль',
     path: '/settings',
@@ -100,7 +84,6 @@ function resolveActiveTab(current) {
   if (!current || current === '/menu' || current === '/') return 'home'
   if (current.startsWith('/test') || current.startsWith('/results') || current.startsWith('/quiz') || current.startsWith('/quick')) return 'test'
   if (current.startsWith('/professions')) return 'catalog'
-  if (current.startsWith('/challenges')) return 'challenges'
   if (current.startsWith('/settings') || current.startsWith('/profile')) return 'profile'
   return 'home'
 }

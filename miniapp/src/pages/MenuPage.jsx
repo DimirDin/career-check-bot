@@ -288,17 +288,6 @@ const CARDS = [
     accentColor: 'rgba(6,182,212,0.15)', borderColor: 'rgba(6,182,212,0.22)', delay: '0.1s',
   },
   {
-    id: 'ai', title: 'ИИ-Эксперт', sub: 'Чат активен',
-    img: '/webh/ic_ai_chat.webp', cls: 'ai-chat', route: '/ai-chat',
-    online: true,
-    accentColor: 'rgba(244,63,94,0.1)', borderColor: 'rgba(244,63,94,0.2)', delay: '0.15s',
-  },
-  {
-    id: 'challenges', title: 'Челленджи', sub: 'Задание дня',
-    img: '/webh/ic_challenges.webp', cls: 'challenges', route: '/challenges',
-    accentColor: 'rgba(244,63,94,0.1)', borderColor: 'rgba(244,63,94,0.18)', delay: '0.2s',
-  },
-  {
     id: 'compat', title: 'Сравнение', sub: 'Профиль друга',
     img: '/webh/ic_compat.webp', cls: 'compat', route: '/comparison',
     accentColor: 'rgba(124,58,237,0.15)', borderColor: 'rgba(124,58,237,0.22)', delay: '0.25s',
@@ -409,7 +398,7 @@ function SectionHeader({ title, action, onAction }) {
 const RIASEC_RU = { R:'Реалистичный',I:'Исследовательский',A:'Артистичный',S:'Социальный',E:'Предприимчивый',C:'Конвенциональный' }
 const RIASEC_EN = { R:'Realistic',I:'Investigative',A:'Artistic',S:'Social',E:'Enterprising',C:'Conventional' }
 
-function PersonalHeroBlock({ riasec, topProfession, lang, onResults, onRetake, onPremium }) {
+function PersonalHeroBlock({ riasec, topProfession, lang, onResults, onRetake }) {
   const entries = Object.entries(riasec || {})
   const domKey  = entries.length ? entries.sort((a, b) => b[1] - a[1])[0][0] : 'I'
   const labels  = lang === 'ru' ? RIASEC_RU : RIASEC_EN
@@ -455,23 +444,6 @@ function PersonalHeroBlock({ riasec, topProfession, lang, onResults, onRetake, o
         </button>
       </div>
 
-      {/* Premium CTA — полоска под основными кнопками */}
-      <button onClick={onPremium} style={{
-        width: '100%',
-        background: 'linear-gradient(135deg, rgba(251,191,36,0.15), rgba(124,58,237,0.2))',
-        border: '1px solid rgba(251,191,36,0.35)',
-        borderRadius: 10, padding: '8px 14px',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        cursor: 'pointer',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-          <span style={{ fontSize: 15 }}>⭐</span>
-          <span style={{ fontSize: 12, fontWeight: 700, color: '#fbbf24' }}>
-            {isRu ? 'Получить Premium отчёт' : 'Get Premium report'}
-          </span>
-        </div>
-        <span style={{ fontSize: 11, color: 'rgba(251,191,36,0.7)', fontWeight: 600 }}>99 ★</span>
-      </button>
     </div>
   )
 }
@@ -587,7 +559,6 @@ export function MenuPage() {
               lang={lang}
               onResults={() => navigate('/results')}
               onRetake={() => navigate('/test')}
-              onPremium={() => navigate('/premium')}
             />
           ) : (
             <HeroCard

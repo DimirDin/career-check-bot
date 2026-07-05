@@ -14,12 +14,10 @@ export function SettingsPage({ onBack }) {
   const lang  = tg?.initDataUnsafe?.user?.language_code?.slice(0, 2) || 'ru'
   const isRu  = lang !== 'en'
 
-  const [challenges,   setChallenges]   = useState(null)
-  const [streak,       setStreak]       = useState(0)
-  const [toggling,     setToggling]     = useState(false)
-  const [referral,     setReferral]     = useState(null)
-  const [copied,       setCopied]       = useState(false)
   const [userState,    setUserState]    = useState(null)
+  const [feedbackText, setFeedbackText] = useState('')
+  const [sendingFeedback, setSendingFeedback] = useState(false)
+  const [feedbackSent, setFeedbackSent] = useState(false)
 
   useEffect(() => {
     if (!tg) return
@@ -30,72 +28,45 @@ export function SettingsPage({ onBack }) {
 
   useEffect(() => {
     if (!initData) return
-    fetch(`/api/challenges/status?init_data=${encodeURIComponent(initData)}`)
-      .then(r => r.json())
-      .then(d => { setChallenges(d.subscribed); setStreak(d.streak || 0) })
-      .catch(() => setChallenges(false))
-    fetch(`/api/referral/progress?init_data=${encodeURIComponent(initData)}`)
-      .then(r => r.json())
-      .then(d => setReferral(d))
-      .catch(() => {})
     fetch(`/api/user/state?init_data=${encodeURIComponent(initData)}`)
       .then(r => r.ok ? r.json() : null)
       .then(d => d && setUserState(d))
       .catch(() => {})
   }, [initData])
 
-  function copyReferralLink() {
-    if (!referral?.link) return
+  async function sendFeedback() {
+    if (!feedbackText.trim() || sendingFeedback || !initData) return
     haptic.medium()
-    if (navigator.clipboard?.writeText) {
-      navigator.clipboard.writeText(referral.link).then(() => {
-        setCopied(true)
-        setTimeout(() => setCopied(false), 2000)
-      })
-    } else {
-      tg?.HapticFeedback?.notificationOccurred('success')
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    }
-  }
-
-  async function toggleChallenges() {
-    if (toggling || !initData) return
-    haptic.medium()
-    setToggling(true)
+    setSendingFeedback(true)
     try {
-      const res  = await fetch('/api/challenges/toggle', {
+      const res = await fetch('/api/feedback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ init_data: initData }),
+        body: JSON.stringify({ init_data: initData, text: feedbackText.trim() }),
       })
-      const data = await res.json()
-      setChallenges(data.subscribed)
-    } catch {}
-    setToggling(false)
+      if (!res.ok) throw new Error('send failed')
+      setFeedbackText('')
+      setFeedbackSent(true)
+      setTimeout(() => setFeedbackSent(false), 3000)
+    } catch {
+      tg?.HapticFeedback?.notificationOccurred('error')
+    }
+    setSendingFeedback(false)
   }
 
   const T = {
     title:          isRu ? 'Настройки'              : 'Settings',
     notifications:  isRu ? 'Уведомления'            : 'Notifications',
-    challenges:     isRu ? 'Ежедневные челленджи'   : 'Daily challenges',
-    challDesc:      isRu ? 'Карьерное задание каждый день в 9:00' : 'Career challenge every day at 9:00',
-    on:             isRu ? 'Вкл'                    : 'On',
-    off:            isRu ? 'Выкл'                   : 'Off',
-    streak:         (n) => isRu ? `🔥 Серия: ${n} дней` : `🔥 Streak: ${n} days`,
     profile:        isRu ? 'Профиль'                : 'Profile',
     lang:           isRu ? 'Язык'                   : 'Language',
     langVal:        isRu ? 'Из Telegram (автоматически)' : 'From Telegram (automatic)',
-    referral:       isRu ? 'Пригласить друга'        : 'Invite a Friend',
-    referralDesc:   isRu ? 'Копируй ссылку и отправь другу — когда он пройдёт тест, получишь бонус' : 'Share your link — when your friend completes the test, you get a bonus',
-    referralCount:  (n, t) => isRu ? `Приглашено: ${n} из ${t} прошли тест` : `Invited: ${n} of ${t} completed test`,
-    referralBonus:  isRu ? '🎉 Бонус получен!' : '🎉 Bonus received!',
-    copyLink:       isRu ? 'Копировать ссылку' : 'Copy link',
-    copied:         isRu ? 'Скопировано!' : 'Copied!',
     about:          isRu ? 'О приложении'           : 'About',
     version:        'CareerCheck v3.0',
-    support:        isRu ? 'Поддержка' : 'Support',
-    supportLink:    '@CareerCheckSupport',
+    devChat:        isRu ? 'Написать разработчику' : 'Message the developer',
+    devChatPlaceholder: isRu ? 'Опиши баг, идею или просто напиши привет...' : 'Describe a bug, an idea, or just say hi...',
+    devChatSend:    isRu ? 'Отправить' : 'Send',
+    devChatSending: isRu ? 'Отправляю...' : 'Sending...',
+    devChatSent:    isRu ? '✓ Сообщение отправлено' : '✓ Message sent',
     privacy:        isRu ? 'Тест основан на научной модели Big Five (OCEAN).\nДанные хранятся анонимно.' : 'Test based on the scientific Big Five (OCEAN) model.\nData stored anonymously.',
     back:           isRu ? '← Назад' : '← Back',
   }
@@ -107,7 +78,6 @@ export function SettingsPage({ onBack }) {
   const totalXP   = userState?.totalXP || 0
   const lvl       = getLevel(totalXP)
   const levelName = isRu ? lvl.name : lvl.nameEn
-  const hasPremium = userState?.hasPremium || false
   const hasResults = userState?.hasResults || false
 
   const riasecData = userState?.riasec || {}
@@ -117,10 +87,6 @@ export function SettingsPage({ onBack }) {
 
   const achieveData = {
     testCompleted:  hasResults,
-    totalXP,
-    streak,
-    hasPremium,
-    referralCount:  referral?.count || 0,
     catalogViewed:  !!localStorage.getItem('cc_catalog_viewed'),
   }
 
@@ -159,42 +125,6 @@ export function SettingsPage({ onBack }) {
           </div>
         </div>
 
-        {/* Premium status */}
-        {hasPremium ? (
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 12,
-            padding: '14px 16px', marginBottom: 16,
-            background: 'rgba(253,203,110,0.08)',
-            border: '1px solid rgba(253,203,110,0.25)',
-            borderRadius: 14,
-          }}>
-            <span style={{ fontSize: 22 }}>🌟</span>
-            <div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: '#fbbf24' }}>{isRu ? 'Premium активен' : 'Premium active'}</div>
-            </div>
-          </div>
-        ) : (
-          <div
-            onClick={() => navigate('premium-promo')}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 12,
-              padding: '14px 16px', marginBottom: 16,
-              background: 'rgba(124,58,237,0.08)',
-              border: '1px solid rgba(124,58,237,0.25)',
-              borderRadius: 14, cursor: 'pointer',
-            }}
-          >
-            <span style={{ fontSize: 22 }}>⭐</span>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: '#a78bfa' }}>{isRu ? 'Получить Premium PDF' : 'Get Premium PDF'}</div>
-              <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>
-                {isRu ? 'AI-анализ · 6 страниц · 99 Stars' : 'AI analysis · 6 pages · 99 Stars'}
-              </div>
-            </div>
-            <span style={{ color: 'rgba(255,255,255,0.3)' }}>→</span>
-          </div>
-        )}
-
         {/* History link */}
         <div
           onClick={() => navigate('history')}
@@ -219,28 +149,6 @@ export function SettingsPage({ onBack }) {
           <AchievementsCard userData={achieveData} lang={lang} />
         </div>
 
-        {/* Notifications */}
-        <div className="settings-section">
-          <div className="settings-section-label">{T.notifications}</div>
-
-          <div className="settings-row">
-            <div className="settings-row-info">
-              <div className="settings-row-title">{T.challenges}</div>
-              <div className="settings-row-desc">{T.challDesc}</div>
-              {streak > 0 && challenges && (
-                <div className="settings-row-streak">{T.streak(streak)}</div>
-              )}
-            </div>
-            <button
-              className={`settings-toggle ${challenges ? 'settings-toggle-on' : ''}`}
-              onClick={toggleChallenges}
-              disabled={toggling || challenges === null}
-            >
-              {challenges ? T.on : T.off}
-            </button>
-          </div>
-        </div>
-
         {/* Language */}
         <div className="settings-section">
           <div className="settings-section-label">{T.profile}</div>
@@ -253,44 +161,6 @@ export function SettingsPage({ onBack }) {
           </div>
         </div>
 
-        {/* Referral */}
-        <div className="settings-section">
-          <div className="settings-section-label">{T.referral}</div>
-          <div className="settings-info-card" style={{ gap: 10 }}>
-            <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.55)', lineHeight: 1.5, marginBottom: 8 }}>
-              {T.referralDesc}
-            </div>
-            {referral && (
-              <div style={{ fontSize: 12, color: '#a78bfa', marginBottom: 8 }}>
-                {T.referralCount(referral.count, referral.total)}
-                {referral.granted && <span style={{ marginLeft: 8 }}>{T.referralBonus}</span>}
-              </div>
-            )}
-            {referral?.link && (
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <div style={{
-                  flex: 1, fontSize: 11, color: 'rgba(255,255,255,0.4)',
-                  background: 'rgba(255,255,255,0.06)', borderRadius: 8,
-                  padding: '7px 10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                }}>
-                  {referral.link}
-                </div>
-                <button
-                  onClick={copyReferralLink}
-                  style={{
-                    flexShrink: 0, background: copied ? '#22d3a5' : '#7347e6',
-                    border: 'none', borderRadius: 8, padding: '7px 14px',
-                    color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                    transition: 'background 0.2s',
-                  }}
-                >
-                  {copied ? T.copied : T.copyLink}
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-
         {/* About */}
         <div className="settings-section">
           <div className="settings-section-label">{T.about}</div>
@@ -298,17 +168,39 @@ export function SettingsPage({ onBack }) {
             <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 6 }}>{T.version}</div>
             <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', margin: 0, lineHeight: 1.6 }}>{T.privacy}</p>
           </div>
-          <div className="settings-row" style={{ cursor: 'pointer' }} onClick={() => {
-            haptic.medium()
-            const link = 'https://t.me/CareerCheckSupport'
-            if (tg?.openTelegramLink) tg.openTelegramLink(link)
-            else window.open(link, '_blank')
-          }}>
-            <div className="settings-row-info">
-              <div className="settings-row-title">{T.support}</div>
-              <div className="settings-row-desc" style={{ color: '#7347e6', fontWeight: 600 }}>{T.supportLink}</div>
-            </div>
-            <span style={{ color: 'rgba(255,255,255,0.3)' }}>→</span>
+        </div>
+
+        {/* Написать разработчику */}
+        <div className="settings-section">
+          <div className="settings-section-label">{T.devChat}</div>
+          <div className="settings-info-card" style={{ gap: 10 }}>
+            <textarea
+              value={feedbackText}
+              onChange={(e) => setFeedbackText(e.target.value)}
+              placeholder={T.devChatPlaceholder}
+              rows={3}
+              style={{
+                width: '100%', resize: 'vertical', fontFamily: 'inherit',
+                background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
+                borderRadius: 10, padding: '10px 12px', color: '#f0eeff', fontSize: 13,
+              }}
+            />
+            <button
+              onClick={sendFeedback}
+              disabled={sendingFeedback || !feedbackText.trim()}
+              style={{
+                alignSelf: 'flex-start', background: '#7347e6',
+                border: 'none', borderRadius: 8, padding: '8px 16px',
+                color: '#fff', fontSize: 13, fontWeight: 600,
+                cursor: sendingFeedback || !feedbackText.trim() ? 'default' : 'pointer',
+                opacity: sendingFeedback || !feedbackText.trim() ? 0.6 : 1,
+              }}
+            >
+              {sendingFeedback ? T.devChatSending : T.devChatSend}
+            </button>
+            {feedbackSent && (
+              <div style={{ fontSize: 12, color: '#22d3a5' }}>{T.devChatSent}</div>
+            )}
           </div>
         </div>
       </div>

@@ -448,49 +448,6 @@ function PersonalHeroBlock({ riasec, topProfession, lang, onResults, onRetake })
   )
 }
 
-function XPBarInline({ xp, lang }) {
-  const isRu = lang === 'ru'
-  const XP_LEVELS = [
-    { level:1, name:'Новичок',       nameEn:'Beginner',   minXP:0    },
-    { level:2, name:'Искатель',      nameEn:'Explorer',   minXP:100  },
-    { level:3, name:'Исследователь', nameEn:'Researcher', minXP:300  },
-    { level:4, name:'Эксперт',       nameEn:'Expert',     minXP:700  },
-    { level:5, name:'Мастер',        nameEn:'Master',     minXP:1500 },
-  ]
-  let current = XP_LEVELS[0]
-  for (let i = XP_LEVELS.length - 1; i >= 0; i--) {
-    if (xp >= XP_LEVELS[i].minXP) { current = XP_LEVELS[i]; break }
-  }
-  const next = XP_LEVELS.find(l => l.minXP > xp)
-  const percent = next ? Math.round((xp - current.minXP) / (next.minXP - current.minXP) * 100) : 100
-  const levelName = isRu ? current.name : current.nameEn
-
-  return (
-    <div style={{
-      display: 'flex', alignItems: 'center', gap: 10,
-      padding: '10px 16px', marginBottom: 14,
-      background: 'rgba(124,58,237,0.08)',
-      border: '1px solid rgba(124,58,237,0.15)',
-      borderRadius: 12,
-    }}>
-      <span style={{ fontSize: 12, fontWeight: 700, color: T.violet, whiteSpace: 'nowrap' }}>
-        {isRu ? `Ур.${current.level}` : `Lv.${current.level}`}
-      </span>
-      <div style={{ flex: 1, height: 6, background: 'rgba(255,255,255,0.1)', borderRadius: 3, overflow: 'hidden' }}>
-        <div style={{
-          height: '100%', width: `${percent}%`,
-          background: 'linear-gradient(90deg, #7c3aed, #06b6d4)',
-          borderRadius: 3, transition: 'width 0.6s ease',
-        }}/>
-      </div>
-      <span style={{ fontSize: 12, color: T.textSecondary, whiteSpace: 'nowrap' }}>{levelName}</span>
-      <span style={{ fontSize: 11, color: T.textMuted, whiteSpace: 'nowrap' }}>
-        {xp}{next ? `/${next.minXP}` : ''} XP
-      </span>
-    </div>
-  )
-}
-
 /* ─────────────────────────────────────────────
    MAIN: MenuPage
 ───────────────────────────────────────────── */
@@ -523,7 +480,6 @@ export function MenuPage() {
         E: userResult.normalized?.E || 65, A: userResult.normalized?.A || 75, N: 100 - (userResult.normalized?.S || 50) }
     : { O: 82, C: 65, E: 71, A: 88, N: 45 }
 
-  const userXP  = userResult?.totalXP || 0
   const lang    = tg?.initDataUnsafe?.user?.language_code?.slice(0, 2) || 'ru'
   const isRu    = lang !== 'en'
 
@@ -569,11 +525,6 @@ export function MenuPage() {
             />
           )}
         </div>
-
-        {/* XP Bar */}
-        {testDone && (
-          <XPBarInline xp={userXP} lang={lang} />
-        )}
 
         {/* Quick Actions */}
         <div style={{ marginBottom: 4 }}>

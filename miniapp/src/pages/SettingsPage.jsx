@@ -1,8 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useTelegram } from '../hooks/useTelegram'
 import { AppHeader } from '../components/AppHeader/AppHeader'
-import { AchievementsCard } from '../components/AchievementsCard'
-import { getLevel } from '../utils/xpLevels'
 import { useNavigate } from '../context/NavigationContext'
 
 const RIASEC_RU = { R:'Реалистичный',I:'Исследовательский',A:'Артистичный',S:'Социальный',E:'Предприимчивый',C:'Конвенциональный' }
@@ -75,20 +73,11 @@ export function SettingsPage({ onBack }) {
   const tgUser    = tg?.initDataUnsafe?.user
   const fullName  = tgUser?.first_name ? `${tgUser.first_name} ${tgUser.last_name || ''}`.trim() : (isRu ? 'Пользователь' : 'User')
   const initials  = fullName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
-  const totalXP   = userState?.totalXP || 0
-  const lvl       = getLevel(totalXP)
-  const levelName = isRu ? lvl.name : lvl.nameEn
-  const hasResults = userState?.hasResults || false
 
   const riasecData = userState?.riasec || {}
   const riasecEntries = Object.entries(riasecData)
   const domKey = riasecEntries.length ? riasecEntries.sort((a, b) => b[1] - a[1])[0][0] : null
   const riasecLabel = domKey ? (isRu ? RIASEC_RU[domKey] : RIASEC_EN[domKey]) || domKey : null
-
-  const achieveData = {
-    testCompleted:  hasResults,
-    catalogViewed:  !!localStorage.getItem('cc_catalog_viewed'),
-  }
 
   return (
     <div className="settings-page">
@@ -119,9 +108,6 @@ export function SettingsPage({ onBack }) {
             {riasecLabel && (
               <div style={{ fontSize: 12, color: '#06b6d4', fontWeight: 600, marginTop: 2 }}>{riasecLabel}</div>
             )}
-            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>
-              {levelName} · {totalXP} XP
-            </div>
           </div>
         </div>
 
@@ -142,11 +128,6 @@ export function SettingsPage({ onBack }) {
             <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>{isRu ? 'Все прошлые результаты' : 'All past results'}</div>
           </div>
           <span style={{ color: 'rgba(255,255,255,0.3)' }}>→</span>
-        </div>
-
-        {/* Achievements */}
-        <div style={{ marginBottom: 20 }}>
-          <AchievementsCard userData={achieveData} lang={lang} />
         </div>
 
         {/* Language */}
@@ -182,7 +163,7 @@ export function SettingsPage({ onBack }) {
               style={{
                 width: '100%', resize: 'vertical', fontFamily: 'inherit',
                 background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
-                borderRadius: 10, padding: '10px 12px', color: '#f0eeff', fontSize: 13,
+                borderRadius: 10, padding: '10px 12px', color: '#f0eeff', fontSize: 16,
               }}
             />
             <button

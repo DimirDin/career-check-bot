@@ -451,7 +451,7 @@ async def send_feedback(body: FeedbackRequest, request: Request):
     if not text:
         raise HTTPException(status_code=400, detail="Empty message")
 
-    admin_ids = [a.strip() for a in os.getenv("ADMIN_IDS", "").split(",") if a.strip()]
+    from config.settings import ADMIN_IDS as admin_ids
     if not admin_ids:
         raise HTTPException(status_code=503, detail="Feedback recipient not configured")
 

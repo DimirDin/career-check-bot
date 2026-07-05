@@ -1754,7 +1754,7 @@ html, body {
   border: 1px solid rgba(255,255,255,0.12);
   border-radius: 20px;
   padding: 10px 16px;
-  font-size: 14px;
+  font-size: 16px;
   color: var(--white);
   outline: none;
   transition: border-color 0.15s;

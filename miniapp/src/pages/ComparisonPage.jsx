@@ -4,6 +4,7 @@
  */
 import { useEffect, useState } from 'react'
 import { DualRadarChart } from '../components/DualRadarChart'
+import { AppHeader }      from '../components/AppHeader/AppHeader'
 import { useTelegram }    from '../hooks/useTelegram'
 import { track }          from '../hooks/useAnalytics'
 
@@ -11,13 +12,14 @@ const TRAIT_KEYS  = ['O', 'C', 'E', 'A', 'S']
 const TRAIT_LABEL = { O:'O', C:'C', E:'E', A:'A', S:'S' }
 
 export function ComparisonPage({ hashCode, myResults, onStartTest, onBack }) {
-  const { tg, haptic } = useTelegram()
+  const { tg, haptic, initData } = useTelegram()
   const lang  = tg?.initDataUnsafe?.user?.language_code?.slice(0, 2) || 'ru'
   const isRu  = lang !== 'en'
 
   const [friendData, setFriendData] = useState(null)
   const [loading,    setLoading]    = useState(true)
   const [error,      setError]      = useState(null)
+  const [sharing,    setSharing]    = useState(false)
 
   useEffect(() => {
     track('comparison_open', { hash: hashCode })
@@ -35,19 +37,112 @@ export function ComparisonPage({ hashCode, myResults, onStartTest, onBack }) {
     return () => { tg.BackButton.offClick(onBack); tg.BackButton.hide() }
   }, [tg, onBack])
 
-  if (loading) return (
-    <div className="loading-screen">
-      <div className="loading-spinner" />
-      <p className="loading-text">{isRu ? 'Загружаем сравнение…' : 'Loading comparison…'}</p>
-    </div>
+  // ── Поделиться ссылкой для сравнения ──────────────────────────────────────
+  const openLink = (url) => {
+    if (tg?.openTelegramLink) tg.openTelegramLink(url)
+    else if (tg?.openLink)    tg.openLink(url)
+    else window.open(url, '_blank')
+  }
+
+  const handleShareCompare = async () => {
+    haptic?.medium?.()
+    track('compare_create')
+    if (!initData) {
+      tg?.showAlert?.(isRu ? 'Открой CareerCheck в Telegram, чтобы создать ссылку' : 'Open CareerCheck in Telegram to create a link')
+      return
+    }
+    setSharing(true)
+    try {
+      const res = await fetch('/api/compare/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ init_data: initData }),
+      })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const data = await res.json()
+      const text = isRu
+        ? `Сравни свой профиль с моим 👥 → ${data.link}`
+        : `Compare your profile with mine 👥 → ${data.link}`
+      openLink(`https://t.me/share/url?url=${encodeURIComponent(data.link)}&text=${encodeURIComponent(text)}`)
+    } catch (e) {
+      console.error('Compare share error:', e)
+      tg?.showAlert?.(isRu ? 'Ошибка создания ссылки. Попробуй позже.' : 'Could not create link. Try again later.')
+    }
+    setSharing(false)
+  }
+
+  const shareButton = (
+    <button
+      className="btn-primary"
+      onClick={handleShareCompare}
+      disabled={sharing}
+      style={{
+        width: '100%', padding: '13px', borderRadius: 12,
+        background: 'linear-gradient(135deg, #7c3aed, #06b6d4)',
+        border: 'none', color: '#fff', fontSize: 14, fontWeight: 700,
+        cursor: sharing ? 'default' : 'pointer', opacity: sharing ? 0.6 : 1,
+      }}
+    >
+      {sharing
+        ? (isRu ? '⏳ Создаём ссылку…' : '⏳ Creating link…')
+        : `👥 ${isRu ? 'Отправить другу для сравнения' : 'Send to a friend to compare'}`}
+    </button>
   )
 
-  if (error || !friendData) return (
+  if (loading) return (
+    <>
+      <AppHeader />
+      <div className="loading-screen" style={{ paddingTop: 'var(--page-top)' }}>
+        <div className="loading-spinner" />
+        <p className="loading-text">{isRu ? 'Загружаем сравнение…' : 'Loading comparison…'}</p>
+      </div>
+    </>
+  )
+
+  // Пользователь открыл страницу сам, не по ссылке друга — приглашаем поделиться
+  if (error === 'no_hash') return (
     <div className="comparison-page">
+      <AppHeader />
       <div style={{
         display: 'flex', flexDirection: 'column', alignItems: 'center',
         textAlign: 'center', padding: '24px 20px', gap: 16,
         minHeight: '60vh', justifyContent: 'center',
+        paddingTop: 'calc(var(--page-top) + 24px)',
+      }}>
+        <div style={{ fontSize: 48 }}>👥</div>
+        <h2 style={{ fontSize: 22, fontWeight: 800, color: '#fff', margin: 0 }}>
+          {isRu ? 'Сравни себя с другом' : 'Compare yourself with a friend'}
+        </h2>
+        <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)', lineHeight: 1.5, maxWidth: 280, margin: 0 }}>
+          {isRu
+            ? 'Отправь другу ссылку — когда он откроет её, вы увидите сравнение профилей Big Five'
+            : 'Send a friend the link — once they open it, you’ll both see a Big Five comparison'}
+        </p>
+
+        <div style={{
+          background: 'rgba(124,58,237,0.12)',
+          border: '1px solid rgba(124,58,237,0.25)',
+          borderRadius: 16, padding: 20, width: '100%',
+        }}>
+          {shareButton}
+        </div>
+
+        <button className="btn-back-results" onClick={onBack}>
+          {isRu ? '← На главную' : '← Home'}
+        </button>
+      </div>
+    </div>
+  )
+
+  // Реальная ошибка: ссылка истекла или не найдена
+  if (error || !friendData) return (
+    <div className="comparison-page">
+      <AppHeader />
+      <div style={{
+        display: 'flex', flexDirection: 'column', alignItems: 'center',
+        textAlign: 'center', padding: '24px 20px', gap: 16,
+        minHeight: '60vh', justifyContent: 'center',
+        paddingTop: 'calc(var(--page-top) + 24px)',
       }}>
         <div style={{ fontSize: 48 }}>🔗</div>
         <h2 style={{ fontSize: 22, fontWeight: 800, color: '#fff', margin: 0 }}>
@@ -114,8 +209,9 @@ export function ComparisonPage({ hashCode, myResults, onStartTest, onBack }) {
 
   return (
     <div className="comparison-page">
+      <AppHeader />
       {/* Header */}
-      <div className="comp-header">
+      <div className="comp-header" style={{ paddingTop: 'var(--page-top)' }}>
         <h2 className="comp-title">
           {isRu ? '👥 Сравнение профилей' : '👥 Profile Comparison'}
         </h2>
@@ -190,6 +286,8 @@ export function ComparisonPage({ hashCode, myResults, onStartTest, onBack }) {
             ))}
           </div>
         )}
+
+        {shareButton}
 
         <button className="btn-back-results" onClick={onBack}>
           {isRu ? '← Назад' : '← Back'}

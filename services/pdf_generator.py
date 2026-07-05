@@ -82,8 +82,7 @@ def _new_page():
 
 def _header(fig, name, date, subtitle):
     fig.text(0.07, 0.965, "CAREER", fontproperties=_fp(bold=True, size=20), color=WHITE, va='top')
-    fig.text(0.07 + 0.001 + len("CAREER") * 0.0135, 0.965, "CHECK",
-             fontproperties=_fp(bold=True, size=20), color=CYAN, va='top')
+    fig.text(0.225, 0.965, "CHECK", fontproperties=_fp(bold=True, size=20), color=CYAN, va='top')
     fig.text(0.93, 0.968, subtitle, fontproperties=_fp(size=8), color=GRAY, va='top', ha='right')
     fig.text(0.93, 0.952, f"{name}  ·  {date}", fontproperties=_fp(size=8), color=GRAY, va='top', ha='right')
     fig.add_artist(plt.Line2D([0.07, 0.93], [0.935, 0.935], transform=fig.transFigure,
